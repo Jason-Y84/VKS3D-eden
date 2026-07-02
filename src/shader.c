@@ -583,6 +583,19 @@ static void do_scan(SpvMod *m, bool p2)
                 }
             }
             break;
+            case SpvOpFunctionCall:
+            {
+                if (wc >= 4)
+                {
+                    STEREO_LOG(
+                        "CALL function=%u target=%u result=%u word=%zu",
+                        current_function,
+                        w[i+3],   /* function being called */
+                        w[i+2],   /* result id */
+                        i);
+                }
+            }
+            break;
             case SpvOpCompositeInsert:
             {
                 if (wc >= 6 &&
