@@ -72,6 +72,8 @@ typedef struct {
     bool     pos_is_block;
     uint32_t view_var, ft, v4t, it, bt, ptr_out_v4, ptr_in_int;
     size_t   fn_word;
+    uint32_t entry_function;
+    size_t   entry_function_word;
     uint32_t emit_count;
 } SpvMod;
 
@@ -284,9 +286,15 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpCapability:
                 if(wc>=2&&w[i+1]==SpvCapabilityMultiView) m->has_mv_cap=true; break;
             case SpvOpEntryPoint:
-                if(wc>=2){uint32_t e=w[i+1];
+                if(wc>=3){
+                    uint32_t e=w[i+1];
                     if(e==SpvExecVertex||e==SpvExecTessEval||e==SpvExecGeometry)
-                        {m->is_patchable=true;m->exec_model=(int)e;}} break;
+                    {
+                        m->is_patchable=true;
+                        m->exec_model=(int)e;
+                        m->entry_function = w[i+2];
+                    }}
+                break;
             case SpvOpTypeFloat:
                 if(wc==3&&w[i+2]==32) m->ft=w[i+1]; break;
             case SpvOpTypeVector:
@@ -1414,18 +1422,19 @@ bool spirv_patch_stereo_vertex(
         conv,
         projection_mode);
     size_t ins_t=0, ins_b=0;
+    bool in_entry_function=false;
     for (size_t i=5;i<in_c;) {
         uint32_t opx=in[i]&0xffff, wcx=in[i]>>16;
         if (!wcx||i+wcx>in_c) break;
-
         if (opx==SpvOpFunction) {
+            in_entry_function = (wcx >= 5 &&
+                                 in[i+2] == m.entry_function);
             STEREO_LOG(
-                "FUNCTION_START offset=%zu type=%u id=%u",
+                "FUNCTION_START offset=%zu result=%u entry=%d",
                 i,
-                in[i+1],
-                in[i+2]);
-
-            if (!ins_t)
+                in[i+2],
+                in_entry_function);
+            if (in_entry_function)
                 ins_t=i;
         }
         /* Always inject immediately before the final OpReturn.
@@ -1434,17 +1443,28 @@ bool spirv_patch_stereo_vertex(
          * stores. Making the stereo adjustment the final operation
          * guarantees it survives.
          */
-        if (opx==SpvOpReturn) {
+        if (in_entry_function && opx==SpvOpReturn) {
             STEREO_LOG(
                 "RETURN offset=%zu",
                 i);
-        
             ins_b=i;
         }
+    
+        if (in_entry_function &&
+            opx == SpvOpFunctionEnd)
+        {
+            STEREO_LOG(
+                "FUNCTION_END offset=%zu",
+                i);
+            in_entry_function = false;
+            break;
+        }
+    
         i+=wcx;
     }
     STEREO_LOG(
-        "INSERT_POINTS function=%zu return=%zu",
+        "INSERT_POINTS entry_function=%u function=%zu return=%zu",
+        m.entry_function,
         ins_t,
         ins_b);
     if (!ins_t) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
@@ -1470,9 +1490,10 @@ bool spirv_patch_stereo_vertex(
         if (id_inj_view && opx==SpvOpEntryPoint && wcx>=4 &&
             (in[i+1]==SpvExecVertex||in[i+1]==SpvExecGeometry||
              in[i+1]==SpvExecTessEval)) {
-            bool is_vertex = (in[i+1] == SpvExecVertex);
-            
-            if (id_inj_view && is_vertex)
+                bool is_target_entry =
+                    (wcx >= 3 &&
+                     in[i+2] == m.entry_function);
+                if (id_inj_view && is_target_entry)
             {
                 sb_push(&ob, ((wcx+1)<<16)|SpvOpEntryPoint);
                 sb_push_n(&ob, &in[i+1], wcx-1);
