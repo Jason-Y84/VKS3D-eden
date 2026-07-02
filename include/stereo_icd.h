@@ -191,6 +191,7 @@ typedef struct StereoConfig {
     uint32_t                refresh_rate;
     bool                    half_fps;
     bool                    multiview;
+    bool                    mono_ui;
     StereoProjectionMode    projection;
     float                   step_separation;
     float                   step_convergence;

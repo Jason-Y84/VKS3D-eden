@@ -1184,6 +1184,21 @@ bool spirv_patch_stereo_vertex(
 
     uint64_t spv_hash = hash_spv(m.words, m.count);
     {
+        static int mono_ui_init = 0;
+        static int mono_ui = 1;
+        
+        if (!mono_ui_init)
+        {
+            const char *env = stereo_getenv("VKS3D_MONO_UI");
+            if (env)
+                mono_ui = (atoi(env) != 0);
+        
+            STEREO_LOG(
+                "MONO_UI=%d",
+                mono_ui);
+        
+            mono_ui_init = 1;
+        }
         static int skip_list_init = 0;
         static char skip_list[1024];
 
@@ -1221,6 +1236,42 @@ bool spirv_patch_stereo_vertex(
             }
         }
     }
+    if (mono_ui)
+    {
+         bool ui_candidate =
+             (!m.has_matrix_ops) &&
+             (m.has_direct_position_write) &&
+             (!m.has_emit_vertex);
+    
+        if (ui_candidate)
+        {
+            STEREO_LOG(
+                 "SCREENSPACE_SKIP hash=%016llx exec=%u pos=%u block=%u matrix=%u direct=%u emit=%u",
+                 (unsigned long long)spv_hash,
+                 (unsigned)m.exec_model,
+                 m.pos_var,
+                 m.pos_is_block,
+                 m.has_matrix_ops,
+                 m.has_direct_position_write,
+                 m.has_emit_vertex);
+    
+            free(m.value_from_matrix);
+            free(m.is_matrix_type);
+            free(m.is_matrix_ptr);
+            return false;
+        }
+    }
+    else
+    {
+        STEREO_LOG(
+            "SCREENSPACE_SKIP_DISABLED hash=%016llx",
+            (unsigned long long)spv_hash);
+    }
+    STEREO_LOG(
+        "PATCH_MODULE hash=%016llx words=%zu module=%p",
+        (unsigned long long)spv_hash,
+        m.count,
+        (const void *)m.words);
     STEREO_LOG(
         "PATCH_MODULE hash=%016llx words=%zu module=%p",
         (unsigned long long)spv_hash,
@@ -1295,6 +1346,39 @@ bool spirv_patch_stereo_vertex(
     //        (unsigned long long)spv_hash);
     //    return false;
     //}
+
+    if (!cfg->mono_ui)
+    {
+        STEREO_LOG(
+            "SCREENSPACE_SKIP_DISABLED hash=%016llx",
+            (unsigned long long)spv_hash);
+    }
+
+    if (cfg->mono_ui)
+    {
+        bool ui_candidate =
+            (!m.emits_geometry) &&
+            (!m.has_matrix_math) &&
+            (m.pos_is_block || m.pos_var != 0);
+    
+        if (ui_candidate)
+        {
+            STEREO_LOG(
+                "SCREENSPACE_SKIP hash=%016llx exec=%u pos=%u block=%u matrix=%u emit=%u",
+                (unsigned long long)spv_hash,
+                m.exec_model,
+                m.pos_var,
+                m.pos_is_block,
+                m.has_matrix_math,
+                m.emits_geometry);
+    
+            free(m.value_from_matrix);
+            free(m.is_matrix_type);
+            free(m.is_matrix_ptr);
+            return false;
+        }
+    }
+
 
     if (dbg)
     {
