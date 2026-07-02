@@ -74,6 +74,7 @@ typedef struct {
     size_t   fn_word;
     uint32_t entry_function;
     size_t   entry_function_word;
+    uint32_t position_function;
     uint32_t emit_count;
 } SpvMod;
 
@@ -732,6 +733,9 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 3)
                     current_function = w[i+2];
                 break;
+            case SpvOpFunctionEnd:
+                current_function = 0;
+                break;
             case SpvOpEmitVertex:
                 m->emit_count++;
                 m->has_emit_vertex = true;
@@ -741,6 +745,15 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 3 &&
                     w[i+1] == m->pos_var)
                 {
+                    if (current_function &&
+                        !m->position_function)
+                    {
+                        m->position_function = current_function;
+                    
+                        STEREO_LOG(
+                            "POSITION_WRITER_FUNCTION=%u",
+                            current_function);
+                    }
                     uint32_t source = w[i+2];
                     STEREO_LOG(
                         "POSITION_STORE function=%u word=%zu source=%u",
@@ -798,6 +811,7 @@ static void do_scan(SpvMod *m, bool p2)
 
 static void spv_scan(SpvMod *m)
 {
+    uint32_t current_function = 0;
     /* First pass: discover decorations/types. */
     do_scan(m,false);
 
@@ -1471,8 +1485,12 @@ bool spirv_patch_stereo_vertex(
         uint32_t opx=in[i]&0xffff, wcx=in[i]>>16;
         if (!wcx||i+wcx>in_c) break;
         if (opx==SpvOpFunction) {
-            in_entry_function = (wcx >= 4 &&
-                                 in[i+2] == m.entry_function);
+            in_entry_function =
+                (wcx >= 4 &&
+                 in[i+2] ==
+                 (m.position_function ?
+                     m.position_function :
+                     m.entry_function));
             STEREO_LOG(
                 "FUNCTION_START offset=%zu result=%u entry=%d",
                 i,
@@ -1508,8 +1526,9 @@ bool spirv_patch_stereo_vertex(
         i+=wcx;
     }
     STEREO_LOG(
-        "INSERT_POINTS entry_function=%u function=%zu return=%zu",
+        "INSERT_POINTS entry=%u position=%u function=%zu return=%zu",
         m.entry_function,
+        m.position_function,
         ins_t,
         ins_b);
     if (!ins_t) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
