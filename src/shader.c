@@ -714,18 +714,27 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     uint32_t source = w[i+2];
                     STEREO_LOG(
-                        "STORE_POS hash=%016llx source=%u matrix=%u",
+                        "STORE_POS hash=%016llx word=%zu dst=%u source=%u matrix=%u",
                         (unsigned long long)hash_spv(m->words, m->count),
+                        i,
+                        w[i+1],
                         source,
                         (source < m->value_capacity)
                             ? m->value_from_matrix[source]
                             : 0);
+                    if (source < m->value_capacity)
+                    {
+                        STEREO_LOG(
+                            "STORE_SOURCE id=%u matrix=%u",
+                            source,
+                            m->value_from_matrix[source]);
+                    }
                     if (source >= m->value_capacity ||
                         !m->value_from_matrix[source])
                         m->has_direct_position_write = true;
                 }
             }
-        break;
+            break;
         }
         } else {
             if(op==SpvOpTypePointer && wc>=4 &&
