@@ -1418,19 +1418,35 @@ bool spirv_patch_stereo_vertex(
         uint32_t opx=in[i]&0xffff, wcx=in[i]>>16;
         if (!wcx||i+wcx>in_c) break;
 
-        if (opx==SpvOpFunction && !ins_t)
-            ins_t=i;
+        if (opx==SpvOpFunction) {
+            STEREO_LOG(
+                "FUNCTION_START offset=%zu type=%u id=%u",
+                i,
+                in[i+1],
+                in[i+2]);
 
+            if (!ins_t)
+                ins_t=i;
+        }
         /* Always inject immediately before the final OpReturn.
          * Some shaders continue modifying gl_Position after its
          * last apparent OpStore via helper logic or additional
          * stores. Making the stereo adjustment the final operation
          * guarantees it survives.
          */
-        if (opx==SpvOpReturn)
+        if (opx==SpvOpReturn) {
+            STEREO_LOG(
+                "RETURN offset=%zu",
+                i);
+        
             ins_b=i;
+        }
         i+=wcx;
     }
+    STEREO_LOG(
+        "INSERT_POINTS function=%zu return=%zu",
+        ins_t,
+        ins_b);
     if (!ins_t) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
     if (!is_gs && !ins_b) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
     if (!is_gs && (!ins_b || ins_b < ins_t)) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
