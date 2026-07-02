@@ -1025,7 +1025,12 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         pptr=m->pos_var;
     }
     { uint32_t w[]={op_(SpvOpLoad,4),m->v4t,lp,pptr}; sb_push_n(out,w,4); }
-
+    STEREO_LOG(
+        "EMIT_LOAD ptr=%u posVar=%u posBlock=%u member=%u",
+        pptr,
+        m->pos_var,
+        m->pos_is_block,
+        m->pos_member_idx);
     /* Depth-varying stereo: add a constant to clip-space x.
      * After perspective divide by w, this becomes offset/w — near vertices
      * get more parallax than far vertices, giving true 3D depth perception.
