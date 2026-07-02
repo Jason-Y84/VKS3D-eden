@@ -159,6 +159,10 @@ static void do_scan(SpvMod *m, bool p2)
                 i);
         }
         switch(op) {
+            case SpvOpFunction:
+                if (wc >= 3)
+                    current_function = w[i+2];
+                break;
             case SpvOpDot:
                 m->dot_count++;
                 break;
@@ -719,10 +723,16 @@ static void do_scan(SpvMod *m, bool p2)
                 break;
             case SpvOpStore:
             {
+                uint32_t current_function = 0;
                 if (wc >= 3 &&
                     w[i+1] == m->pos_var)
                 {
                     uint32_t source = w[i+2];
+                    STEREO_LOG(
+                        "POSITION_STORE function=%u word=%zu source=%u",
+                        current_function,
+                        i,
+                        source);
                     STEREO_LOG(
                         "STORE_POS hash=%016llx word=%zu dst=%u source=%u matrix=%u",
                         (unsigned long long)hash_spv(m->words, m->count),
