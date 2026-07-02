@@ -124,8 +124,11 @@ static void do_scan(SpvMod *m, bool p2)
                 }
             }
         /* Debug: find who defines result id 162 */
-        if (wc >= 3 && w[i+2] >= 159 && w[i+2] <= 162)
-        {
+        if (wc >= 3 &&
+            (w[i+2] == 24 ||
+             w[i+2] == 129 ||
+             (w[i+2] >= 159 && w[i+2] <= 162)))
+              {
             const char *name =
                 (op == SpvOpCompositeConstruct) ? "CompositeConstruct" :
                 (op == SpvOpCompositeExtract)   ? "CompositeExtract" :
@@ -196,7 +199,9 @@ static void do_scan(SpvMod *m, bool p2)
                     if (w[i+2] == 24)
                     {
                         STEREO_LOG(
-                            "TRACE_LOAD result=%u ptr=%u matrix=%u",
+                            "TRACE_LOAD word=%zu op=%u result=%u ptr=%u matrix=%u",
+                            i,
+                            op,
                             w[i+2],
                             w[i+3],
                             m->value_from_matrix[w[i+2]]);
