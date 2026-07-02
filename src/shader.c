@@ -314,11 +314,21 @@ static void do_scan(SpvMod *m, bool p2)
                         }
                     }
 
+                    if (w[i+1] < m->value_capacity)
+                        m->is_matrix_type[w[i+1]] = matrix;
+            
                     STEREO_LOG(
                         "TYPESTRUCT id=%u matrix=%u members=%u",
                         w[i+1],
                         matrix,
                         wc - 2);
+            
+                    if (matrix)
+                    {
+                        STEREO_LOG(
+                            "STRUCT_NOW_MATRIX id=%u",
+                            w[i+1]);
+                    }
                 }
             }
             break;
@@ -588,6 +598,13 @@ static void do_scan(SpvMod *m, bool p2)
                             : 0,
                         (w[i+1] < m->value_capacity)
                             ? m->is_matrix_ptr[w[i+1]]
+                            : 0);
+                    STEREO_LOG(
+                        "TYPEPTR_ORDER id=%u pointee=%u matrixNow=%u",
+                        w[i+1],
+                        w[i+3],
+                        (w[i+3] < m->value_capacity)
+                            ? m->is_matrix_type[w[i+3]]
                             : 0);
                     if (w[i+1] < m->value_capacity &&
                         w[i+3] < m->value_capacity &&
