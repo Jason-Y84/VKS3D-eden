@@ -159,10 +159,6 @@ static void do_scan(SpvMod *m, bool p2)
                 i);
         }
         switch(op) {
-            case SpvOpFunction:
-                if (wc >= 3)
-                    current_function = w[i+2];
-                break;
             case SpvOpDot:
                 m->dot_count++;
                 break;
@@ -1437,7 +1433,7 @@ bool spirv_patch_stereo_vertex(
         uint32_t opx=in[i]&0xffff, wcx=in[i]>>16;
         if (!wcx||i+wcx>in_c) break;
         if (opx==SpvOpFunction) {
-            in_entry_function = (wcx >= 5 &&
+            in_entry_function = (wcx >= 4 &&
                                  in[i+2] == m.entry_function);
             STEREO_LOG(
                 "FUNCTION_START offset=%zu result=%u entry=%d",
@@ -1464,9 +1460,10 @@ bool spirv_patch_stereo_vertex(
             opx == SpvOpFunctionEnd)
         {
             STEREO_LOG(
-                "FUNCTION_END offset=%zu",
-                i);
-            in_entry_function = false;
+                "FUNCTION_END offset=%zu return=%zu",
+                i,
+                ins_b);
+            /* Finished scanning the entry function. */
             break;
         }
     
