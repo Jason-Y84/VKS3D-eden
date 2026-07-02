@@ -127,6 +127,8 @@ static void do_scan(SpvMod *m, bool p2)
         if (wc >= 3 &&
             (w[i+2] == 24 ||
              w[i+2] == 129 ||
+             w[i+2] == 136 ||
+             w[i+2] == 137 ||
              (w[i+2] >= 159 && w[i+2] <= 162)))
               {
             const char *name =
