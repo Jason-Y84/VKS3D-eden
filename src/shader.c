@@ -993,9 +993,19 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             uint32_t ci[]={op_(SpvOpConstant,4),m->it,mid,m->pos_member_idx};
             sb_push_n(out,ci,4);
         }
+        STEREO_LOG(
+            "POSITION_BLOCK posVar=%u member=%u mid=%u",
+            m->pos_var,
+            m->pos_member_idx,
+            mid);
         uint32_t a[]={op_(SpvOpAccessChain,5),c->uv4,ch,m->pos_var,mid};
         sb_push_n(out,a,5); pptr=ch;
-    } else { pptr=m->pos_var; }
+    } else { 
+        STEREO_LOG(
+            "POSITION_DIRECT posVar=%u",
+            m->pos_var);
+        pptr=m->pos_var;
+    }
     { uint32_t w[]={op_(SpvOpLoad,4),m->v4t,lp,pptr}; sb_push_n(out,w,4); }
 
     /* Depth-varying stereo: add a constant to clip-space x.
@@ -1084,6 +1094,12 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         }
     }
     { uint32_t w[]={op_(SpvOpCompositeInsert,6),m->v4t,np,nx,lp,0u}; sb_push_n(out,w,6); }
+    STEREO_LOG(
+        "POSITION_STORE ptr=%u newPos=%u block=%d",
+        pptr,
+        np,
+        m->pos_is_block);
+    { uint32_t w[]={op_(SpvOpStore,3),pptr,np};
     { uint32_t w[]={op_(SpvOpStore,3),pptr,np};                      sb_push_n(out,w,3); }
     STEREO_LOG(
         "emit_body complete projection=%d view=%d",
