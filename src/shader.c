@@ -526,7 +526,16 @@ static void do_scan(SpvMod *m, bool p2)
             }
             break;
             case SpvOpTypePointer:
-                if(wc>=4){
+                if (wc >= 4)
+                {
+                    STEREO_LOG(
+                        "TYPEPTR id=%u storage=%u pointee=%u matrix=%u",
+                        w[i+1],
+                        w[i+2],
+                        w[i+3],
+                        (w[i+3] < m->value_capacity)
+                            ? m->is_matrix_type[w[i+3]]
+                            : 0);
                     if (w[i+1] < m->value_capacity &&
                         w[i+3] < m->value_capacity &&
                         m->is_matrix_type[w[i+3]])
@@ -541,9 +550,16 @@ static void do_scan(SpvMod *m, bool p2)
                                 m->is_matrix_type[w[i+3]]);
                         }
                     }
-                    if(w[i+2]==SpvStorageOutput&&m->v4t&&w[i+3]==m->v4t) m->ptr_out_v4=w[i+1];
-                    if(w[i+2]==SpvStorageInput &&m->it  &&w[i+3]==m->it ) m->ptr_in_int=w[i+1];
-                } break;
+                    if (w[i+2] == SpvStorageOutput &&
+                        m->v4t &&
+                        w[i+3] == m->v4t)
+                        m->ptr_out_v4 = w[i+1];
+                    if (w[i+2] == SpvStorageInput &&
+                        m->it &&
+                        w[i+3] == m->it)
+                        m->ptr_in_int = w[i+1];
+                }
+                break;
             case SpvOpVariable:
             if (wc >= 4)
             {
