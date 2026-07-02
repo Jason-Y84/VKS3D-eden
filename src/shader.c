@@ -281,7 +281,14 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i+1] < m->value_capacity)
                 {
                     m->is_matrix_type[w[i+1]] = 1;
-            
+                    if (w[i+1] == 6 || w[i+1] == 7 || w[i+1] == 8)
+                    {
+                        STEREO_LOG(
+                            "TRACE_MATRIXTYPE id=%u columnType=%u columns=%u",
+                            w[i+1],
+                            w[i+2],
+                            w[i+3]);
+                    }
                     STEREO_LOG(
                         "TRACE_MATRIXTYPE id=%u columnType=%u columns=%u",
                         w[i+1],
@@ -525,6 +532,14 @@ static void do_scan(SpvMod *m, bool p2)
                         m->is_matrix_type[w[i+3]])
                     {
                         m->is_matrix_ptr[w[i+1]] = 1;
+                        if (w[i+1] == 18 || w[i+1] == 19 || w[i+1] == 20)
+                        {
+                            STEREO_LOG(
+                                "TRACE_PTR type=%u pointee=%u matrixType=%u",
+                                w[i+1],
+                                w[i+3],
+                                m->is_matrix_type[w[i+3]]);
+                        }
                     }
                     if(w[i+2]==SpvStorageOutput&&m->v4t&&w[i+3]==m->v4t) m->ptr_out_v4=w[i+1];
                     if(w[i+2]==SpvStorageInput &&m->it  &&w[i+3]==m->it ) m->ptr_in_int=w[i+1];
@@ -532,6 +547,17 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpVariable:
             if (wc >= 4)
             {
+                if (w[i+2] == 20)
+                {
+                    STEREO_LOG(
+                        "TRACE_VAR20 result=%u type=%u storage=%u matrixptr=%u",
+                        w[i+2],
+                        w[i+1],
+                        w[i+3],
+                        (w[i+1] < m->value_capacity)
+                            ? m->is_matrix_ptr[w[i+1]]
+                            : 0);
+                }
                 if (w[i+2] < m->value_capacity &&
                     w[i+1] < m->value_capacity &&
                     m->is_matrix_ptr[w[i+1]])
