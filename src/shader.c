@@ -82,6 +82,7 @@ static uint64_t hash_spv(const uint32_t *data, size_t words);
 static void do_scan(SpvMod *m, bool p2)
 {
     const uint32_t *w=m->words;
+    uint32_t current_function = 0;
     for (size_t i=5;i<m->count;) {
         uint32_t op=w[i]&0xffff, wc=w[i]>>16;
         if (!wc||i+wc>m->count) break;
@@ -712,14 +713,18 @@ static void do_scan(SpvMod *m, bool p2)
                     m->pos_var        = 0;
                 }
                 break;
-            case SpvOpFunction: if(!m->fn_word) m->fn_word=i; break;
+            case SpvOpFunction:
+                if (!m->fn_word)
+                    m->fn_word = i;
+                if (wc >= 3)
+                    current_function = w[i+2];
+                break;
             case SpvOpEmitVertex:
                 m->emit_count++;
                 m->has_emit_vertex = true;
                 break;
             case SpvOpStore:
             {
-                uint32_t current_function = 0;
                 if (wc >= 3 &&
                     w[i+1] == m->pos_var)
                 {
