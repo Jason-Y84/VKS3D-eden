@@ -180,9 +180,19 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i+2] < m->value_capacity &&
                     w[i+3] < m->value_capacity)
                 {
+                    STEREO_LOG(
+                        "LOADDBG result=%u ptr=%u valueMatrix=%u ptrMatrix=%u",
+                        w[i+2],
+                        w[i+3],
+                        m->value_from_matrix[w[i+3]],
+                        m->is_matrix_ptr[w[i+3]]);
                     m->value_from_matrix[w[i+2]] =
                         m->value_from_matrix[w[i+3]] ||
                         m->is_matrix_ptr[w[i+3]];
+                    STEREO_LOG(
+                        "LOADDBG_RESULT result=%u matrix=%u",
+                        w[i+2],
+                        m->value_from_matrix[w[i+2]]);
                     if (w[i+2] == 24)
                     {
                         STEREO_LOG(
