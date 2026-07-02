@@ -579,18 +579,34 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 4)
                 {
                     STEREO_LOG(
-                        "TYPEPTR id=%u storage=%u pointee=%u matrix=%u",
+                        "TYPEPTR id=%u storage=%u pointee=%u pointeeMatrix=%u ptrMatrix=%u",
                         w[i+1],
                         w[i+2],
                         w[i+3],
                         (w[i+3] < m->value_capacity)
                             ? m->is_matrix_type[w[i+3]]
+                            : 0,
+                        (w[i+1] < m->value_capacity)
+                            ? m->is_matrix_ptr[w[i+1]]
                             : 0);
                     if (w[i+1] < m->value_capacity &&
                         w[i+3] < m->value_capacity &&
                         m->is_matrix_type[w[i+3]])
                     {
                         m->is_matrix_ptr[w[i+1]] = 1;
+                        if (w[i+3] == 18 || w[i+3] == 19)
+                        {
+                            STEREO_LOG(
+                                "TRACE_PTR18 id=%u pointee=%u matrixType=%u ptrMatrix=%u",
+                                w[i+1],
+                                w[i+3],
+                                (w[i+3] < m->value_capacity)
+                                    ? m->is_matrix_type[w[i+3]]
+                                    : 0,
+                                (w[i+1] < m->value_capacity)
+                                    ? m->is_matrix_ptr[w[i+1]]
+                                    : 0);
+                        }
                         if (w[i+1] == 18 || w[i+1] == 19 || w[i+1] == 20)
                         {
                             STEREO_LOG(
