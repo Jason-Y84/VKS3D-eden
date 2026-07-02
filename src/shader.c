@@ -296,6 +296,56 @@ static void do_scan(SpvMod *m, bool p2)
                         w[i+3]);
                 }
                 break;
+            case SpvOpTypeStruct:
+            {
+                if (wc >= 3)
+                {
+                    uint8_t matrix = 0;
+
+                    for (uint32_t k = 2; k < wc; k++)
+                    {
+                        uint32_t member = w[i+k];
+
+                        if (member < m->value_capacity &&
+                            m->is_matrix_type[member])
+                        {
+                            matrix = 1;
+                            break;
+                        }
+                    }
+
+                    STEREO_LOG(
+                        "TYPESTRUCT id=%u matrix=%u members=%u",
+                        w[i+1],
+                        matrix,
+                        wc - 2);
+                }
+            }
+            break;
+            case SpvOpTypeArray:
+            if (wc >= 4)
+            {
+                STEREO_LOG(
+                    "TYPEARRAY id=%u elem=%u matrix=%u",
+                    w[i+1],
+                    w[i+2],
+                    (w[i+2] < m->value_capacity)
+                        ? m->is_matrix_type[w[i+2]]
+                        : 0);
+            }
+            break;
+            case SpvOpTypeRuntimeArray:
+            if (wc >= 3)
+            {
+                STEREO_LOG(
+                    "TYPERUNTIMEARRAY id=%u elem=%u matrix=%u",
+                    w[i+1],
+                    w[i+2],
+                    (w[i+2] < m->value_capacity)
+                        ? m->is_matrix_type[w[i+2]]
+                        : 0);
+            }
+            break;
             case SpvOpTranspose:
                 if (wc >= 4 &&
                     w[i+2] < m->value_capacity &&
