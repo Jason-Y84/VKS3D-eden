@@ -277,8 +277,17 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpTypeInt:
                 if(wc==4&&w[i+2]==32) m->it=w[i+1]; break;
             case SpvOpTypeMatrix:
-                if (wc >= 2 && w[i+1] < m->value_capacity)
+                if (wc >= 4 &&
+                    w[i+1] < m->value_capacity)
+                {
                     m->is_matrix_type[w[i+1]] = 1;
+            
+                    STEREO_LOG(
+                        "TRACE_MATRIXTYPE id=%u columnType=%u columns=%u",
+                        w[i+1],
+                        w[i+2],
+                        w[i+3]);
+                }
                 break;
             case SpvOpTranspose:
                 if (wc >= 4 &&
