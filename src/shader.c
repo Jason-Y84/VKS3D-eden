@@ -1099,7 +1099,6 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         pptr,
         np,
         m->pos_is_block);
-    { uint32_t w[]={op_(SpvOpStore,3),pptr,np};
     { uint32_t w[]={op_(SpvOpStore,3),pptr,np};                      sb_push_n(out,w,3); }
     STEREO_LOG(
         "emit_body complete projection=%d view=%d",
