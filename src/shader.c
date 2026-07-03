@@ -2146,6 +2146,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         sd->stereo.flip_eyes);
     for (uint32_t p=0; p<N; p++) {
         const VkGraphicsPipelineCreateInfo *ci=&pCI[p];
+        StereoPipelineInfo *info =
+            add_pipeline_info(sd);
         const VkBaseInStructure *base =
             (const VkBaseInStructure*)ci->pNext;
         uint32_t view_mask = 0;
@@ -2229,8 +2231,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             (void*)ci->renderPass,
             (void*)rpi,
             (unsigned)in_mv_rp,
-            info->view_mask,
-            ci->stageCount,
+            view_mask,
+            (unsigned)ci->stageCount,
             (unsigned)has_vs,
             (unsigned)has_tes,
             (!ci->pVertexInputState ||
@@ -2246,7 +2248,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             infos[p].renderPass = rpi->mv_handle;
         }
 
-        if (!(in_mv_rp || view_mask != 0))
+        if (!in_mv_rp)
         {
             STEREO_LOG(
                 "Pipe %u: rp=%p not multiview (VS=%d TES=%d stages=%u)",
@@ -2681,7 +2683,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     pCI[p].pVertexInputState ?
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
 
-                info->view_mask = view_mask;
+                info->view_mask = 0; /* default */
 
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
