@@ -39,14 +39,6 @@ VkPipeline lookup_bound_pipeline(
     StereoDevice* sd,
     VkCommandBuffer cb);
 
-// ---- Vulkan 1.3 dynamic rendering hooks ----
-void stereo_CmdBeginRendering(
-    VkCommandBuffer commandBuffer,
-    const VkRenderingInfo *pRenderingInfo);
-
-void stereo_CmdEndRendering(
-    VkCommandBuffer commandBuffer);
-
 /* ── vkCreateFramebuffer ────────────────────────────────────────────────── */
 VKAPI_ATTR VkResult VKAPI_CALL
 stereo_CreateFramebuffer(
@@ -632,7 +624,8 @@ stereo_CmdBeginRenderPass(
     }
 }
 
-void stereo_CmdBeginRendering(
+VKAPI_ATTR void VKAPI_CALL
+stereo_CmdBeginRendering(
     VkCommandBuffer commandBuffer,
     const VkRenderingInfo *pRenderingInfo)
 {
@@ -651,7 +644,8 @@ void stereo_CmdBeginRendering(
         pRenderingInfo);
 }
 
-void stereo_CmdEndRendering(
+VKAPI_ATTR void VKAPI_CALL
+stereo_CmdEndRendering(
     VkCommandBuffer commandBuffer)
 {
     StereoDevice *sd =
