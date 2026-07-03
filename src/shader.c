@@ -1228,7 +1228,13 @@ bool spirv_patch_stereo_vertex(
     if (cfg && cfg->mono_ui)
     {
         bool ui_candidate =
-            (c->dbg->is_quad || c->dbg->vertex_binding_count == 0) &&
+            (
+                dbg &&
+                (
+                    dbg->is_quad ||
+                    dbg->vertex_binding_count == 0
+                )
+            ) &&
             (m.dot_count <= 2) &&
             (m.has_direct_position_write) &&
             (!m.has_emit_vertex) &&
