@@ -1157,7 +1157,7 @@ bool spirv_patch_stereo_vertex(
     bool inj_vi,
     const StereoDebugCtx *dbg)
 {
-    const int projection_mode = c->projection_mode;
+    const int projection_mode = cfg->projection;
 
     STEREO_LOG(
         "Projection=%s lo=%f ro=%f conv=%f",
