@@ -618,6 +618,25 @@ StereoDevice *stereo_device_from_handle(VkDevice h) {
     stereo_mutex_unlock(&g_registry_lock);
     return NULL;
 }
+
+StereoDevice *stereo_device_from_device(VkDevice device)
+{
+    return (StereoDevice*)device; /* if you already wrap VkDevice */
+}
+
+StereoDevice *stereo_device_from_command_buffer(VkCommandBuffer cb)
+{
+    StereoDevice *sd = find_any_device(); // fallback
+    if (!sd || !cb)
+        return NULL;
+    for (uint32_t i = 0; i < sd->cb_count; i++)
+    {
+        if (sd->cb_keys[i] == cb)
+            return (StereoDevice*)sd->cb_values[i];
+    }
+    return NULL;
+}
+
 void stereo_device_free(VkDevice h) {
     ensure_registry_init();
     stereo_mutex_lock(&g_registry_lock);
@@ -854,6 +873,22 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
     sd->real.CmdDrawIndexedIndirect = (PFN_vkCmdDrawIndexedIndirect)
         g_real_giPA(real_inst, "vkCmdDrawIndexedIndirect");
 #undef L
+}
+
+void stereo_register_command_buffer(StereoDevice *sd, VkCommandBuffer cb)
+{
+    if (!sd || cb == VK_NULL_HANDLE)
+        return;
+    if (sd->cb_count == sd->cb_capacity)
+    {
+        uint32_t new_cap = sd->cb_capacity ? sd->cb_capacity * 2 : 64;
+        sd->cb_keys   = realloc(sd->cb_keys,   new_cap * sizeof(VkCommandBuffer));
+        sd->cb_values = realloc(sd->cb_values, new_cap * sizeof(void*));
+        sd->cb_capacity = new_cap;
+    }
+    sd->cb_keys[sd->cb_count]   = cb;
+    sd->cb_values[sd->cb_count] = sd;
+    sd->cb_count++;
 }
 
 /* ── Windows DllMain + self-identification marker ───────────────────────── */
