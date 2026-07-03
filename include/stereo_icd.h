@@ -491,11 +491,6 @@ typedef struct StereoFramebufferTrack {
     bool          has_mv;
 } StereoFramebufferTrack;
 
-typedef struct StereoCmdBuffer {
-    StereoDevice *device;
-    VkCommandBuffer real;
-} StereoCmdBuffer;
-
 typedef struct StereoPipelineInfo
 {
     VkPipeline pipeline;
