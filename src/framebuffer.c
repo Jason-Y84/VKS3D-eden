@@ -15,6 +15,34 @@
 #include <string.h>
 #include "stereo_icd.h"
 
+StereoDevice* stereo_device_from_command_buffer(VkCommandBuffer cb);
+
+void remember_begin_renderpass(
+    StereoDevice* sd,
+    VkCommandBuffer cb,
+    VkRenderPass rp,
+    uint32_t flags);
+
+VkRenderPass lookup_bound_renderpass(
+    StereoDevice* sd,
+    VkCommandBuffer cb);
+
+VkFramebuffer lookup_bound_framebuffer(
+    StereoDevice* sd,
+    VkCommandBuffer cb);
+
+VkPipeline lookup_bound_pipeline(
+    StereoDevice* sd,
+    VkCommandBuffer cb);
+
+// ---- Vulkan 1.3 dynamic rendering hooks ----
+void stereo_CmdBeginRendering(
+    VkCommandBuffer commandBuffer,
+    const VkRenderingInfo *pRenderingInfo);
+
+void stereo_CmdEndRendering(
+    VkCommandBuffer commandBuffer);
+
 /* ── vkCreateFramebuffer ────────────────────────────────────────────────── */
 VKAPI_ATTR VkResult VKAPI_CALL
 stereo_CreateFramebuffer(
