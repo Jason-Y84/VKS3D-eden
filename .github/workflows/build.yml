@@ -10,7 +10,6 @@ env:
 on:
   push:
     Branches: $Branch
-    tags-ignore: "*"
   workflow_dispatch:
 
 jobs:
