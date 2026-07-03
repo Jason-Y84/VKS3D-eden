@@ -2146,7 +2146,18 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         sd->stereo.flip_eyes);
     for (uint32_t p=0; p<N; p++) {
         const VkGraphicsPipelineCreateInfo *ci=&pCI[p];
+        const VkBaseInStructure *base =
+            (const VkBaseInStructure*)ci->pNext;
 
+        while (base)
+        {
+            STEREO_LOG(
+                "PIPE_PNEXT sType=%u ptr=%p",
+                base->sType,
+                (void*)base);
+
+            base = base->pNext;
+        }
         if (!ci || ci->stageCount == 0 || !ci->pStages) {
             STEREO_LOG(
                 "PIPE_EMPTY_STAGE_PIPELINE p=%u rp=%p pNext=%p stageCount=%u pStages=%p isUI=%d isComputeLike=%d",
