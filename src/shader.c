@@ -993,6 +993,7 @@ typedef struct {
     float lo_dbg;
     float ro_dbg;
     int   flip_dbg;
+    const StereoDebugCtx *dbg;
 } BodyCtx;
 
 typedef struct StereoDebugCtx {
@@ -1000,6 +1001,8 @@ typedef struct StereoDebugCtx {
     VkRenderPass render_pass;
     int is_multiview;
     uint32_t stage;
+    uint32_t vertex_binding_count;
+    uint32_t is_quad;
 } StereoDebugCtx;
 
 static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
@@ -1225,7 +1228,7 @@ bool spirv_patch_stereo_vertex(
     if (cfg && cfg->mono_ui)
     {
         bool ui_candidate =
-            (info->is_quad || info->vertex_binding_count == 0) &&
+            (c->dbg->is_quad || c->dbg->vertex_binding_count == 0) &&
             (m.dot_count <= 2) &&
             (m.has_direct_position_write) &&
             (!m.has_emit_vertex) &&
@@ -1492,7 +1495,7 @@ bool spirv_patch_stereo_vertex(
              projection_mode,
              lo,
              ro,
-             0};
+             &dbgB};
     STEREO_LOG(
         "PATCH_BODY hash=%016llx lo=%f ro=%f conv=%f have_view=%d pos=%u",
         (unsigned long long)spv_hash,
@@ -2372,7 +2375,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     p,
                     ci->renderPass,
                     in_mv_rp,
-                    (uint32_t)VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT
+                    (uint32_t)VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
+                    info->vertex_binding_count,
+                    info->is_quad
                 };
 
                 if (!spirv_patch_stereo_vertex(
@@ -2496,7 +2501,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 p,
                 ci->renderPass,
                 in_mv_rp,
-                (uint32_t)VK_SHADER_STAGE_VERTEX_BIT
+                (uint32_t)VK_SHADER_STAGE_VERTEX_BIT,
+                info->vertex_binding_count,
+                info->is_quad
             };
 
             if (!spirv_patch_stereo_vertex(
