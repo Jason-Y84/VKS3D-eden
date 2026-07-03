@@ -191,6 +191,7 @@ typedef struct StereoConfig {
     uint32_t                refresh_rate;
     bool                    half_fps;
     bool                    multiview;
+    bool                    mono_ui;
     StereoProjectionMode    projection;
     float                   step_separation;
     float                   step_convergence;
@@ -777,6 +778,7 @@ lookup_bound_pipeline(
 
 typedef struct StereoDebugCtx StereoDebugCtx;
 bool spirv_patch_stereo_vertex(
+    const StereoConfig *cfg,
     const uint32_t *in, size_t in_c,
     uint32_t **out, size_t *out_c,
     float lo, float ro,

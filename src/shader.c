@@ -1145,6 +1145,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
 
 /* ── Public patcher ──────────────────────────────────────────────────────── */
 bool spirv_patch_stereo_vertex(
+    const StereoConfig *cfg,
     const uint32_t *in, size_t in_c,
     uint32_t **out, size_t *out_c,
     float lo, float ro,
@@ -1219,6 +1220,31 @@ bool spirv_patch_stereo_vertex(
                 free(m.is_matrix_ptr);
                 return false;
             }
+        }
+    }
+    if (cfg && cfg->mono_ui)
+    {
+        bool ui_candidate =
+            (!m.has_matrix_ops) &&
+            (m.has_direct_position_write) &&
+            (!m.has_emit_vertex);
+
+        if (ui_candidate)
+        {
+            STEREO_LOG(
+                "SCREENSPACE_SKIP hash=%016llx exec=%u pos=%u block=%u matrix=%u direct=%u emit=%u",
+                (unsigned long long)spv_hash,
+                (unsigned)m.exec_model,
+                m.pos_var,
+                m.pos_is_block,
+                m.has_matrix_ops,
+                m.has_direct_position_write,
+                m.has_emit_vertex);
+
+            free(m.value_from_matrix);
+            free(m.is_matrix_type);
+            free(m.is_matrix_ptr);
+            return false;
         }
     }
     STEREO_LOG(
@@ -2348,6 +2374,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 };
 
                 if (!spirv_patch_stereo_vertex(
+                        &sd->stereo,
                         e->spv, e->words,
                         &patched, &pc2,
                         lo, ro, conv,
@@ -2471,6 +2498,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             };
 
             if (!spirv_patch_stereo_vertex(
+                    &sd->stereo,
                     e->spv, e->words,
                     &patched, &pc2,
                     lo, ro, conv,
