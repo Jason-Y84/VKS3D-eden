@@ -386,6 +386,8 @@ typedef struct RealDeviceDispatch {
     PFN_vkCmdBeginRenderPass         CmdBeginRenderPass;
     PFN_vkCmdNextSubpass             CmdNextSubpass;
     PFN_vkCmdEndRenderPass           CmdEndRenderPass;
+    PFN_vkCmdBeginRendering          CmdBeginRendering;
+    PFN_vkCmdEndRendering            CmdEndRendering;
     PFN_vkCmdExecuteCommands         CmdExecuteCommands;
     PFN_vkCreateSwapchainKHR         CreateSwapchainKHR;
     PFN_vkDestroySwapchainKHR        DestroySwapchainKHR;

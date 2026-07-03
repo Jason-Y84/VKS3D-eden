@@ -600,6 +600,36 @@ stereo_CmdBeginRenderPass(
     }
 }
 
+void stereo_CmdBeginRendering(
+    VkCommandBuffer commandBuffer,
+    const VkRenderingInfo *pRenderingInfo)
+{
+    StereoDevice *sd =
+        stereo_device_from_command_buffer(commandBuffer);
+    if (!sd || !sd->real.CmdBeginRendering)
+        return;
+    STEREO_LOG(
+        "BEGIN_RENDERING viewMask=0x%x layerCount=%u colors=%u flags=0x%x",
+        pRenderingInfo->viewMask,
+        pRenderingInfo->layerCount,
+        pRenderingInfo->colorAttachmentCount,
+        pRenderingInfo->flags);
+    sd->real.CmdBeginRendering(
+        commandBuffer,
+        pRenderingInfo);
+}
+
+void stereo_CmdEndRendering(
+    VkCommandBuffer commandBuffer)
+{
+    StereoDevice *sd =
+        stereo_device_from_command_buffer(commandBuffer);
+    if (!sd || !sd->real.CmdEndRendering)
+        return;
+    STEREO_LOG("END_RENDERING");
+    sd->real.CmdEndRendering(commandBuffer);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 stereo_CmdBindPipeline(
     VkCommandBuffer commandBuffer,

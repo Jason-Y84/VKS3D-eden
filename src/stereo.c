@@ -826,6 +826,8 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
     L(CmdResetQueryPool); L(CmdWriteTimestamp); L(CmdCopyQueryPoolResults);
     L(CmdPushConstants);
     L(CmdBeginRenderPass); L(CmdNextSubpass); L(CmdEndRenderPass);
+    L(CmdBeginRendering);
+    L(CmdEndRendering);
     L(CmdExecuteCommands);
     L(CreateSwapchainKHR); L(DestroySwapchainKHR);
     L(GetSwapchainImagesKHR); L(AcquireNextImageKHR); L(QueuePresentKHR);
