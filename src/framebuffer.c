@@ -677,7 +677,8 @@ stereo_AllocateCommandBuffers(
     VkCommandBuffer *pCommandBuffers)
 {
     StereoDevice *sd =
-        stereo_device_from_device(device);
+        stereo_device_from_handle(device);
+    STEREO_LOG("ALLOC_CMD sd=%p device=%p", sd, device);
 
     if (!sd || !sd->real.AllocateCommandBuffers)
         return VK_ERROR_INITIALIZATION_FAILED;
