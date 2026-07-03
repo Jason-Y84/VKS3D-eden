@@ -211,7 +211,7 @@ void stereo_config_init(StereoConfig *cfg)
     /* Flatten detected screen-space UI by skipping stereo patching. */
     cfg->mono_ui = cfg_bool("mono_ui", true);
 
-    cfg->projection = STEREO_PROJECTION_OFF_AXIS;
+    cfg->projection = cfg_bool("projection", 1);
 
     /* ── hotkey steps ── */
     cfg->step_separation  = cfg_float("step_separation",  0.005f);
