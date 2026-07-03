@@ -677,8 +677,7 @@ stereo_AllocateCommandBuffers(
     VkCommandBuffer *pCommandBuffers)
 {
     StereoDevice *sd =
-        stereo_device_from_handle(device);
-    STEREO_LOG("ALLOC_CMD sd=%p device=%p", sd, device);
+        stereo_device_from_device(device);
 
     if (!sd || !sd->real.AllocateCommandBuffers)
         return VK_ERROR_INITIALIZATION_FAILED;
@@ -688,10 +687,19 @@ stereo_AllocateCommandBuffers(
         pAllocateInfo->commandBufferCount,
         pAllocateInfo->level);
 
-    return sd->real.AllocateCommandBuffers(
-        sd->real_device,
-        pAllocateInfo,
-        pCommandBuffers);
+    VkResult res =
+        sd->real.AllocateCommandBuffers(
+            sd->real_device,
+            pAllocateInfo,
+            pCommandBuffers);
+
+    if (res == VK_SUCCESS) {
+        for (uint32_t i = 0; i < pAllocateInfo->commandBufferCount; i++) {
+            stereo_register_command_buffer(sd, pCommandBuffers[i]);
+        }
+    }
+
+    return res;
 }
 
 VKAPI_ATTR void VKAPI_CALL
