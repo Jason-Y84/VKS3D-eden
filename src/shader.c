@@ -1225,7 +1225,7 @@ bool spirv_patch_stereo_vertex(
     if (cfg && cfg->mono_ui)
     {
         bool ui_candidate =
-            (!m.has_matrix_ops) &&
+            (m.dot_count <= 2) &&
             (m.has_direct_position_write) &&
             (!m.has_emit_vertex);
 
