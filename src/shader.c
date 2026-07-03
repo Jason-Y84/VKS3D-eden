@@ -1466,13 +1466,22 @@ bool spirv_patch_stereo_vertex(
         m.view_var=id_inj_view;
     }
 
-    BodyCtx bc={&m, have_view, uv4, uint_, bt,
-        id_cz, id_cf0,
-        id_cl, id_cr, id_cc,
+    BodyCtx bc = {
+        &m,
+        have_view,
+        uv4,
+        uint_,
+        bt,
+        id_cz,
+        id_cf0,
+        id_cl,
+        id_cr,
+        id_cc,
         projection_mode,
         lo,
         ro,
-        NULL
+        cfg ? cfg->flip_eyes : 0,
+        dbg
     };
     STEREO_LOG(
         "PATCH_BODY hash=%016llx lo=%f ro=%f conv=%f have_view=%d pos=%u",
