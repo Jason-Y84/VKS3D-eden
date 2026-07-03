@@ -208,7 +208,10 @@ void stereo_config_init(StereoConfig *cfg)
      * Set multiview=1 in vks3d.ini [global] only for apps that support it. */
     cfg->multiview = cfg_bool("multiview", false);
 
-    cfg->projection = STEREO_PROJECTION_OFF_AXIS;
+    /* Flatten detected screen-space UI by skipping stereo patching. */
+    cfg->mono_ui = cfg_bool("mono_ui", true);
+
+    cfg->projection = cfg_bool("projection", 1);
 
     /* ── hotkey steps ── */
     cfg->step_separation  = cfg_float("step_separation",  0.005f);
@@ -217,13 +220,14 @@ void stereo_config_init(StereoConfig *cfg)
     stereo_config_compute_offsets(cfg);
     STEREO_LOG(
         "Stereo config: enabled=%d separation=%.4f convergence=%.4f "
-        "projection=%s flip=%d mode=%d",
+        "projection=%s flip=%d mono_ui=%d mode=%d",
         cfg->enabled,
         cfg->separation,
         cfg->convergence,
         cfg->projection == STEREO_PROJECTION_OFF_AXIS ?
             "off-axis" : "parallel",
         cfg->flip_eyes,
+        cfg->mono_ui,
         (int)cfg->present_mode);
     STEREO_LOG("  res_override=%ux%u  refresh=%uHz  half_fps=%d  hotkey_step_sep=%.4f  hotkey_step_conv=%.4f",
                cfg->override_width, cfg->override_height, cfg->refresh_rate,
