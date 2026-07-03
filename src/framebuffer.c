@@ -16,6 +16,7 @@
 #include "stereo_icd.h"
 
 StereoDevice* stereo_device_from_command_buffer(VkCommandBuffer cb);
+StereoDevice* stereo_device_from_device(VkDevice device);
 
 void remember_begin_renderpass(
     StereoDevice* sd,
