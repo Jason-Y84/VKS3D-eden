@@ -729,12 +729,6 @@ find_any_device(void)
     return NULL;
 }
 
-StereoDevice *stereo_device_from_command_buffer(VkCommandBuffer cb)
-{
-    (void)cb;
-    return find_any_device();
-}
-
 VKAPI_ATTR void VKAPI_CALL
 stereo_CmdDrawIndexed(
     VkCommandBuffer commandBuffer,
