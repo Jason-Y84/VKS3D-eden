@@ -1283,57 +1283,6 @@ bool spirv_patch_stereo_vertex(
         m.has_direct_position_write,
         m.dot_count,
         m.has_viewindex_builtin);
-    //if (spv_hash == 0xc3c35ab856282a97ULL)
-    //{
-    //    STEREO_LOG(
-    //        "DXVK_UI_CANDIDATE hash=%016llx matrix=%d pos_block=%d pos_member=%u view=%u exec=%u",
-    //        (unsigned long long)spv_hash,
-    //        m.has_matrix_ops,
-    //        m.pos_is_block,
-    //        m.pos_member_idx,
-    //        m.view_var,
-    //        (unsigned)m.exec_model);
-    //}
-    /* TEMP: shader blacklist for debugging.
-     * Return the original shader unchanged so we can identify which
-     * patched shader is responsible for the remaining stereo artifact.
-     */
-
-    //Flatten ShadowMap.exe world geometry
-    // if (spv_hash == 0xe019379afc782113ull)
-    // {
-    //     STEREO_LOG(
-    //         "BLACKLIST shader=%016llx",
-    //         (unsigned long long)spv_hash);
-    //     return false;
-    // }
-
-    ////Flatten ShadowMap.exe UI
-    //if (spv_hash == 0x1194cbb18ed7990full)
-    //{
-    //    STEREO_LOG(
-    //        "BLACKLIST shader=%016llx",
-    //        (unsigned long long)spv_hash);
-    //    return false;
-    //}
-    ////Flatten SimpleSample.exe UI
-    //if (spv_hash == 0xc3c35ab856282a97ull)
-    //{
-    //    STEREO_LOG(
-    //        "BLACKLIST shader=%016llx",
-    //        (unsigned long long)spv_hash);
-    //    return false;
-    //}
-
-    ////Flatten RBR UI
-    //if (spv_hash == 0x898ca1de82f2ced7ull)
-    //{
-    //    STEREO_LOG(
-    //        "BLACKLIST shader=%016llx",
-    //        (unsigned long long)spv_hash);
-    //    return false;
-    //}
-
     if (dbg)
     {
         STEREO_LOG(
