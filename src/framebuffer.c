@@ -367,6 +367,31 @@ stereo_CreateFramebuffer(
     return res;
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL stereo_AllocateCommandBuffers(
+    VkDevice device,
+    const VkCommandBufferAllocateInfo* pAllocateInfo,
+    VkCommandBuffer* pCommandBuffers)
+{
+    StereoDevice *sd = stereo_device_from_device(device);
+
+    VkResult res =
+        sd->real.AllocateCommandBuffers(device, pAllocateInfo, pCommandBuffers);
+
+    if (res != VK_SUCCESS)
+        return res;
+
+    for (uint32_t i = 0; i < pAllocateInfo->commandBufferCount; i++)
+    {
+        VkCommandBuffer cb = pCommandBuffers[i];
+
+        stereo_register_command_buffer(sd, cb);
+
+        STEREO_LOG("CB_REGISTER cb=%p device=%p", cb, sd);
+    }
+
+    return res;
+}
+
 /* ── vkDestroyFramebuffer ───────────────────────────────────────────────── */
 VKAPI_ATTR void VKAPI_CALL
 stereo_DestroyFramebuffer(
