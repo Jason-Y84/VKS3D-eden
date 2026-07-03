@@ -1495,7 +1495,7 @@ bool spirv_patch_stereo_vertex(
              projection_mode,
              lo,
              ro,
-             &dbgB};
+             &dbgA};
     STEREO_LOG(
         "PATCH_BODY hash=%016llx lo=%f ro=%f conv=%f have_view=%d pos=%u",
         (unsigned long long)spv_hash,
@@ -2376,8 +2376,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     ci->renderPass,
                     in_mv_rp,
                     (uint32_t)VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
-                    info->vertex_binding_count,
-                    info->is_quad
+                    0,
+                    0
                 };
 
                 if (!spirv_patch_stereo_vertex(
@@ -2502,8 +2502,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 ci->renderPass,
                 in_mv_rp,
                 (uint32_t)VK_SHADER_STAGE_VERTEX_BIT,
-                info->vertex_binding_count,
-                info->is_quad
+                0,
+                9
             };
 
             if (!spirv_patch_stereo_vertex(
