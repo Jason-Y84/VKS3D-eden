@@ -403,6 +403,7 @@ static void do_scan(SpvMod *m, bool p2)
                 break;
             case SpvOpMatrixTimesVector:
             case SpvOpMatrixTimesMatrix:
+                m->has_matrix_ops = true;
             case SpvOpVectorTimesScalar:
             case SpvOpVectorTimesMatrix:
             case SpvOpMatrixTimesScalar:
