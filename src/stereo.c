@@ -808,7 +808,7 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
     L(CreateFramebuffer); L(DestroyFramebuffer);
     L(CreateRenderPass); L(DestroyRenderPass); L(GetRenderAreaGranularity);
     L(CreateCommandPool); L(DestroyCommandPool); L(ResetCommandPool);
-    L(AllocateCommandBuffers); L(FreeCommandBuffers);
+    L(AllocateCommandBuffers) = stereo_AllocateCommandBuffers; L(FreeCommandBuffers);
     L(BeginCommandBuffer); L(EndCommandBuffer); L(ResetCommandBuffer);
     L(CmdBindPipeline); L(CmdSetViewport); L(CmdSetScissor);
     L(CmdSetLineWidth); L(CmdSetDepthBias); L(CmdSetBlendConstants);
