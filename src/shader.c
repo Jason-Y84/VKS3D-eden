@@ -1227,7 +1227,8 @@ bool spirv_patch_stereo_vertex(
         bool ui_candidate =
             (m.dot_count <= 2) &&
             (m.has_direct_position_write) &&
-            (!m.has_emit_vertex);
+            (!m.has_emit_vertex) &&
+            (m.exec_model == SpvExecVertex);
 
         if (ui_candidate)
         {
