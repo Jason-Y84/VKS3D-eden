@@ -629,8 +629,16 @@ stereo_CmdBeginRendering(
     VkCommandBuffer commandBuffer,
     const VkRenderingInfo *pRenderingInfo)
 {
+    STEREO_LOG(
+        "BEGIN_RENDERING ENTER cb=%p info=%p",
+        (void*)commandBuffer,
+        (void*)pRenderingInfo);
     StereoDevice *sd =
         stereo_device_from_command_buffer(commandBuffer);
+    STEREO_LOG(
+        "BEGIN_RENDERING LOOKUP sd=%p real=%p",
+        (void*)sd,
+        sd ? (void*)sd->real.CmdBeginRendering : NULL);
     if (!sd || !sd->real.CmdBeginRendering)
         return;
     STEREO_LOG(
@@ -648,8 +656,13 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_CmdEndRendering(
     VkCommandBuffer commandBuffer)
 {
+    STEREO_LOG("END_RENDERING ENTER");
     StereoDevice *sd =
         stereo_device_from_command_buffer(commandBuffer);
+    STEREO_LOG(
+        "END_RENDERING LOOKUP sd=%p real=%p",
+        (void*)sd,
+        sd ? (void*)sd->real.CmdEndRendering : NULL);
     if (!sd || !sd->real.CmdEndRendering)
         return;
     STEREO_LOG("END_RENDERING");
