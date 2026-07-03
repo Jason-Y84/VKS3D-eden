@@ -23,6 +23,10 @@ void remember_begin_renderpass(
     VkRenderPass rp,
     uint32_t flags);
 
+StereoDevice *
+stereo_device_from_command_buffer(
+    VkCommandBuffer cb);
+
 VkRenderPass lookup_bound_renderpass(
     StereoDevice* sd,
     VkCommandBuffer cb);
