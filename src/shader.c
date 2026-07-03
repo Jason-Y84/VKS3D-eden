@@ -1490,12 +1490,20 @@ bool spirv_patch_stereo_vertex(
     }
 
     BodyCtx bc={&m, have_view, uv4, uint_, bt,
-             id_cz, id_cf0,
-             id_cl, id_cr, id_cc,
-             projection_mode,
-             lo,
-             ro,
-             &dbgA};
+            id_cz, id_cf0,
+            id_cl, id_cr, id_cc,
+            projection_mode,
+            lo,
+            ro,
+            &(StereoDebugCtx){
+                p,
+                ci->renderPass,
+                in_mv_rp,
+                (uint32_t)VK_SHADER_STAGE_VERTEX_BIT,
+                0,
+                0
+            }
+        };
     STEREO_LOG(
         "PATCH_BODY hash=%016llx lo=%f ro=%f conv=%f have_view=%d pos=%u",
         (unsigned long long)spv_hash,
