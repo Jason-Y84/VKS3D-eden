@@ -637,6 +637,8 @@ StereoDevice *stereo_device_from_command_buffer(VkCommandBuffer cb)
     return NULL;
 }
 
+StereoDevice* find_any_device(void)
+
 void stereo_device_free(VkDevice h) {
     ensure_registry_init();
     stereo_mutex_lock(&g_registry_lock);
