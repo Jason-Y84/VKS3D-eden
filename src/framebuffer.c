@@ -15,13 +15,17 @@
 #include <string.h>
 #include "stereo_icd.h"
 
-StereoDevice* stereo_device_from_device(VkDevice device);
+StereoDevice* stereo_device_from_command_buffer(VkCommandBuffer cb);
 
 void remember_begin_renderpass(
     StereoDevice* sd,
     VkCommandBuffer cb,
     VkRenderPass rp,
     uint32_t flags);
+
+StereoDevice *
+stereo_device_from_command_buffer(
+    VkCommandBuffer cb);
 
 VkRenderPass lookup_bound_renderpass(
     StereoDevice* sd,
@@ -665,38 +669,6 @@ stereo_CmdEndRendering(
     sd->real.CmdEndRendering(commandBuffer);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-stereo_AllocateCommandBuffers(
-    VkDevice device,
-    const VkCommandBufferAllocateInfo *pAllocateInfo,
-    VkCommandBuffer *pCommandBuffers)
-{
-    StereoDevice *sd =
-        stereo_device_from_device(device);
-
-    if (!sd || !sd->real.AllocateCommandBuffers)
-        return VK_ERROR_INITIALIZATION_FAILED;
-
-    STEREO_LOG(
-        "ALLOC_CMD_BUFFERS count=%u level=%d",
-        pAllocateInfo->commandBufferCount,
-        pAllocateInfo->level);
-
-    VkResult res =
-        sd->real.AllocateCommandBuffers(
-            sd->real_device,
-            pAllocateInfo,
-            pCommandBuffers);
-
-    if (res == VK_SUCCESS) {
-        for (uint32_t i = 0; i < pAllocateInfo->commandBufferCount; i++) {
-            stereo_register_command_buffer(sd, pCommandBuffers[i]);
-        }
-    }
-
-    return res;
-}
-
 VKAPI_ATTR void VKAPI_CALL
 stereo_CmdBindPipeline(
     VkCommandBuffer commandBuffer,
@@ -755,19 +727,18 @@ stereo_CmdBindPipeline(
         pipeline);
 }
 
-StereoDevice* find_any_device(void)
+static StereoDevice *
+find_any_device(void)
 {
-    stereo_mutex_lock(&g_registry_lock);
-    for (uint32_t i = 0; i < g_registry_count; i++)
+    extern StereoDevice g_devices[];
+    extern uint32_t g_device_count;
+
+    for (uint32_t i = 0; i < g_device_count; i++)
     {
-        if (g_registry[i].active)
-        {
-            StereoDevice *sd = &g_registry[i];
-            stereo_mutex_unlock(&g_registry_lock);
-            return sd;
-        }
+        if (g_devices[i].real_device)
+            return &g_devices[i];
     }
-    stereo_mutex_unlock(&g_registry_lock);
+
     return NULL;
 }
 
@@ -780,7 +751,7 @@ stereo_CmdDrawIndexed(
     int32_t vertexOffset,
     uint32_t firstInstance)
 {
-    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb);
+    StereoDevice *sd = find_any_device();
     if (!sd)
         return;
     VkPipeline pipe =
@@ -825,7 +796,7 @@ stereo_CmdDraw(
     uint32_t firstVertex,
     uint32_t firstInstance)
 {
-    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb);
+    StereoDevice *sd = find_any_device();
     if (!sd)
         return;
     VkPipeline pipe =
@@ -872,7 +843,7 @@ stereo_CmdDrawIndirect(
     uint32_t drawCount,
     uint32_t stride)
 {
-    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb);
+    StereoDevice *sd = find_any_device();
     if (!sd)
         return;
     VkPipeline pipe =
@@ -918,7 +889,7 @@ stereo_CmdDrawIndexedIndirect(
     uint32_t drawCount,
     uint32_t stride)
 {
-    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb);
+    StereoDevice *sd = find_any_device();
     if (!sd)
         return;
     VkPipeline pipe =

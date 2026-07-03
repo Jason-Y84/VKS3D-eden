@@ -277,8 +277,6 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         return (PFN_vkVoidFunction)stereo_CmdBeginRenderPass;
     if (strstr(pName, "Rendering"))
         STEREO_LOG("GetDeviceProcAddr(%s)", pName);
-    if (!strcmp(pName, "vkAllocateCommandBuffers"))
-        return (PFN_vkVoidFunction)stereo_AllocateCommandBuffers;
     if (!strcmp(pName, "vkCmdBeginRendering"))
         return (PFN_vkVoidFunction)stereo_CmdBeginRendering;
     if (!strcmp(pName, "vkCmdBeginRenderingKHR"))
