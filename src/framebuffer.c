@@ -15,7 +15,6 @@
 #include <string.h>
 #include "stereo_icd.h"
 
-StereoDevice* stereo_device_from_command_buffer(VkCommandBuffer cb);
 StereoDevice* stereo_device_from_device(VkDevice device);
 
 void remember_begin_renderpass(
@@ -760,18 +759,19 @@ stereo_CmdBindPipeline(
         pipeline);
 }
 
-static StereoDevice *
-find_any_device(void)
+StereoDevice* find_any_device(void)
 {
-    extern StereoDevice g_devices[];
-    extern uint32_t g_device_count;
-
-    for (uint32_t i = 0; i < g_device_count; i++)
+    stereo_mutex_lock(&g_registry_lock);
+    for (uint32_t i = 0; i < g_registry_count; i++)
     {
-        if (g_devices[i].real_device)
-            return &g_devices[i];
+        if (g_registry[i].active)
+        {
+            StereoDevice *sd = &g_registry[i];
+            stereo_mutex_unlock(&g_registry_lock);
+            return sd;
+        }
     }
-
+    stereo_mutex_unlock(&g_registry_lock);
     return NULL;
 }
 
@@ -784,7 +784,7 @@ stereo_CmdDrawIndexed(
     int32_t vertexOffset,
     uint32_t firstInstance)
 {
-    StereoDevice *sd = find_any_device();
+    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb);
     if (!sd)
         return;
     VkPipeline pipe =
@@ -829,7 +829,7 @@ stereo_CmdDraw(
     uint32_t firstVertex,
     uint32_t firstInstance)
 {
-    StereoDevice *sd = find_any_device();
+    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb);
     if (!sd)
         return;
     VkPipeline pipe =
@@ -876,7 +876,7 @@ stereo_CmdDrawIndirect(
     uint32_t drawCount,
     uint32_t stride)
 {
-    StereoDevice *sd = find_any_device();
+    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb);
     if (!sd)
         return;
     VkPipeline pipe =
@@ -922,7 +922,7 @@ stereo_CmdDrawIndexedIndirect(
     uint32_t drawCount,
     uint32_t stride)
 {
-    StereoDevice *sd = find_any_device();
+    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb);
     if (!sd)
         return;
     VkPipeline pipe =

@@ -626,7 +626,7 @@ StereoDevice *stereo_device_from_device(VkDevice device)
 
 StereoDevice *stereo_device_from_command_buffer(VkCommandBuffer cb)
 {
-    StereoDevice *sd = find_any_device(); // fallback
+    StereoDevice *sd = stereo_device_from_handle((VkDevice)cb); // fallback
     if (!sd || !cb)
         return NULL;
     for (uint32_t i = 0; i < sd->cb_count; i++)
