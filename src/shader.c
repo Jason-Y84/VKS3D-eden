@@ -2158,6 +2158,35 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
 
             base = base->pNext;
         }
+        const VkBaseInStructure *base =
+            (const VkBaseInStructure*)ci->pNext;
+        
+        while (base)
+        {
+            STEREO_LOG(
+                "PIPE_PNEXT sType=%u ptr=%p",
+                base->sType,
+                (void*)base);
+        
+            if (base->sType ==
+                VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO)
+            {
+                const VkPipelineRenderingCreateInfo *pr =
+                    (const VkPipelineRenderingCreateInfo *)base;
+        
+                STEREO_LOG(
+                    "PIPE_RENDERING viewMask=0x%x colors=%u color0=%u depth=%u stencil=%u",
+                    pr->viewMask,
+                    pr->colorAttachmentCount,
+                    (pr->colorAttachmentCount > 0 && pr->pColorAttachmentFormats)
+                        ? pr->pColorAttachmentFormats[0]
+                        : 0,
+                    pr->depthAttachmentFormat,
+                    pr->stencilAttachmentFormat);
+            }
+        
+            base = base->pNext;
+        }
         if (!ci || ci->stageCount == 0 || !ci->pStages) {
             STEREO_LOG(
                 "PIPE_EMPTY_STAGE_PIPELINE p=%u rp=%p pNext=%p stageCount=%u pStages=%p isUI=%d isComputeLike=%d",
