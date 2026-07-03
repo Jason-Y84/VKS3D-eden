@@ -2224,11 +2224,12 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 sd->stereo.multiview;
         }
         STEREO_LOG(
-            "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u stages=%u has_vs=%u has_tes=%u quad=%u",
+            "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u view_mask=0x%x stages=%u has_vs=%u has_tes=%u quad=%u",
             p,
             (void*)ci->renderPass,
             (void*)rpi,
             (unsigned)in_mv_rp,
+            info->view_mask,
             ci->stageCount,
             (unsigned)has_vs,
             (unsigned)has_tes,
