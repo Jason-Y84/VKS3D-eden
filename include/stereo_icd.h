@@ -631,6 +631,9 @@ typedef struct StereoDevice {
     uint32_t cb_track_count;
     /* CommandBuffer → Device association */
     VkCommandBuffer *cb_keys;
+    void            **cb_values;
+    uint32_t         cb_count;
+    uint32_t         cb_capacity;
 } StereoDevice;
 
 /* -- Stereo UBO layout ----------------------------------------------------- */
