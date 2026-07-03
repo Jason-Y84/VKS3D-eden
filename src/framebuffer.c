@@ -669,6 +669,29 @@ stereo_CmdEndRendering(
     sd->real.CmdEndRendering(commandBuffer);
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL
+stereo_AllocateCommandBuffers(
+    VkDevice device,
+    const VkCommandBufferAllocateInfo *pAllocateInfo,
+    VkCommandBuffer *pCommandBuffers)
+{
+    StereoDevice *sd =
+        stereo_device_from_device(device);
+
+    if (!sd || !sd->real.AllocateCommandBuffers)
+        return VK_ERROR_INITIALIZATION_FAILED;
+
+    STEREO_LOG(
+        "ALLOC_CMD_BUFFERS count=%u level=%d",
+        pAllocateInfo->commandBufferCount,
+        pAllocateInfo->level);
+
+    return sd->real.AllocateCommandBuffers(
+        sd->real_device,
+        pAllocateInfo,
+        pCommandBuffers);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 stereo_CmdBindPipeline(
     VkCommandBuffer commandBuffer,
