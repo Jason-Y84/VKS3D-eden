@@ -2148,32 +2148,28 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         const VkGraphicsPipelineCreateInfo *ci=&pCI[p];
         const VkBaseInStructure *base =
             (const VkBaseInStructure*)ci->pNext;
-
+        uint32_t view_mask = 0;
+        /* ── Safety: Vulkan 1.3 dynamic rendering pipelines may not use pNext ── */
+        if (!ci->pNext) {
+            view_mask = 0;
+        }
         while (base)
         {
-            STEREO_LOG(
-                "PIPE_PNEXT sType=%u ptr=%p",
-                base->sType,
-                (void*)base);
-
+            if (base->sType ==
+                VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO)
+            {
+                const VkPipelineRenderingCreateInfo *ri =
+                    (const VkPipelineRenderingCreateInfo*)base;
+                view_mask = ri->viewMask;
+                STEREO_LOG(
+                    "PIPE_RENDERING_CAPTURE p=%u viewMask=0x%x colors=%u depth=%u stencil=%u",
+                    p,
+                    ri->viewMask,
+                    ri->colorAttachmentCount,
+                    ri->depthAttachmentFormat,
+                    ri->stencilAttachmentFormat);
+            }
             base = base->pNext;
-        }
-        const VkPipelineRenderingCreateInfo *pr =
-            (const VkPipelineRenderingCreateInfo *)ci->pNext;
-        
-        if (pr &&
-            pr->sType == VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO)
-        {
-            STEREO_LOG(
-                "PIPE_RENDERING viewMask=0x%x colors=%u color0=%u depth=%u stencil=%u",
-                pr->viewMask,
-                pr->colorAttachmentCount,
-                (pr->colorAttachmentCount &&
-                 pr->pColorAttachmentFormats)
-                    ? pr->pColorAttachmentFormats[0]
-                    : 0,
-                pr->depthAttachmentFormat,
-                pr->stencilAttachmentFormat);
         }
         if (!ci || ci->stageCount == 0 || !ci->pStages) {
             STEREO_LOG(
@@ -2186,7 +2182,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (ci && ci->pVertexInputState == NULL),
                 (ci && ci->stageCount == 0));
         }
-
         if (!ci ||
             ci->stageCount == 0 ||
             !ci->pStages)
@@ -2223,7 +2218,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         bool in_mv_rp = false;
         if (ci->renderPass != VK_NULL_HANDLE) {
             rpi = stereo_rp_lookup(sd, ci->renderPass);
-            in_mv_rp = (rpi != NULL && rpi->has_multiview);
+            in_mv_rp =
+                (rpi && rpi->has_multiview) ||
+                ((view_mask & 0x3) != 0) ||
+                sd->stereo.multiview;
         }
         STEREO_LOG(
             "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u stages=%u has_vs=%u has_tes=%u quad=%u",
@@ -2247,7 +2245,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             infos[p].renderPass = rpi->mv_handle;
         }
 
-        if (!in_mv_rp) {
+        if (!(in_mv_rp || view_mask != 0))
+        {
             STEREO_LOG(
                 "Pipe %u: rp=%p not multiview (VS=%d TES=%d stages=%u)",
                 p,
@@ -2256,7 +2255,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 has_tes,
                 ci->stageCount);
 
-            /* TEMP: continue removed for diagnostics */
+            /* IMPORTANT:
+             * Do NOT patch renderpass-based multiview logic for clearly mono pipelines
+             * BUT still allow FS quad / UI heuristics to run later
+             */
+            goto PIPE_DECISION_CONTINUE;
         }
 
         /* Substitute multiview render pass for pipeline compilation.
@@ -2596,6 +2599,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                    p, ci->stageCount, has_vs, has_tes, has_tcs);
     }
 
+    PIPE_DECISION_CONTINUE:
     /* ── PATCH 5: RenderPass-based multiview binding ─────────────── */
     for (uint32_t p = 0; p < N; p++) {
         StereoRenderPassInfo *rpi = NULL;
@@ -2675,6 +2679,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 info->vertex_binding_count =
                     pCI[p].pVertexInputState ?
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
+
+                info->view_mask = view_mask;
 
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
