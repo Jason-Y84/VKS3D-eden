@@ -808,7 +808,7 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
     L(CreateFramebuffer); L(DestroyFramebuffer);
     L(CreateRenderPass); L(DestroyRenderPass); L(GetRenderAreaGranularity);
     L(CreateCommandPool); L(DestroyCommandPool); L(ResetCommandPool);
-    L(AllocateCommandBuffers) = stereo_AllocateCommandBuffers; L(FreeCommandBuffers);
+    L(AllocateCommandBuffers); L(FreeCommandBuffers);
     L(BeginCommandBuffer); L(EndCommandBuffer); L(ResetCommandBuffer);
     L(CmdBindPipeline); L(CmdSetViewport); L(CmdSetScissor);
     L(CmdSetLineWidth); L(CmdSetDepthBias); L(CmdSetBlendConstants);
@@ -1137,31 +1137,3 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 /* Exported marker so try_load_icd() can detect us and skip self-loading */
 STEREO_EXPORT void vks3d_internal_marker(void) {}
 #endif
-
-VKAPI_ATTR VkResult VKAPI_CALL
-stereo_AllocateCommandBuffers(
-    VkDevice device,
-    const VkCommandBufferAllocateInfo* pAllocateInfo,
-    VkCommandBuffer* pCommandBuffers)
-{
-    StereoDevice *sd = stereo_device_from_device(device);
-    if (!sd)
-        return VK_ERROR_DEVICE_LOST;
-
-    VkResult res =
-        sd->real.AllocateCommandBuffers(device, pAllocateInfo, pCommandBuffers);
-
-    if (res != VK_SUCCESS)
-        return res;
-
-    for (uint32_t i = 0; i < pAllocateInfo->commandBufferCount; i++)
-    {
-        VkCommandBuffer cb = pCommandBuffers[i];
-
-        stereo_register_command_buffer(sd, cb);
-
-        STEREO_LOG("CB_REGISTER cb=%p device=%p", cb, sd);
-    }
-
-    return res;
-}
