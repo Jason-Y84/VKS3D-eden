@@ -402,7 +402,11 @@ typedef struct RealDeviceDispatch {
     VkResult (VKAPI_PTR *ImportSemaphoreWin32HandleKHR)(
         VkDevice,
         const VkImportSemaphoreWin32HandleInfoKHR *);
-
+    VKAPI_ATTR VkResult VKAPI_CALL
+    stereo_AllocateCommandBuffers(
+        VkDevice device,
+        const VkCommandBufferAllocateInfo* pAllocateInfo,
+        VkCommandBuffer* pCommandBuffers);
 } RealDeviceDispatch;
 
 /* -- Object wrappers ------------------------------------------------------- */
