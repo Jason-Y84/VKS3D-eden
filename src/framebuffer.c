@@ -633,8 +633,17 @@ stereo_CmdBeginRendering(
         "BEGIN_RENDERING ENTER cb=%p info=%p",
         (void*)commandBuffer,
         (void*)pRenderingInfo);
-    StereoDevice *sd =
-        stereo_device_from_command_buffer(commandBuffer);
+    extern StereoDevice g_devices[];
+    extern uint32_t g_device_count;
+    StereoDevice *sd = NULL;
+    for (uint32_t i = 0; i < g_device_count; i++)
+    {
+        if (g_devices[i].real_device)
+        {
+            sd = &g_devices[i];
+            break;
+        }
+    }
     STEREO_LOG(
         "BEGIN_RENDERING LOOKUP sd=%p real=%p",
         (void*)sd,
@@ -647,6 +656,11 @@ stereo_CmdBeginRendering(
         pRenderingInfo->layerCount,
         pRenderingInfo->colorAttachmentCount,
         pRenderingInfo->flags);
+    STEREO_LOG(
+        "BEGIN_RENDERING FORWARD real=%p viewMask=0x%x layers=%u",
+        sd->real.CmdBeginRendering,
+        pRenderingInfo->viewMask,
+        pRenderingInfo->layerCount);
     sd->real.CmdBeginRendering(
         commandBuffer,
         pRenderingInfo);
@@ -657,8 +671,19 @@ stereo_CmdEndRendering(
     VkCommandBuffer commandBuffer)
 {
     STEREO_LOG("END_RENDERING ENTER");
-    StereoDevice *sd =
-        stereo_device_from_command_buffer(commandBuffer);
+    extern StereoDevice g_devices[];
+    extern uint32_t g_device_count;
+    
+    StereoDevice *sd = NULL;
+    
+    for (uint32_t i = 0; i < g_device_count; i++)
+    {
+        if (g_devices[i].real_device)
+        {
+            sd = &g_devices[i];
+            break;
+        }
+    }
     STEREO_LOG(
         "END_RENDERING LOOKUP sd=%p real=%p",
         (void*)sd,
@@ -666,6 +691,9 @@ stereo_CmdEndRendering(
     if (!sd || !sd->real.CmdEndRendering)
         return;
     STEREO_LOG("END_RENDERING");
+    STEREO_LOG(
+        "END_RENDERING FORWARD real=%p",
+        sd->real.CmdEndRendering);
     sd->real.CmdEndRendering(commandBuffer);
 }
 
