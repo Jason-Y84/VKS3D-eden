@@ -864,6 +864,27 @@ lookup_bound_pipeline(
     return VK_NULL_HANDLE;
 }
 
+StereoDevice *
+stereo_device_from_command_buffer(
+    VkCommandBuffer cb)
+{
+    extern StereoDevice g_devices[];
+    extern uint32_t g_device_count;
+
+    for (uint32_t d = 0; d < g_device_count; d++)
+    {
+        StereoDevice *sd = &g_devices[d];
+
+        for (uint32_t i = 0; i < sd->cb_track_count; i++)
+        {
+            if (sd->cb_track[i].cb == cb)
+                return sd;
+        }
+    }
+
+    return NULL;
+}
+
 void
 remember_bound_pipeline(
     StereoDevice *sd,
@@ -1283,57 +1304,6 @@ bool spirv_patch_stereo_vertex(
         m.has_direct_position_write,
         m.dot_count,
         m.has_viewindex_builtin);
-    //if (spv_hash == 0xc3c35ab856282a97ULL)
-    //{
-    //    STEREO_LOG(
-    //        "DXVK_UI_CANDIDATE hash=%016llx matrix=%d pos_block=%d pos_member=%u view=%u exec=%u",
-    //        (unsigned long long)spv_hash,
-    //        m.has_matrix_ops,
-    //        m.pos_is_block,
-    //        m.pos_member_idx,
-    //        m.view_var,
-    //        (unsigned)m.exec_model);
-    //}
-    /* TEMP: shader blacklist for debugging.
-     * Return the original shader unchanged so we can identify which
-     * patched shader is responsible for the remaining stereo artifact.
-     */
-
-    //Flatten ShadowMap.exe world geometry
-    // if (spv_hash == 0xe019379afc782113ull)
-    // {
-    //     STEREO_LOG(
-    //         "BLACKLIST shader=%016llx",
-    //         (unsigned long long)spv_hash);
-    //     return false;
-    // }
-
-    ////Flatten ShadowMap.exe UI
-    //if (spv_hash == 0x1194cbb18ed7990full)
-    //{
-    //    STEREO_LOG(
-    //        "BLACKLIST shader=%016llx",
-    //        (unsigned long long)spv_hash);
-    //    return false;
-    //}
-    ////Flatten SimpleSample.exe UI
-    //if (spv_hash == 0xc3c35ab856282a97ull)
-    //{
-    //    STEREO_LOG(
-    //        "BLACKLIST shader=%016llx",
-    //        (unsigned long long)spv_hash);
-    //    return false;
-    //}
-
-    ////Flatten RBR UI
-    //if (spv_hash == 0x898ca1de82f2ced7ull)
-    //{
-    //    STEREO_LOG(
-    //        "BLACKLIST shader=%016llx",
-    //        (unsigned long long)spv_hash);
-    //    return false;
-    //}
-
     if (dbg)
     {
         STEREO_LOG(
@@ -1496,13 +1466,22 @@ bool spirv_patch_stereo_vertex(
         m.view_var=id_inj_view;
     }
 
-    BodyCtx bc={&m, have_view, uv4, uint_, bt,
-        id_cz, id_cf0,
-        id_cl, id_cr, id_cc,
+    BodyCtx bc = {
+        &m,
+        have_view,
+        uv4,
+        uint_,
+        bt,
+        id_cz,
+        id_cf0,
+        id_cl,
+        id_cr,
+        id_cc,
         projection_mode,
         lo,
         ro,
-        NULL
+        cfg ? cfg->flip_eyes : 0,
+        dbg
     };
     STEREO_LOG(
         "PATCH_BODY hash=%016llx lo=%f ro=%f conv=%f have_view=%d pos=%u",
@@ -2146,7 +2125,45 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         sd->stereo.flip_eyes);
     for (uint32_t p=0; p<N; p++) {
         const VkGraphicsPipelineCreateInfo *ci=&pCI[p];
-
+        StereoPipelineInfo *info =
+            add_pipeline_info(sd);
+        const VkBaseInStructure *base =
+            (const VkBaseInStructure*)ci->pNext;
+        uint32_t view_mask = 0;
+        /* ── Safety: Vulkan 1.3 dynamic rendering pipelines may not use pNext ── */
+        while (base)
+        {
+            if (base->sType ==
+                VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO)
+            {
+                const VkPipelineRenderingCreateInfo *ri =
+                 (const VkPipelineRenderingCreateInfo*)base;
+                VkPipelineRenderingCreateInfo *rw =
+                 (VkPipelineRenderingCreateInfo*)base;
+                
+                /* Dynamic rendering path: if stereo is enabled and the app left
+                 * viewMask at 0, promote it to 0x3 so the pipeline is actually
+                 * created for multiview. */
+                if (sd->stereo.multiview && rw->viewMask == 0) {
+                 STEREO_LOG(
+                  "PIPE_RENDERING_UPGRADE p=%u viewMask 0x0->0x3 colors=%u depth=%u stencil=%u",
+                  p,
+                  ri->colorAttachmentCount,
+                  ri->depthAttachmentFormat,
+                  ri->stencilAttachmentFormat);
+                 rw->viewMask = 0x3;
+                }
+                view_mask = rw->viewMask;
+                STEREO_LOG(
+                    "PIPE_RENDERING_CAPTURE p=%u viewMask=0x%x colors=%u depth=%u stencil=%u",
+                    p,
+                    rw->viewMask,
+                    ri->colorAttachmentCount,
+                    ri->depthAttachmentFormat,
+                    ri->stencilAttachmentFormat);
+            }
+            base = base->pNext;
+        }
         if (!ci || ci->stageCount == 0 || !ci->pStages) {
             STEREO_LOG(
                 "PIPE_EMPTY_STAGE_PIPELINE p=%u rp=%p pNext=%p stageCount=%u pStages=%p isUI=%d isComputeLike=%d",
@@ -2158,7 +2175,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (ci && ci->pVertexInputState == NULL),
                 (ci && ci->stageCount == 0));
         }
-
         if (!ci ||
             ci->stageCount == 0 ||
             !ci->pStages)
@@ -2195,15 +2211,25 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         bool in_mv_rp = false;
         if (ci->renderPass != VK_NULL_HANDLE) {
             rpi = stereo_rp_lookup(sd, ci->renderPass);
-            in_mv_rp = (rpi != NULL && rpi->has_multiview);
+            in_mv_rp =
+                (rpi && rpi->has_multiview) ||
+                ((view_mask & 0x3) != 0) ||
+                sd->stereo.multiview;
+        }
+        else if (sd->stereo.multiview && (view_mask & 0x3) != 0) {
+        /* VK 1.3 dynamic rendering: no renderPass handle, but we already
+         * upgraded VkPipelineRenderingCreateInfo.viewMask above. Treat it
+         * as multiview so VS/TES patching still runs. */
+        in_mv_rp = true;
         }
         STEREO_LOG(
-            "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u stages=%u has_vs=%u has_tes=%u quad=%u",
+            "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u view_mask=0x%x stages=%u has_vs=%u has_tes=%u quad=%u",
             p,
             (void*)ci->renderPass,
             (void*)rpi,
             (unsigned)in_mv_rp,
-            ci->stageCount,
+            view_mask,
+            (unsigned)ci->stageCount,
             (unsigned)has_vs,
             (unsigned)has_tes,
             (!ci->pVertexInputState ||
@@ -2213,13 +2239,25 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         /* Multiview is render-pass driven ONLY.
          * Pipeline pNext must NOT contain VkPipelineMultiviewCreateInfo (invalid Vulkan API). */
         if (in_mv_rp) {
-            STEREO_LOG("Pipe %u: MV RP detected (stageCount=%u) - no pipeline pNext needed",
-                       p, ci->stageCount);
-            /* optional: mark via internal flag if needed later */
-            infos[p].renderPass = rpi->mv_handle;
+            if (rpi && rpi->mv_handle) {
+                STEREO_LOG(
+                    "Pipe %u: MV RP detected (stageCount=%u) - using MV render pass %p",
+                    p,
+                    ci->stageCount,
+                    (void*)rpi->mv_handle);
+                /* render-pass pipeline path only */
+                infos[p].renderPass = rpi->mv_handle;
+            } else {
+                STEREO_LOG(
+                    "Pipe %u: dynamic rendering multiview detected (stageCount=%u) - no renderPass swap",
+                    p,
+                    ci->stageCount);
+                /* VK 1.3 dynamic rendering: keep infos[p].renderPass as-is */
+            }
         }
 
-        if (!in_mv_rp) {
+        if (!in_mv_rp)
+        {
             STEREO_LOG(
                 "Pipe %u: rp=%p not multiview (VS=%d TES=%d stages=%u)",
                 p,
@@ -2228,7 +2266,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 has_tes,
                 ci->stageCount);
 
-            /* TEMP: continue removed for diagnostics */
+            /* IMPORTANT:
+             * Do NOT patch renderpass-based multiview logic for clearly mono pipelines
+             * BUT still allow FS quad / UI heuristics to run later
+             */
+            goto PIPE_DECISION_CONTINUE;
         }
 
         /* Substitute multiview render pass for pipeline compilation.
@@ -2238,13 +2280,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
          * pipelines to be used with both MV and non-MV framebuffers since
          * viewMask is not part of the compatibility criteria. */
 
-        if (rpi && rpi->mv_handle && rpi->has_multiview)
+        if (rpi && rpi->mv_handle && rpi->has_multiview && in_mv_rp)
         {
-            /* IMPORTANT: DXVK safety gate
-             * Only swap renderpass if the actual active RP is MV-capable
-             */
-            if (in_mv_rp)
-                infos[p].renderPass = rpi->mv_handle;
+            /* Render-pass path only; dynamic rendering has no renderPass to swap. */
+            infos[p].renderPass = rpi->mv_handle;
         }
 
         /* ── Full-screen quad detection ──────────────────────────────────
@@ -2568,6 +2607,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                    p, ci->stageCount, has_vs, has_tes, has_tcs);
     }
 
+    PIPE_DECISION_CONTINUE:
     /* ── PATCH 5: RenderPass-based multiview binding ─────────────── */
     for (uint32_t p = 0; p < N; p++) {
         StereoRenderPassInfo *rpi = NULL;
@@ -2647,6 +2687,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 info->vertex_binding_count =
                     pCI[p].pVertexInputState ?
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
+
+                info->view_mask = 0; /* default */
 
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {

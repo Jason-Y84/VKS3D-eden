@@ -15,6 +15,30 @@
 #include <string.h>
 #include "stereo_icd.h"
 
+StereoDevice* stereo_device_from_command_buffer(VkCommandBuffer cb);
+
+void remember_begin_renderpass(
+    StereoDevice* sd,
+    VkCommandBuffer cb,
+    VkRenderPass rp,
+    uint32_t flags);
+
+StereoDevice *
+stereo_device_from_command_buffer(
+    VkCommandBuffer cb);
+
+VkRenderPass lookup_bound_renderpass(
+    StereoDevice* sd,
+    VkCommandBuffer cb);
+
+VkFramebuffer lookup_bound_framebuffer(
+    StereoDevice* sd,
+    VkCommandBuffer cb);
+
+VkPipeline lookup_bound_pipeline(
+    StereoDevice* sd,
+    VkCommandBuffer cb);
+
 /* ── vkCreateFramebuffer ────────────────────────────────────────────────── */
 VKAPI_ATTR VkResult VKAPI_CALL
 stereo_CreateFramebuffer(
@@ -601,6 +625,88 @@ stereo_CmdBeginRenderPass(
 }
 
 VKAPI_ATTR void VKAPI_CALL
+stereo_CmdBeginRendering(
+    VkCommandBuffer commandBuffer,
+    const VkRenderingInfo *pRenderingInfo)
+{
+    STEREO_LOG(
+        "BEGIN_RENDERING ENTER cb=%p info=%p",
+        (void*)commandBuffer,
+        (void*)pRenderingInfo);
+    extern StereoDevice g_devices[];
+    extern uint32_t g_device_count;
+    StereoDevice *sd = NULL;
+    for (uint32_t i = 0; i < g_device_count; i++)
+    {
+        if (g_devices[i].real_device)
+        {
+            sd = &g_devices[i];
+            break;
+        }
+    }
+    STEREO_LOG(
+        "BEGIN_RENDERING LOOKUP sd=%p real=%p",
+        (void*)sd,
+        sd ? (void*)sd->real.CmdBeginRendering : NULL);
+    if (!sd || !sd->real.CmdBeginRendering)
+        return;
+    VkRenderingInfo modified = *pRenderingInfo;
+    if (sd->stereo.multiview && modified.viewMask == 0)
+    {
+        modified.viewMask = 0x3;
+        STEREO_LOG(
+            "BEGIN_RENDERING_UPGRADE viewMask 0x0->0x3 layerCount=%u colors=%u",
+            modified.layerCount,
+            modified.colorAttachmentCount);
+    }
+    STEREO_LOG(
+        "BEGIN_RENDERING viewMask=0x%x layerCount=%u colors=%u flags=0x%x",
+        modified.viewMask,
+        modified.layerCount,
+        modified.colorAttachmentCount,
+        modified.flags);
+    STEREO_LOG(
+        "BEGIN_RENDERING FORWARD real=%p viewMask=0x%x layers=%u",
+        sd->real.CmdBeginRendering,
+        modified.viewMask,
+        modified.layerCount);
+    sd->real.CmdBeginRendering(
+        commandBuffer,
+        &modified);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+stereo_CmdEndRendering(
+    VkCommandBuffer commandBuffer)
+{
+    STEREO_LOG("END_RENDERING ENTER");
+    extern StereoDevice g_devices[];
+    extern uint32_t g_device_count;
+    
+    StereoDevice *sd = NULL;
+    
+    for (uint32_t i = 0; i < g_device_count; i++)
+    {
+        if (g_devices[i].real_device)
+        {
+            sd = &g_devices[i];
+            break;
+        }
+    }
+    STEREO_LOG(
+        "END_RENDERING LOOKUP sd=%p real=%p",
+        (void*)sd,
+        sd ? (void*)sd->real.CmdEndRendering : NULL);
+    if (!sd || !sd->real.CmdEndRendering)
+        return;
+    STEREO_LOG("END_RENDERING");
+    STEREO_LOG(
+        "END_RENDERING FORWARD real=%p",
+        sd->real.CmdEndRendering);
+    sd->real.CmdEndRendering(commandBuffer);
+}
+
+VKAPI_ATTR void VKAPI_CALL
 stereo_CmdBindPipeline(
     VkCommandBuffer commandBuffer,
     VkPipelineBindPoint pipelineBindPoint,
@@ -672,7 +778,6 @@ find_any_device(void)
 
     return NULL;
 }
-
 
 VKAPI_ATTR void VKAPI_CALL
 stereo_CmdDrawIndexed(

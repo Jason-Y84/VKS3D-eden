@@ -10,8 +10,6 @@ env:
 on:
   push:
     Branches: $Branch
-  pull_request:
-    Branches: $Branch
   workflow_dispatch:
 
 jobs:
