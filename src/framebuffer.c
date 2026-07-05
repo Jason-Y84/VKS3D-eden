@@ -47,10 +47,11 @@ stereo_CreateFramebuffer(
     const VkAllocationCallbacks    *pAllocator,
     VkFramebuffer                  *pFramebuffer)
 {
-    STEREO_LOG("[FB ENTRY RAW] pFramebuffer=%p rp=%p attachmentCount=%u",
-               pFramebuffer,
-               pCreateInfo->renderPass,
-               pCreateInfo->attachmentCount);
+    STEREO_LOG("[FB ENTRY RAW] tid=%lu pFramebuffer=%p rp=%p attachmentCount=%u",
+        GetCurrentThreadId(),
+        pFramebuffer,
+        pCreateInfo->renderPass,
+        pCreateInfo->attachmentCount);
     StereoDevice *sd = stereo_device_from_handle(device);
     STEREO_LOG(
         "FB_DEVICE sd=%p real_device=%p fb_track_count(before)=%u",
@@ -178,11 +179,18 @@ stereo_CreateFramebuffer(
             (void*)original_rp,
             (void*)fci.renderPass,
             (void*)use_mv);
-        uint32_t idx = sd->fb_track_count;
 
-        /* IMPORTANT: snapshot BEFORE increment */
-        StereoFramebufferTrack *t = &sd->fb_tracks[idx];
-        memset(t, 0, sizeof(*t));
+         /* Reserve a unique tracking slot immediately.
+          * This avoids two concurrent CreateFramebuffer calls both
+          * writing the same entry before fb_track_count is advanced.
+          */
+         uint32_t idx = sd->fb_track_count++;
+         STEREO_LOG(
+             "FB_COUNT_RESERVE idx=%u next=%u",
+             idx,
+             sd->fb_track_count);
+         StereoFramebufferTrack *t = &sd->fb_tracks[idx];
+         memset(t, 0, sizeof(*t));
 
         STEREO_LOG(
             "FB_LAYOUT t=%p &fb=%p &rp=%p &rp_used=%p &mv_rp=%p &has_mv=%p sizeof=%u",
@@ -327,9 +335,6 @@ stereo_CreateFramebuffer(
                 *pFramebuffer,
                 pCreateInfo->renderPass);
         }
-        sd->fb_track_count++;
-        StereoFramebufferTrack *verify =
-            &sd->fb_tracks[idx];
         STEREO_LOG(
             "FB_TRACK_VERIFY idx=%u fb=%08x rp=%08x mv_rp=%08x has_mv=%u",
             idx,
