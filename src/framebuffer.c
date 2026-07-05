@@ -760,16 +760,10 @@ stereo_CmdBindPipeline(
         commandBuffer,
         pipeline);
 
-    /* Try to resolve current rendering state from commandBuffer */
-    StereoCmdBuffer *cb = stereo_cmd_from_handle(commandBuffer);
     if (info)
     {
         STEREO_LOG(
             "PIPE_BIND pipe=%p "
-            "cb=%p "
-            "fb=%p "
-            "rp=%p "
-            "mv_rp=%p "
             "mv_rp=%p "
             "orig_rp=%p "
             "patched_vs=%u "
@@ -777,10 +771,6 @@ stereo_CmdBindPipeline(
             "quad=%u "
             "bindings=%u",
             (void*)pipeline,
-            (void*)cb,
-            cb ? (void*)cb->current_framebuffer : NULL,
-            cb ? (void*)cb->current_renderpass : NULL,
-            cb ? (void*)cb->current_mv_renderpass : NULL,
             (void*)info->mv_renderpass,
             (void*)info->original_renderpass,
             info->patched_vs,
@@ -791,24 +781,13 @@ stereo_CmdBindPipeline(
     else
     {
         STEREO_LOG(
-            "PIPE_BIND pipe=%p UNKNOWN cb=%p fb=%p rp=%p mv_rp=%p",
+            "PIPE_BIND pipe=%p UNKNOWN",
             (void*)pipeline);
-            (void*)cb,
-            cb ? (void*)cb->current_framebuffer : NULL,
-            cb ? (void*)cb->current_renderpass : NULL,
-            cb ? (void*)cb->current_mv_renderpass : NULL;
     }
     sd->real.CmdBindPipeline(
         commandBuffer,
         pipelineBindPoint,
         pipeline);
-    STEREO_LOG(
-        "PIPE_BIND_DONE pipe=%p cb=%p fb=%p rp=%p mv_rp=%p",
-        (void*)pipeline,
-        (void*)cb,
-        cb ? (void*)cb->current_framebuffer : NULL,
-        cb ? (void*)cb->current_renderpass : NULL,
-        cb ? (void*)cb->current_mv_renderpass : NULL);
 }
 
 static StereoDevice *
