@@ -189,8 +189,16 @@ stereo_CreateFramebuffer(
              "FB_COUNT_RESERVE idx=%u next=%u",
              idx,
              sd->fb_track_count);
-         StereoFramebufferTrack *t = &sd->fb_tracks[idx];
-         memset(t, 0, sizeof(*t));
+        if (idx >= MAX_FB_TRACK)
+        {
+            STEREO_LOG(
+                "[FB OVERFLOW] idx=%u max=%u",
+                idx,
+                MAX_FB_TRACK);
+            return VK_ERROR_TOO_MANY_OBJECTS;
+        }
+        StereoFramebufferTrack *t = &sd->fb_tracks[idx];
+        memset(t, 0, sizeof(*t));
 
         STEREO_LOG(
             "FB_LAYOUT t=%p &fb=%p &rp=%p &rp_used=%p &mv_rp=%p &has_mv=%p sizeof=%u",
@@ -337,6 +345,17 @@ stereo_CreateFramebuffer(
         }
         StereoFramebufferTrack *verify =
             &sd->fb_tracks[idx];
+        for (uint32_t j = 0; j < idx; j++)
+        {
+            if (sd->fb_tracks[j].fb == verify->fb)
+            {
+                STEREO_LOG(
+                    "[FB DUPLICATE] idx=%u previous=%u fb=%p",
+                    idx,
+                    j,
+                    verify->fb);
+            }
+        }
         STEREO_LOG(
             "FB_TRACK_VERIFY idx=%u fb=%08x rp=%08x mv_rp=%08x has_mv=%u",
             idx,
