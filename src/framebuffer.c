@@ -668,8 +668,8 @@ stereo_CmdBeginRendering(
     STEREO_LOG(
         "BEGIN_RENDERING FORWARD real=%p viewMask=0x%x layers=%u",
         sd->real.CmdBeginRendering,
-        pRenderingInfo->viewMask,
-        pRenderingInfo->layerCount);
+        modified.viewMask,
+        modified.layerCount);
     sd->real.CmdBeginRendering(
         commandBuffer,
         &modified);

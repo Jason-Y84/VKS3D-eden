@@ -2216,10 +2216,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 ((view_mask & 0x3) != 0) ||
                 sd->stereo.multiview;
         }
-        else if (sd->stereo.multiview && view_mask == 0) {
-         /* Dynamic rendering and app left viewMask unset; treat it as stereo. */
-         view_mask = 0x3;
-         in_mv_rp = true;
+        else if (sd->stereo.multiview && (view_mask & 0x3) != 0) {
+        /* VK 1.3 dynamic rendering: no renderPass handle, but we already
+         * upgraded VkPipelineRenderingCreateInfo.viewMask above. Treat it
+         * as multiview so VS/TES patching still runs. */
+        in_mv_rp = true;
         }
         STEREO_LOG(
             "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u view_mask=0x%x stages=%u has_vs=%u has_tes=%u quad=%u",
