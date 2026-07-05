@@ -623,20 +623,7 @@ cmd_image_barrier(
     VK_PIPELINE_STAGE_TRANSFER_BIT,
     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-VkResult er = sd->real.EndCommandBuffer(cmd);
-
-STEREO_LOG(
-    "END_CB cmd=%p res=%d",
-    (void *)cmd,
-    er);
-
-if (er != VK_SUCCESS)
-{
-    STEREO_ERR(
-        "EndCommandBuffer FAILED cmd=%p res=%d",
-        (void *)cmd,
-        er);
-}
+sd->real.EndCommandBuffer(cmd);
 
 sd->nv3d_value++;
 

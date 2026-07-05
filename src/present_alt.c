@@ -1108,20 +1108,7 @@ VkResult gpu_compose_present(StereoDevice *sd, StereoSwapchain *sc,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0,0,NULL,0,NULL,1,&b3);
 
-    VkResult er = sd->real.EndCommandBuffer(cmd);
-
-    STEREO_LOG(
-        "END_CB cmd=%p res=%d",
-        (void *)cmd,
-        er);
-
-    if (er != VK_SUCCESS)
-    {
-        STEREO_ERR(
-            "EndCommandBuffer FAILED cmd=%p res=%d",
-            (void *)cmd,
-            er);
-    }
+    sd->real.EndCommandBuffer(cmd);
 
     /* Submit: wait on render sems + acquire sem; signal blit_done; fence for next-frame sync */
     uint32_t             nw    = wait_sem_count + 1;
