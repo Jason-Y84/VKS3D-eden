@@ -2239,10 +2239,21 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         /* Multiview is render-pass driven ONLY.
          * Pipeline pNext must NOT contain VkPipelineMultiviewCreateInfo (invalid Vulkan API). */
         if (in_mv_rp) {
-            STEREO_LOG("Pipe %u: MV RP detected (stageCount=%u) - no pipeline pNext needed",
-                       p, ci->stageCount);
-            /* optional: mark via internal flag if needed later */
-            infos[p].renderPass = rpi->mv_handle;
+            if (rpi && rpi->mv_handle) {
+                STEREO_LOG(
+                    "Pipe %u: MV RP detected (stageCount=%u) - using MV render pass %p",
+                    p,
+                    ci->stageCount,
+                    (void*)rpi->mv_handle);
+                /* render-pass pipeline path only */
+                infos[p].renderPass = rpi->mv_handle;
+            } else {
+                STEREO_LOG(
+                    "Pipe %u: dynamic rendering multiview detected (stageCount=%u) - no renderPass swap",
+                    p,
+                    ci->stageCount);
+                /* VK 1.3 dynamic rendering: keep infos[p].renderPass as-is */
+            }
         }
 
         if (!in_mv_rp)
@@ -2269,13 +2280,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
          * pipelines to be used with both MV and non-MV framebuffers since
          * viewMask is not part of the compatibility criteria. */
 
-        if (rpi && rpi->mv_handle && rpi->has_multiview)
+        if (rpi && rpi->mv_handle && rpi->has_multiview && in_mv_rp)
         {
-            /* IMPORTANT: DXVK safety gate
-             * Only swap renderpass if the actual active RP is MV-capable
-             */
-            if (in_mv_rp)
-                infos[p].renderPass = rpi->mv_handle;
+            /* Render-pass path only; dynamic rendering has no renderPass to swap. */
+            infos[p].renderPass = rpi->mv_handle;
         }
 
         /* ── Full-screen quad detection ──────────────────────────────────
