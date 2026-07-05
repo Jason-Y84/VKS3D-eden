@@ -335,6 +335,8 @@ stereo_CreateFramebuffer(
                 *pFramebuffer,
                 pCreateInfo->renderPass);
         }
+        StereoFramebufferTrack *verify =
+            &sd->fb_tracks[idx];
         STEREO_LOG(
             "FB_TRACK_VERIFY idx=%u fb=%08x rp=%08x mv_rp=%08x has_mv=%u",
             idx,
