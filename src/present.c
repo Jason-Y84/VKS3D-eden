@@ -141,17 +141,7 @@ VkResult stereo_dxgi_present(
         .commandBufferCount   = 1,
         .pCommandBuffers      = &sc->barrier_cmds[0],
     };
-    STEREO_LOG(
-        "QUEUE_SUBMIT present.c queue=%p cmd=%p waits=%u signals=%u",
-        (void *)queue,
-        submit.commandBufferCount ?
-            (void *)submit.pCommandBuffers[0] : NULL,
-        submit.waitSemaphoreCount,
-        submit.signalSemaphoreCount);
     res = sd->real.QueueSubmit(queue, 1, &submit, sc->barrier_fences[0]);
-    STEREO_LOG(
-        "QUEUE_SUBMIT_RESULT present.c res=%d",
-        res);
     free(stage_masks);
     if (res != VK_SUCCESS) {
         STEREO_ERR("Barrier submit failed: %d", res);

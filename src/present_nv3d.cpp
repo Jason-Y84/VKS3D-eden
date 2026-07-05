@@ -668,22 +668,14 @@ VkSubmitInfo sub = {
     .signalSemaphoreCount = 1,
     .pSignalSemaphores    = &sd->nv3d_timeline,
 };
-STEREO_LOG(
-    "QUEUE_SUBMIT present.c queue=%p cmd=%p waits=%u signals=%u",
-    (void *)queue,
-    submit.commandBufferCount ?
-        (void *)submit.pCommandBuffers[0] : NULL,
-    submit.waitSemaphoreCount,
-    submit.signalSemaphoreCount);
+
 VkResult vr =
     sd->real.QueueSubmit(
         queue,
         1,
         &sub,
         VK_NULL_HANDLE);
-STEREO_LOG(
-    "QUEUE_SUBMIT_RESULT present.c res=%d",
-    res);
+
 if (vr != VK_SUCCESS)
     return vr;
 
