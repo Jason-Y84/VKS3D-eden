@@ -650,12 +650,21 @@ stereo_CmdBeginRendering(
         sd ? (void*)sd->real.CmdBeginRendering : NULL);
     if (!sd || !sd->real.CmdBeginRendering)
         return;
+    VkRenderingInfo modified = *pRenderingInfo;
+    if (sd->stereo.multiview && modified.viewMask == 0)
+    {
+        modified.viewMask = 0x3;
+        STEREO_LOG(
+            "BEGIN_RENDERING_UPGRADE viewMask 0x0->0x3 layerCount=%u colors=%u",
+            modified.layerCount,
+            modified.colorAttachmentCount);
+    }
     STEREO_LOG(
         "BEGIN_RENDERING viewMask=0x%x layerCount=%u colors=%u flags=0x%x",
-        pRenderingInfo->viewMask,
-        pRenderingInfo->layerCount,
-        pRenderingInfo->colorAttachmentCount,
-        pRenderingInfo->flags);
+        modified.viewMask,
+        modified.layerCount,
+        modified.colorAttachmentCount,
+        modified.flags);
     STEREO_LOG(
         "BEGIN_RENDERING FORWARD real=%p viewMask=0x%x layers=%u",
         sd->real.CmdBeginRendering,
@@ -663,7 +672,7 @@ stereo_CmdBeginRendering(
         pRenderingInfo->layerCount);
     sd->real.CmdBeginRendering(
         commandBuffer,
-        pRenderingInfo);
+        &modified);
 }
 
 VKAPI_ATTR void VKAPI_CALL

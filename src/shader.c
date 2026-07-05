@@ -2131,21 +2131,33 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             (const VkBaseInStructure*)ci->pNext;
         uint32_t view_mask = 0;
         /* ── Safety: Vulkan 1.3 dynamic rendering pipelines may not use pNext ── */
-        if (!ci->pNext) {
-            view_mask = 0;
-        }
         while (base)
         {
             if (base->sType ==
                 VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO)
             {
                 const VkPipelineRenderingCreateInfo *ri =
-                    (const VkPipelineRenderingCreateInfo*)base;
-                view_mask = ri->viewMask;
+                 (const VkPipelineRenderingCreateInfo*)base;
+                VkPipelineRenderingCreateInfo *rw =
+                 (VkPipelineRenderingCreateInfo*)base;
+                
+                /* Dynamic rendering path: if stereo is enabled and the app left
+                 * viewMask at 0, promote it to 0x3 so the pipeline is actually
+                 * created for multiview. */
+                if (sd->stereo.multiview && rw->viewMask == 0) {
+                 STEREO_LOG(
+                  "PIPE_RENDERING_UPGRADE p=%u viewMask 0x0->0x3 colors=%u depth=%u stencil=%u",
+                  p,
+                  ri->colorAttachmentCount,
+                  ri->depthAttachmentFormat,
+                  ri->stencilAttachmentFormat);
+                 rw->viewMask = 0x3;
+                }
+                view_mask = rw->viewMask;
                 STEREO_LOG(
                     "PIPE_RENDERING_CAPTURE p=%u viewMask=0x%x colors=%u depth=%u stencil=%u",
                     p,
-                    ri->viewMask,
+                    rw->viewMask,
                     ri->colorAttachmentCount,
                     ri->depthAttachmentFormat,
                     ri->stencilAttachmentFormat);
@@ -2203,6 +2215,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (rpi && rpi->has_multiview) ||
                 ((view_mask & 0x3) != 0) ||
                 sd->stereo.multiview;
+        }
+        else if (sd->stereo.multiview && view_mask == 0) {
+         /* Dynamic rendering and app left viewMask unset; treat it as stereo. */
+         view_mask = 0x3;
+         in_mv_rp = true;
         }
         STEREO_LOG(
             "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u view_mask=0x%x stages=%u has_vs=%u has_tes=%u quad=%u",
