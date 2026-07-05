@@ -363,7 +363,39 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
         .commandBufferCount   = 1,
         .pCommandBuffers      = &sc->cpu_cmd,
     };
+    for (uint32_t s = 0; s < submitCount; s++)
+    {
+        STEREO_LOG(
+            "SUBMIT[%u] waits=%u cmds=%u signals=%u",
+            s,
+            pSubmits[s].waitSemaphoreCount,
+            pSubmits[s].commandBufferCount,
+            pSubmits[s].signalSemaphoreCount);
+    
+        for (uint32_t c = 0; c < pSubmits[s].commandBufferCount; c++)
+        {
+            STEREO_LOG(
+                "SUBMIT[%u] cmd[%u]=%p",
+                s,
+                c,
+                (void*)pSubmits[s].pCommandBuffers[c]);
+        }
+    }
     VkResult res = sd->real.QueueSubmit(queue, 1, &si, sc->cpu_fence);
+    if (res != VK_SUCCESS)
+    {
+        STEREO_LOG(
+            "QUEUE_SUBMIT FAILED res=%d submitCount=%u fence=%p",
+            res,
+            submitCount,
+            (void*)fence);
+    }
+    else
+    {
+        STEREO_LOG(
+            "QUEUE_SUBMIT OK submitCount=%u",
+            submitCount);
+    }
     free(masks);
     if (res != VK_SUCCESS) return res;
 
