@@ -82,7 +82,20 @@ static VkResult record_barrier_cmd(
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
-    return sd->real.EndCommandBuffer(cmd);
+    VkResult er = sd->real.EndCommandBuffer(cmd);
+
+    STEREO_LOG(
+        "END_CB cmd=%p res=%d",
+        (void *)cmd,
+        er);
+
+    if (er != VK_SUCCESS)
+    {
+        STEREO_ERR(
+            "EndCommandBuffer FAILED cmd=%p res=%d",
+            (void *)cmd,
+            er);
+    }
 }
 
 /* ── Public: run DXGI stereo present (external memory path) ─────────────── */
