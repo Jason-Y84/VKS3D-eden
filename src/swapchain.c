@@ -1053,12 +1053,21 @@ stereo_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
         STEREO_LOG(
             "[NV3D] signaling acquire semaphore %p",
             semaphore);
-
+        STEREO_LOG(
+            "QUEUE_SUBMIT present.c queue=%p cmd=%p waits=%u signals=%u",
+            (void *)queue,
+            submit.commandBufferCount ?
+                (void *)submit.pCommandBuffers[0] : NULL,
+            submit.waitSemaphoreCount,
+            submit.signalSemaphoreCount);
         sd->real.QueueSubmit(
             sd->gfx_queue,
             1,
             &sig,
             VK_NULL_HANDLE);
+        STEREO_LOG(
+            "QUEUE_SUBMIT_RESULT present.c res=%d",
+            res);
     }
 
     if (fence != VK_NULL_HANDLE)
@@ -1067,13 +1076,21 @@ stereo_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
             sd->real_device,
             1,
             &fence);
-
+        STEREO_LOG(
+            "QUEUE_SUBMIT present.c queue=%p cmd=%p waits=%u signals=%u",
+            (void *)queue,
+            submit.commandBufferCount ?
+                (void *)submit.pCommandBuffers[0] : NULL,
+            submit.waitSemaphoreCount,
+            submit.signalSemaphoreCount);
         sd->real.QueueSubmit(
             sd->gfx_queue,
             0,
             NULL,
             fence);
-
+        STEREO_LOG(
+            "QUEUE_SUBMIT_RESULT present.c res=%d",
+            res);
         STEREO_LOG(
             "[NV3D] signaling acquire fence %p",
             fence);
@@ -1131,7 +1148,17 @@ stereo_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
             .signalSemaphoreCount = (semaphore != VK_NULL_HANDLE) ? 1 : 0,
             .pSignalSemaphores    = &semaphore,
         };
+        STEREO_LOG(
+            "QUEUE_SUBMIT present.c queue=%p cmd=%p waits=%u signals=%u",
+            (void *)queue,
+            submit.commandBufferCount ?
+                (void *)submit.pCommandBuffers[0] : NULL,
+            submit.waitSemaphoreCount,
+            submit.signalSemaphoreCount);
         if (sd->gfx_queue) sd->real.QueueSubmit(sd->gfx_queue, 1, &sig, fence);
+        STEREO_LOG(
+            "QUEUE_SUBMIT_RESULT present.c res=%d",
+            res);
     }
     *pImageIndex = 0;
     return VK_SUCCESS;

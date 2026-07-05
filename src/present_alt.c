@@ -381,7 +381,17 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
                 (void*)pSubmits[s].pCommandBuffers[c]);
         }
     }
+    STEREO_LOG(
+        "QUEUE_SUBMIT present.c queue=%p cmd=%p waits=%u signals=%u",
+        (void *)queue,
+        submit.commandBufferCount ?
+            (void *)submit.pCommandBuffers[0] : NULL,
+        submit.waitSemaphoreCount,
+        submit.signalSemaphoreCount);
     VkResult res = sd->real.QueueSubmit(queue, 1, &si, sc->cpu_fence);
+    STEREO_LOG(
+        "QUEUE_SUBMIT_RESULT present.c res=%d",
+        res);
     if (res != VK_SUCCESS)
     {
         STEREO_LOG(
@@ -1146,7 +1156,17 @@ VkResult gpu_compose_present(StereoDevice *sd, StereoSwapchain *sc,
         .signalSemaphoreCount = 1,
         .pSignalSemaphores    = &sc->comp_blit_done_sem,
     };
+    STEREO_LOG(
+        "QUEUE_SUBMIT present.c queue=%p cmd=%p waits=%u signals=%u",
+        (void *)queue,
+        submit.commandBufferCount ?
+            (void *)submit.pCommandBuffers[0] : NULL,
+        submit.waitSemaphoreCount,
+        submit.signalSemaphoreCount);
     res = sd->real.QueueSubmit(queue, 1, &sub, sc->barrier_fences[0]);
+    STEREO_LOG(
+        "QUEUE_SUBMIT_RESULT present.c res=%d",
+        res);
     free(wsems); free(wmsk);
     if (res != VK_SUCCESS) { STEREO_ERR("[GPU Compose] QueueSubmit: %d", res); return res; }
 
