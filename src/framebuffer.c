@@ -743,6 +743,9 @@ stereo_CmdBindPipeline(
 
     StereoDevice *sd = NULL;
 
+    VkRenderPass active_rp = VK_NULL_HANDLE;
+    VkFramebuffer active_fb = VK_NULL_HANDLE;
+
     for (uint32_t i = 0; i < g_device_count; i++)
     {
         if (g_devices[i].real_device)
@@ -753,6 +756,17 @@ stereo_CmdBindPipeline(
     }
     if (!sd)
     return;
+
+    for (uint32_t i = 0; i < sd->cb_track_count; i++)
+    {
+        if (sd->cb_track[i].cb == commandBuffer)
+        {
+            active_rp = sd->cb_track[i].render_pass;
+            active_fb = sd->cb_track[i].framebuffer;
+            break;
+        }
+    }
+
     StereoPipelineInfo *info =
         find_pipeline_info(sd, pipeline);
     remember_bound_pipeline(
@@ -763,14 +777,12 @@ stereo_CmdBindPipeline(
     if (info)
     {
         STEREO_LOG(
-            "PIPE_BIND pipe=%p "
-            "mv_rp=%p "
-            "orig_rp=%p "
-            "patched_vs=%u "
-            "patched_fs=%u "
-            "quad=%u "
-            "bindings=%u",
+            "PIPE_BIND pipe=%p fb=%p rp=%p mv_rp=%p "
+            "orig_rp=%p patched_vs=%u patched_fs=%u "
+            "quad=%u bindings=%u",
             (void*)pipeline,
+            (void*)active_fb,
+            (void*)active_rp,
             (void*)info->mv_renderpass,
             (void*)info->original_renderpass,
             info->patched_vs,
@@ -781,8 +793,10 @@ stereo_CmdBindPipeline(
     else
     {
         STEREO_LOG(
-            "PIPE_BIND pipe=%p UNKNOWN",
-            (void*)pipeline);
+            "PIPE_BIND pipe=%p UNKNOWN fb=%p rp=%p",
+            (void*)pipeline,
+            (void*)active_fb,
+            (void*)active_rp);
     }
     sd->real.CmdBindPipeline(
         commandBuffer,
