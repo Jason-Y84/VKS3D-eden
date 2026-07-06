@@ -2265,15 +2265,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 has_vs,
                 has_tes,
                 ci->stageCount);
-            /* CRITICAL FIX:
-             * Mono pipelines (shadow maps, cascades, G-buffer prepasses)
-             * MUST NOT enter ANY stereo pipeline path (including renderPass swap stage).
+            /* Non-multiview passes (shadow maps, G-buffers, mono UI)
+             * must not be stereo-patched.
              */
-            infos[p].renderPass = ci->renderPass;
-            infos[p].stageCount  = ci->stageCount;
-            /* Explicitly mark as mono for later stages */
-            view_mask = 0;
-            in_mv_rp  = false;
             continue;
         }
 
