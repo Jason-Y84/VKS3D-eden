@@ -1253,7 +1253,7 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         && pCreateInfo
         && pCreateInfo->imageType   == VK_IMAGE_TYPE_2D
         && pCreateInfo->arrayLayers == 1
-        && pCreateInfo->samples     == VK_SAMPLE_COUNT_1_BIT;
+        && pCreateInfo->samples     >= VK_SAMPLE_COUNT_1_BIT;
 
     /* Depth/stencil attachments — upgraded for multiview depth per eye */
     bool intercept_depth = base
