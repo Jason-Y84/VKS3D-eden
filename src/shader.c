@@ -2265,12 +2265,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 has_vs,
                 has_tes,
                 ci->stageCount);
-
-            /* IMPORTANT:
-             * Do NOT patch renderpass-based multiview logic for clearly mono pipelines
-             * BUT still allow FS quad / UI heuristics to run later
+            /* Non-multiview passes (shadow maps, G-buffers, mono UI)
+             * must not be stereo-patched.
              */
-            goto PIPE_DECISION_CONTINUE;
+            continue;
         }
 
         /* Substitute multiview render pass for pipeline compilation.
