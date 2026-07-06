@@ -1252,7 +1252,7 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
     bool base = sd->stereo.enabled && sd->stereo.multiview
         && pCreateInfo
         && pCreateInfo->imageType   == VK_IMAGE_TYPE_2D
-        && pCreateInfo->arrayLayers == 1
+        && pCreateInfo->arrayLayers == 1;
 
     /* Depth/stencil attachments — upgraded for multiview depth per eye */
     bool intercept_depth = base
