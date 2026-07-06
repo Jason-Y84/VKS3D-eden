@@ -2610,14 +2610,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         STEREO_LOG("Pipe %u: no patchable VS/TES stage (stageCount=%u has_vs=%d has_tes=%d has_tcs=%d) — not patched",
                    p, ci->stageCount, has_vs, has_tes, has_tcs);
     }
-    STEREO_LOG(
-        "PIPE_CLASSIFY p=%u mv=%d view_mask=0x%x rp=%p STAGES=%u SHADOW_CANDIDATE=%d",
-        p,
-        in_mv_rp,
-        view_mask,
-        (void*)ci->renderPass,
-        ci->stageCount,
-        (!has_vs && !has_tes && ci->stageCount == 2));
+
     PIPE_DECISION_CONTINUE:
     /* ── PATCH 5: RenderPass-based multiview binding ─────────────── */
     for (uint32_t p = 0; p < N; p++) {
