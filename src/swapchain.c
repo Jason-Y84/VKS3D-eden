@@ -1233,6 +1233,16 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
 
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
+    STEREO_LOG(
+        "IMAGE_CREATE imageType=%u fmt=%u samples=%u usage=0x%08X layers=%u extent=%ux%u flags=0x%X",
+        pCreateInfo->imageType,
+        pCreateInfo->format,
+        pCreateInfo->samples,
+        pCreateInfo->usage,
+        pCreateInfo->arrayLayers,
+        pCreateInfo->extent.width,
+        pCreateInfo->extent.height,
+        pCreateInfo->flags);
 
     /* Upgrade images used as color/depth attachments (G-buffer and scene depth)
      * so multiview pipelines and framebuffers align.  This uses usage flags
@@ -1332,6 +1342,12 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
             
             if (!already_tracked)
             {
+                STEREO_LOG(
+                    "DEPTH_INTERCEPT image=%p usage=0x%08X samples=%u fmt=%u",
+                    (void *)(uintptr_t)*pImage,
+                    pCreateInfo->usage,
+                    pCreateInfo->samples,
+                    pCreateInfo->format);
                 sd->intercepted_depth[
                     sd->intercepted_depth_count++] = *pImage;
             
@@ -1408,6 +1424,12 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
 
         if (!already_tracked)
         {
+            STEREO_LOG(
+                "COLOR_INTERCEPT image=%p usage=0x%08X samples=%u fmt=%u",
+                (void *)(uintptr_t)*pImage,
+                pCreateInfo->usage,
+                pCreateInfo->samples,
+                pCreateInfo->format);
             sd->intercepted_color[
                 sd->intercepted_color_count++] = *pImage;
 
@@ -1495,12 +1517,14 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     if (!needs_upgrade)
        {
         STEREO_LOG(
-            "VIEW_PASSTHROUGH image=%p fmt=%u aspect=0x%X viewType=%u layers=%u",
+            "VIEW_PASSTHROUGH image=%p fmt=%u aspect=0x%X viewType=%u layers=%u depthTracked=%u colorTracked=%u",
             (void*)(uintptr_t)pCreateInfo->image,
             pCreateInfo->format,
             pCreateInfo->subresourceRange.aspectMask,
             pCreateInfo->viewType,
-            pCreateInfo->subresourceRange.layerCount);
+            pCreateInfo->subresourceRange.layerCount,
+            sd->intercepted_depth_count,
+            sd->intercepted_color_count);
         return sd->real.CreateImageView(
             sd->real_device,
             pCreateInfo,
