@@ -1968,17 +1968,9 @@ bool spirv_patch_stereo_fs(
             i += wc; continue;
         }
 
-        /* Extend only ImageFetch instructions that operate on converted
-         * 2D textures. Buffer/Cube/3D images must remain untouched. */
-        if (in_func &&
-            op == 95 &&
-            wc >= 5 &&
-            fs_id_in(s.load_ids, s.n_load, in[i+3]))
+        /* Extend OpImageFetch ivec2 -> ivec3(x,y,ViewIndex) */
+        if (in_func && op == 95 && wc >= 5)
         {
-            STEREO_LOG(
-                "FS ImageFetch patched image=%u coord=%u",
-                in[i+3],
-                in[i+4]);
             uint32_t coord_id = in[i+4];
 
             uint32_t id_lv = samp_nid++;
@@ -2011,16 +2003,7 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
-        if (in_func &&
-            op == 95 &&
-            wc >= 5 &&
-            !fs_id_in(s.load_ids, s.n_load, in[i+3]))
-        {
-            STEREO_LOG(
-                "FS ImageFetch skipped image=%u coord=%u",
-                in[i+3],
-                in[i+4]);
-        }
+
         sb_push_n(&ob, &in[i], wc);
         i += wc;
     }
