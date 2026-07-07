@@ -2077,10 +2077,6 @@ bool spirv_patch_stereo_fs(
     ob.w[3] = samp_nid + 1;
     *out   = ob.w;
     *out_c = ob.n;
-    STEREO_LOG(
-        "FS PATCH IMAGE type=%u binding=%u",
-        image_type_id,
-        binding_number);
     STEREO_LOG("FS patched: %u 2D img types→arr, %u samples extended, bound %u→%u",
                s.n_img, n_patches, in[3], ob.w[3]);
     return true;
