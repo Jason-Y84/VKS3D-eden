@@ -1827,11 +1827,13 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     s->load_ids[idx] = w[i+2];
 
                     STEREO_LOG(
-                        "FS OpSampledImage: type=%u result=%u image=%u sampler=%u",
+                        "FS OpSampledImage type=%u result=%u image=%u sampler=%u imagePatched=%u samplerPatched=%u",
                         w[i+1],
                         w[i+2],
                         w[i+3],
-                        w[i+4]);
+                        w[i+4],
+                        fs_id_in(s->load_ids, s->n_load, w[i+3]),
+                        fs_id_in(s->load_ids, s->n_load, w[i+4]));
                 }
             }
             break;
@@ -1979,15 +1981,30 @@ bool spirv_patch_stereo_fs(
 
         if (op == 54) in_func = true;
 
-        if (in_func && wc >= 5 &&
-        (op == 87 || op == 88 || op == 89 || op == 90) &&
-        fs_id_in(s.load_ids, s.n_load, in[i+3]))
+        if (in_func &&
+            (op == 87 || op == 88 || op == 89 || op == 90) &&
+            wc >= 5)
         {
             STEREO_LOG(
-                "FS_SAMPLE_PATCH sampledImage=%u coord=%u op=%u",
+                "FS_SAMPLE op=%u wc=%u resultType=%u result=%u sampledImage=%u coord=%u patched=%u",
+                op,
+                wc,
+                in[i+1],
+                in[i+2],
                 in[i+3],
                 in[i+4],
-                op);
+                fs_id_in(s.load_ids, s.n_load, in[i+3]));
+
+            if (wc > 5)
+            {
+                for (uint32_t k = 5; k < wc; k++)
+                {
+                    STEREO_LOG(
+                        "FS_SAMPLE operand[%u]=%u",
+                        k,
+                        in[i+k]);
+                }
+            }
         }
 
         /* Extend 2D sampling coordinate to 3D for patched loads */
