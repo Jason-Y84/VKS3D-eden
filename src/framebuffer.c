@@ -539,6 +539,8 @@ stereo_CmdBeginRenderPass(
                     sd = dev;
                     break;
                     }
+                /* lookup failed, keep searching */
+                continue;
                 }
 
                 STEREO_LOG(
