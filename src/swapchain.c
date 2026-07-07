@@ -1498,6 +1498,14 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             needs_upgrade = true;
         }
     }
+    for (uint32_t i = 0; i < sd->upgraded_image_count && !needs_upgrade; i++)
+    {
+        if (sd->upgraded_images[i] == pCreateInfo->image)
+        {
+            color_matches++;
+            needs_upgrade = true;
+        }
+    }
     //STEREO_LOG(
     //    "[VIEW DECISION] image=%p needs_upgrade=%d depth_matches=%u color_matches=%u",
     //    pCreateInfo->image,
@@ -1515,6 +1523,15 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     }
     if (!needs_upgrade)
        {
+        for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
+        {
+            if (sd->upgraded_views[i] == pCreateInfo->image)
+            {
+                STEREO_LOG(
+                    "WARNING view handle matches upgraded image? image=%p",
+                    (void*)(uintptr_t)pCreateInfo->image);
+            }
+        }
         STEREO_LOG(
             "VIEW_PASSTHROUGH image=%p fmt=%u aspect=0x%X viewType=%u layers=%u depthTracked=%u colorTracked=%u usage_unknown=1",
             (void*)(uintptr_t)pCreateInfo->image,
@@ -1567,6 +1584,10 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     if (_r == VK_SUCCESS &&
         sd->upgraded_view_count < MAX_UPGRADED_VIEWS)
     {
+        STEREO_LOG(
+            "UPGRADED_VIEW_TRACK image=%p view=%p",
+            (void*)(uintptr_t)pCreateInfo->image,
+            (void*)(uintptr_t)*pView);
         //STEREO_LOG(
         //    "[VIEW TRACK ADD] view=%p slot=%u",
         //    *pView,
@@ -1581,6 +1602,9 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         //    *pView,
         //    sd->upgraded_view_count);
         sd->upgraded_views[sd->upgraded_view_count++] = *pView;
+        if (sd->upgraded_image_count < MAX_UPGRADED_VIEWS)
+            sd->upgraded_images[sd->upgraded_image_count++] =
+                pCreateInfo->image;
     }
     //STEREO_LOG(
     //    "[VIEW TRACKED] view=%p count=%u",
