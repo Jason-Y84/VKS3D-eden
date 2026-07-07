@@ -617,6 +617,11 @@ stereo_CmdBeginRenderPass(
                 break;
             }
         }
+        STEREO_LOG(
+            "BEGIN_PASS_DRIVER original=%p mv=%p framebuffer=%p",
+            (void*)pRenderPassBegin->renderPass,
+            (void*)modified.renderPass,
+            (void*)modified.framebuffer);
         sd->real.CmdBeginRenderPass(commandBuffer, &modified, contents);
         STEREO_LOG(
             "[RP BEGIN MONO] fb=%p rp=%p",
@@ -645,7 +650,10 @@ stereo_CmdBeginRenderPass(
                 break;
             }
         }
-        
+        STEREO_LOG(
+            "BEGIN_PASS_DRIVER original=%p framebuffer=%p",
+            (void*)pRenderPassBegin->renderPass,
+            (void*)pRenderPassBegin->framebuffer);
         sd->real.CmdBeginRenderPass(commandBuffer, pRenderPassBegin, contents);
     }
 }
@@ -766,14 +774,18 @@ stereo_CmdBindPipeline(
             break;
         }
     }
-
     StereoPipelineInfo *info =
         find_pipeline_info(sd, pipeline);
     remember_bound_pipeline(
         sd,
         commandBuffer,
         pipeline);
-
+    STEREO_LOG(
+        "PIPE_BIND pipe=%p current_rp=%p pipeline_mv_rp=%p pipeline_orig_rp=%p",
+        (void *)pipeline,
+        (void *)current_renderpass,
+        info ? (void *)info->mv_renderpass : NULL,
+        info ? (void *)info->original_renderpass : NULL);
     if (info)
     {
         STEREO_LOG(
