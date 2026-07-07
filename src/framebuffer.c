@@ -477,6 +477,13 @@ stereo_CmdBeginRenderPass(
             if (dev->fb_tracks[i].fb == pRenderPassBegin->framebuffer)
             {
                 STEREO_LOG(
+                    "FB_TRACK_MATCH fb=%p tracked_rp=%p tracked_used=%p tracked_mv=%p has_mv=%u",
+                    (void*)dev->fb_tracks[i].fb,
+                    (void*)dev->fb_tracks[i].rp,
+                    (void*)dev->fb_tracks[i].rp_used_at_create,
+                    (void*)dev->fb_tracks[i].mv_rp,
+                    (unsigned)dev->fb_tracks[i].has_mv);
+                STEREO_LOG(
                     "FB_MATCH requested=%p fb_original=%p fb_used=%p fb_mv=%p",
                     pRenderPassBegin->renderPass,
                     dev->fb_tracks[i].rp,
@@ -490,6 +497,10 @@ stereo_CmdBeginRenderPass(
                                          pRenderPassBegin->renderPass);
                     if (rpi && rpi->mv_handle)
                     {
+                        STEREO_LOG(
+                            "RP_LOOKUP request=%p result=%p",
+                            (void*)pRenderPassBegin->renderPass,
+                            (void*)rpi);
                         candidate = rpi->mv_handle;
                         STEREO_LOG(
                             "RP_LOOKUP_SELECTED requested=%p original=%p mv=%p",
