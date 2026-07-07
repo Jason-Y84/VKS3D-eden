@@ -1636,6 +1636,7 @@ typedef struct {
     uint32_t si_ids[FS_MAX_SI];         uint32_t n_si;
 
     uint32_t load_ids[FS_MAX_LOADS];
+    uint32_t load_vars[FS_MAX_LOADS];
     uint32_t load_bindings[FS_MAX_LOADS];
     uint32_t n_load;
 
@@ -1774,7 +1775,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     if (vi >= 0)
                         s->var_binding[vi] = w[i+3];
                     STEREO_LOG(
-                    "FS binding: id=%u binding=%u var=%d",
+                    "FS binding: var=%u binding=%u",
                     w[i+1],
                     w[i+3],
                     vi);
@@ -1787,7 +1788,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         s->var_set[vi] = w[i+3];
                 
                     STEREO_LOG(
-                    "FS set: id=%u set=%u var=%d",
+                    "FS set: var=%u set=%u",
                     w[i+1],
                     w[i+3],
                     vi);
@@ -1809,6 +1810,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     uint32_t idx = s->n_load++;
 
                     s->load_ids[idx] = w[i+2];
+                    s->load_vars[idx] = w[i+3];
 
                     STEREO_LOG(
                     "FS OpLoad: type=%u result=%u var=%u",
@@ -1816,16 +1818,25 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     w[i+2],
                     w[i+3]);
                 }
-
                 /* OpSampledImage combining a patched image+sampler */
                 if (op == 86 && wc >= 5 &&
                     fs_id_in(s->si_ids, s->n_si, w[i+1]) &&
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t idx = s->n_load++;
-
                     s->load_ids[idx] = w[i+2];
-
+                    /* Preserve the originating descriptor variable so later
+                     * OpImageSample* logging can recover the binding.
+                     */
+                    s->load_vars[idx] = 0;
+                    for (uint32_t j = 0; j < s->n_load; ++j)
+                    {
+                        if (s->load_ids[j] == w[i+3])
+                        {
+                            s->load_vars[idx] = s->load_vars[j];
+                            break;
+                        }
+                    }
                     STEREO_LOG(
                         "FS OpSampledImage type=%u result=%u image=%u sampler=%u imagePatched=%u samplerPatched=%u",
                         w[i+1],
@@ -1985,16 +1996,29 @@ bool spirv_patch_stereo_fs(
             (op == 87 || op == 88 || op == 89 || op == 90) &&
             wc >= 5)
         {
+            uint32_t load_var = 0;
+            
+            if (fs_id_in(s.load_ids, s.n_load, in[i+3]))
+            {
+                for (uint32_t k = 0; k < s.n_load; ++k)
+                {
+                    if (s.load_ids[k] == in[i+3])
+                    {
+                        load_var = s.load_vars[k];
+                        break;
+                    }
+                }
+            }
             STEREO_LOG(
-                "FS_SAMPLE op=%u wc=%u resultType=%u result=%u sampledImage=%u coord=%u patched=%u",
+                "FS_SAMPLE op=%u wc=%u resultType=%u result=%u sampledImage=%u var=%u coord=%u patched=%u",
                 op,
                 wc,
                 in[i+1],
                 in[i+2],
                 in[i+3],
+                load_var,
                 in[i+4],
                 fs_id_in(s.load_ids, s.n_load, in[i+3]));
-
             if (wc > 5)
             {
                 for (uint32_t k = 5; k < wc; k++)
