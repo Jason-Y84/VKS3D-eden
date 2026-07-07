@@ -1716,7 +1716,14 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 /* Existing path */
                 if (w[i+3] == 1 && w[i+5] == 0 && s->n_img < FS_MAX_IMG)
                 {
-                    STEREO_LOG("FS accepted image type %u", w[i+1]);
+                    /*
+                     * Do not immediately patch all 2D textures.
+                     * The descriptor binding must later prove that this image
+                     * corresponds to an upgraded framebuffer/depth image.
+                     */
+                    STEREO_LOG(
+                        "FS candidate image type=%u awaiting binding correlation",
+                        w[i+1]);
                     s->img_ids[s->n_img++] = w[i+1];
                 }
                 else
@@ -2070,6 +2077,10 @@ bool spirv_patch_stereo_fs(
     ob.w[3] = samp_nid + 1;
     *out   = ob.w;
     *out_c = ob.n;
+    STEREO_LOG(
+        "FS PATCH IMAGE type=%u binding=%u",
+        image_type_id,
+        binding_number);
     STEREO_LOG("FS patched: %u 2D img types→arr, %u samples extended, bound %u→%u",
                s.n_img, n_patches, in[3], ob.w[3]);
     return true;
