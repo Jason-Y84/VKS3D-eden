@@ -47,10 +47,11 @@ stereo_CreateFramebuffer(
     const VkAllocationCallbacks    *pAllocator,
     VkFramebuffer                  *pFramebuffer)
 {
-    STEREO_LOG("[FB ENTRY RAW] pFramebuffer=%p rp=%p attachmentCount=%u",
-               pFramebuffer,
-               pCreateInfo->renderPass,
-               pCreateInfo->attachmentCount);
+    STEREO_LOG("[FB ENTRY RAW] tid=%lu pFramebuffer=%p rp=%p attachmentCount=%u",
+        GetCurrentThreadId(),
+        pFramebuffer,
+        pCreateInfo->renderPass,
+        pCreateInfo->attachmentCount);
     StereoDevice *sd = stereo_device_from_handle(device);
     STEREO_LOG(
         "FB_DEVICE sd=%p real_device=%p fb_track_count(before)=%u",
@@ -178,9 +179,24 @@ stereo_CreateFramebuffer(
             (void*)original_rp,
             (void*)fci.renderPass,
             (void*)use_mv);
-        uint32_t idx = sd->fb_track_count;
 
-        /* IMPORTANT: snapshot BEFORE increment */
+         /* Reserve a unique tracking slot immediately.
+          * This avoids two concurrent CreateFramebuffer calls both
+          * writing the same entry before fb_track_count is advanced.
+          */
+         uint32_t idx = sd->fb_track_count++;
+         STEREO_LOG(
+             "FB_COUNT_RESERVE idx=%u next=%u",
+             idx,
+             sd->fb_track_count);
+        if (idx >= MAX_FB_TRACK)
+        {
+            STEREO_LOG(
+                "[FB OVERFLOW] idx=%u max=%u",
+                idx,
+                MAX_FB_TRACK);
+            return VK_ERROR_TOO_MANY_OBJECTS;
+        }
         StereoFramebufferTrack *t = &sd->fb_tracks[idx];
         memset(t, 0, sizeof(*t));
 
@@ -327,9 +343,19 @@ stereo_CreateFramebuffer(
                 *pFramebuffer,
                 pCreateInfo->renderPass);
         }
-        sd->fb_track_count++;
         StereoFramebufferTrack *verify =
             &sd->fb_tracks[idx];
+        for (uint32_t j = 0; j < idx; j++)
+        {
+            if (sd->fb_tracks[j].fb == verify->fb)
+            {
+                STEREO_LOG(
+                    "[FB DUPLICATE] idx=%u previous=%u fb=%p",
+                    idx,
+                    j,
+                    verify->fb);
+            }
+        }
         STEREO_LOG(
             "FB_TRACK_VERIFY idx=%u fb=%08x rp=%08x mv_rp=%08x has_mv=%u",
             idx,
@@ -717,6 +743,9 @@ stereo_CmdBindPipeline(
 
     StereoDevice *sd = NULL;
 
+    VkRenderPass active_rp = VK_NULL_HANDLE;
+    VkFramebuffer active_fb = VK_NULL_HANDLE;
+
     for (uint32_t i = 0; i < g_device_count; i++)
     {
         if (g_devices[i].real_device)
@@ -727,6 +756,17 @@ stereo_CmdBindPipeline(
     }
     if (!sd)
     return;
+
+    for (uint32_t i = 0; i < sd->cb_track_count; i++)
+    {
+        if (sd->cb_track[i].cb == commandBuffer)
+        {
+            active_rp = sd->cb_track[i].render_pass;
+            active_fb = sd->cb_track[i].framebuffer;
+            break;
+        }
+    }
+
     StereoPipelineInfo *info =
         find_pipeline_info(sd, pipeline);
     remember_bound_pipeline(
@@ -737,14 +777,12 @@ stereo_CmdBindPipeline(
     if (info)
     {
         STEREO_LOG(
-            "PIPE_BIND pipe=%p "
-            "mv_rp=%p "
-            "orig_rp=%p "
-            "patched_vs=%u "
-            "patched_fs=%u "
-            "quad=%u "
-            "bindings=%u",
+            "PIPE_BIND pipe=%p fb=%p rp=%p mv_rp=%p "
+            "orig_rp=%p patched_vs=%u patched_fs=%u "
+            "quad=%u bindings=%u",
             (void*)pipeline,
+            (void*)active_fb,
+            (void*)active_rp,
             (void*)info->mv_renderpass,
             (void*)info->original_renderpass,
             info->patched_vs,
@@ -755,8 +793,10 @@ stereo_CmdBindPipeline(
     else
     {
         STEREO_LOG(
-            "PIPE_BIND pipe=%p UNKNOWN",
-            (void*)pipeline);
+            "PIPE_BIND pipe=%p UNKNOWN fb=%p rp=%p",
+            (void*)pipeline,
+            (void*)active_fb,
+            (void*)active_rp);
     }
     sd->real.CmdBindPipeline(
         commandBuffer,
