@@ -269,6 +269,8 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         return (PFN_vkVoidFunction)stereo_CreateImage;
     if (!strcmp(pName, "vkCreateImageView"))
         return (PFN_vkVoidFunction)stereo_CreateImageView;
+    if (!strcmp(pName, "vkAllocateDescriptorSets"))
+        return (PFN_vkVoidFunction)stereo_AllocateDescriptorSets;
     if (!strcmp(pName, "vkUpdateDescriptorSets"))
         return (PFN_vkVoidFunction)stereo_UpdateDescriptorSets;
     if (!strcmp(pName, "vkCreateFramebuffer"))

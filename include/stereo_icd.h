@@ -553,6 +553,12 @@ typedef struct StereoDevice {
         VkImageLayout          image_layout;
     } descriptor_images[MAX_DESCRIPTOR_IMAGES];
     uint32_t descriptor_image_count;
+#define MAX_DESCRIPTOR_SETS 16384
+    struct {
+        VkDescriptorSet        wrapped;
+        VkDescriptorSet        real;
+    } descriptor_sets[MAX_DESCRIPTOR_SETS];
+    uint32_t descriptor_set_count;
     /* Per-framebuffer: which render pass (multiview version) was used */
 #define MAX_FB_TRACK           512
     StereoFramebufferTrack fb_tracks[MAX_FB_TRACK];
@@ -755,6 +761,7 @@ VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateDevice(VkPhysicalDevice, const VkDev
 VKAPI_ATTR void     VKAPI_CALL stereo_DestroyDevice(VkDevice, const VkAllocationCallbacks*);
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL stereo_GetDeviceProcAddr(VkDevice, const char*);
 VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateImageView(VkDevice, const VkImageViewCreateInfo*, const VkAllocationCallbacks*, VkImageView*);
+VKAPI_ATTR VkResult VKAPI_CALL stereo_AllocateDescriptorSets(VkDevice, const VkDescriptorSetAllocateInfo*, VkDescriptorSet*);
 VKAPI_ATTR void     VKAPI_CALL stereo_UpdateDescriptorSets(VkDevice, uint32_t, const VkWriteDescriptorSet *, uint32_t, const VkCopyDescriptorSet *);
 bool stereo_lookup_descriptor_image(
     StereoDevice *sd,
