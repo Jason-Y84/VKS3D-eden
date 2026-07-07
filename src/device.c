@@ -278,6 +278,30 @@ stereo_CreateDevice(
     return VK_SUCCESS;
 }
 
+/* ── vkUpdateDescriptorSets ────────────────────────────────────────────────────── */
+VKAPI_ATTR void VKAPI_CALL
+stereo_UpdateDescriptorSets(
+    VkDevice device,
+    uint32_t descriptorWriteCount,
+    const VkWriteDescriptorSet *pDescriptorWrites,
+    uint32_t descriptorCopyCount,
+    const VkCopyDescriptorSet *pDescriptorCopies)
+{
+    StereoDevice *sd = (StereoDevice *)device;
+
+    STEREO_LOG(
+        "UPDATE_DESCRIPTOR_SETS writes=%u copies=%u",
+        descriptorWriteCount,
+        descriptorCopyCount);
+
+    sd->real.UpdateDescriptorSets(
+        sd->real_device,
+        descriptorWriteCount,
+        pDescriptorWrites,
+        descriptorCopyCount,
+        pDescriptorCopies);
+}
+
 /* ── vkDestroyDevice ────────────────────────────────────────────────────── */
 VKAPI_ATTR void VKAPI_CALL
 stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)

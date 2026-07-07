@@ -1137,3 +1137,25 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 /* Exported marker so try_load_icd() can detect us and skip self-loading */
 STEREO_EXPORT void vks3d_internal_marker(void) {}
 #endif
+
+/* Lookup helper */
+bool stereo_lookup_descriptor_image(
+    StereoDevice *sd,
+    VkDescriptorSet set,
+    uint32_t binding,
+    VkImageView *out_view)
+{
+    if (!sd || !out_view)
+        return false;
+
+    for (uint32_t i = 0; i < sd->descriptor_image_count; i++) {
+        if (sd->descriptor_images[i].set == set &&
+            sd->descriptor_images[i].binding == binding)
+        {
+            *out_view = sd->descriptor_images[i].image_view;
+            return true;
+        }
+    }
+
+    return false;
+}
