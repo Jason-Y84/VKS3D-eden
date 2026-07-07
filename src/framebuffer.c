@@ -86,8 +86,21 @@ stereo_CreateFramebuffer(
                 if (sd->upgraded_views[k] == pCreateInfo->pAttachments[i]) found = true;
             if (!found) all = false;
         }
+        STEREO_LOG(
+            "FB_ATTACH_SCAN result all=%u attachmentCount=%u upgraded_views=%u rp=%p",
+            (unsigned)all,
+            pCreateInfo->attachmentCount,
+            sd->upgraded_view_count,
+            (void*)pCreateInfo->renderPass);
         if (all) {
             StereoRenderPassInfo *rpi = stereo_rp_lookup(sd, pCreateInfo->renderPass);
+        STEREO_LOG(
+            "FB_RP_RESOLVE request=%p rpi=%p handle=%p mv=%p has_mv=%u",
+            (void*)pCreateInfo->renderPass,
+            (void*)rpi,
+            rpi ? (void*)rpi->handle : NULL,
+            rpi ? (void*)rpi->mv_handle : NULL,
+            rpi ? (unsigned)rpi->has_multiview : 0);
         if (rpi &&
             rpi->mv_handle && (rpi->handle == pCreateInfo->renderPass))
             {
@@ -285,7 +298,7 @@ stereo_CreateFramebuffer(
 
         /* ================= HARD ASSERT SECTION ================= */
         if (sd->stereo.enabled && sd->stereo.multiview && use_mv == VK_NULL_HANDLE) {
-            STEREO_LOG("[HARD ASSERT] multiview enabled but use_mv == NULL fb=%p rp=%p",
+            STEREO_LOG("[FB INFO] multiview enabled but use_mv == NULL fb=%p rp=%p",
                        t->fb, t->rp);
         }
         
