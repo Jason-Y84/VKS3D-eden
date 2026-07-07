@@ -1872,20 +1872,20 @@ bool spirv_patch_stereo_fs(
 
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == 25 && wc >= 9 && fs_id_in(s.img_ids, s.n_img, in[i+1])) {
-
             STEREO_LOG(
                 "FS discovered image type id=%u depth=%u arrayed=%u sampled=%u",
                 in[i+1],
                 in[i+4],
                 in[i+5],
                 in[i+7]);
-
+            STEREO_LOG(
+                "FS_ARRAY_UPGRADE type=%u",
+                in[i+1]);
             STEREO_LOG(
                 "FS converting image type id=%u depth=%u arrayed=%u",
                 in[i+1],
                 in[i+4],
                 in[i+5]);
-
             sb_push_n(&ob, &in[i], wc);
             ob.w[ob.n - wc + 5] = 1; /* Arrayed */
             i += wc;
@@ -1923,6 +1923,16 @@ bool spirv_patch_stereo_fs(
         }
 
         if (op == 54) in_func = true;
+
+        if (in_func && wc >= 5 &&
+        (op == 87 || op == 88 || op == 89 || op == 90) &&
+        fs_id_in(s.load_ids, s.n_load, in[i+3]))
+        {
+            STEREO_LOG(
+                "FS_SAMPLE_PATCH sampledImage=%u coord=%u op=%u",
+                in[i+3],
+                in[i+4],
+                op);
 
         /* Extend 2D sampling coordinate to 3D for patched loads */
         if (in_func && wc >= 5 &&
