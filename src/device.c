@@ -288,19 +288,25 @@ stereo_UpdateDescriptorSets(
     const VkCopyDescriptorSet *pDescriptorCopies)
 {
     StereoDevice *sd = (StereoDevice *)device;
-
     STEREO_LOG(
         "UPDATE_DESCRIPTOR_SETS device=%p sd=%p real_device=%p writes_ptr=%p",
         (void*)(uintptr_t)device,
         (void*)sd,
         sd ? (void*)(uintptr_t)sd->real_device : NULL,
         (void*)pDescriptorWrites);
-
     STEREO_LOG(
         "UPDATE_DESCRIPTOR_SETS writes=%u copies=%u",
         descriptorWriteCount,
         descriptorCopyCount);
-
+    for (uint32_t i = 0; i < descriptorWriteCount; i++) {
+        STEREO_LOG(
+            "DESC_WRITE[%u] dstSet=%p binding=%u count=%u type=%u",
+            i,
+            (void *)(uintptr_t)pDescriptorWrites[i].dstSet,
+            pDescriptorWrites[i].dstBinding,
+            pDescriptorWrites[i].descriptorCount,
+            pDescriptorWrites[i].descriptorType);
+    }
     sd->real.UpdateDescriptorSets(
         sd->real_device,
         descriptorWriteCount,
