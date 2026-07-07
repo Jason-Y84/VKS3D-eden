@@ -1933,6 +1933,7 @@ bool spirv_patch_stereo_fs(
                 in[i+3],
                 in[i+4],
                 op);
+        }
 
         /* Extend 2D sampling coordinate to 3D for patched loads */
         if (in_func && wc >= 5 &&
