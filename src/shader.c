@@ -1690,7 +1690,12 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     w[i+5],
                     w[i+7],
                     w[i+8]);
-
+                STEREO_LOG(
+                    "FS image candidate id=%u type=%u dim=%u arrayed=%u",
+                    w[i+1],
+                    w[i+2],
+                    w[i+3],
+                    w[i+5]);
                 /* Existing path */
                 if (w[i+3] == 1 && w[i+5] == 0 && s->n_img < FS_MAX_IMG)
                 {
