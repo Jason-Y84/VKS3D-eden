@@ -290,6 +290,13 @@ stereo_UpdateDescriptorSets(
     StereoDevice *sd = (StereoDevice *)device;
 
     STEREO_LOG(
+        "UPDATE_DESCRIPTOR_SETS device=%p sd=%p real_device=%p writes_ptr=%p",
+        (void*)(uintptr_t)device,
+        (void*)sd,
+        sd ? (void*)(uintptr_t)sd->real_device : NULL,
+        (void*)pDescriptorWrites);
+
+    STEREO_LOG(
         "UPDATE_DESCRIPTOR_SETS writes=%u copies=%u",
         descriptorWriteCount,
         descriptorCopyCount);

@@ -192,8 +192,6 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
         return (PFN_vkVoidFunction)stereo_DestroyDevice;
     if (!strcmp(name, "vkCreateImageView"))
         return (PFN_vkVoidFunction)stereo_CreateImageView;
-    if (!strcmp(name, "vkUpdateDescriptorSets"))
-        return (PFN_vkVoidFunction)stereo_UpdateDescriptorSets;
     if (!strcmp(name, "vkCreateFramebuffer"))
         return (PFN_vkVoidFunction)stereo_CreateFramebuffer;
     if (!strcmp(name, "vkDestroyFramebuffer"))
