@@ -91,31 +91,13 @@ stereo_CreateFramebuffer(
         if (rpi &&
             rpi->mv_handle && (rpi->handle == pCreateInfo->renderPass))
             {
-                /* Shadow-map style framebuffers are often offscreen depth-only
-                 * targets with their own size (for example cascades / atlas).
-                 * Keep those mono so they do not get stereo-shifted. */
-                bool looks_like_shadow_map =
-                    (pCreateInfo->attachmentCount == 1) &&
-                    (pCreateInfo->width  != sd->stereo_w ||
-                     pCreateInfo->height != sd->stereo_h);
-                if (looks_like_shadow_map) {
-                    STEREO_LOG(
-                        "FB_SKIP_MV shadow-like fb rp=%p size=%ux%u stereo=%ux%u att=%u",
-                        (void*)pCreateInfo->renderPass,
-                        pCreateInfo->width,
-                        pCreateInfo->height,
-                        sd->stereo_w,
-                        sd->stereo_h,
-                        pCreateInfo->attachmentCount);
-                } else {
-                    fci.renderPass = rpi->mv_handle;
-                    STEREO_LOG(
-                        "FB_SET renderPass=%p",
-                        fci.renderPass);
-                    use_mv = rpi->mv_handle;
-                    STEREO_LOG("CreateFramebuffer: all %u att upgraded → mv_rp=%p",
-                               pCreateInfo->attachmentCount, (void*)use_mv);
-                }
+                fci.renderPass = rpi->mv_handle;
+                STEREO_LOG(
+                    "FB_SET renderPass=%p",
+                    fci.renderPass);
+                use_mv         = rpi->mv_handle;
+                STEREO_LOG("CreateFramebuffer: all %u att upgraded → mv_rp=%p",
+                           pCreateInfo->attachmentCount, (void*)use_mv);
             }
         } else {
             for (uint32_t i = 0; i < pCreateInfo->attachmentCount; i++) {
