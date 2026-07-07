@@ -530,19 +530,3 @@ VKAPI_ATTR VkResult VKAPI_CALL
 vkCreateImageView(VkDevice d, const VkImageViewCreateInfo *c,
                   const VkAllocationCallbacks *a, VkImageView *v)
 { return stereo_CreateImageView(d, c, a, v); }
-
-VKAPI_ATTR void VKAPI_CALL
-vkUpdateDescriptorSets(
-    VkDevice d,
-    uint32_t writeCount,
-    const VkWriteDescriptorSet *pWrites,
-    uint32_t copyCount,
-    const VkCopyDescriptorSet *pCopies)
-{
-    stereo_UpdateDescriptorSets(
-        d,
-        writeCount,
-        pWrites,
-        copyCount,
-        pCopies);
-}
