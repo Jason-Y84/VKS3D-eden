@@ -1638,6 +1638,15 @@ typedef struct {
     uint32_t load_ids[FS_MAX_LOADS];
     uint32_t load_bindings[FS_MAX_LOADS];
     uint32_t n_load;
+
+    /* Descriptor variable tracking */
+#define FS_MAX_VARS 128
+    uint32_t var_ids[FS_MAX_VARS];
+    uint32_t var_types[FS_MAX_VARS];
+    uint32_t var_set[FS_MAX_VARS];
+    uint32_t var_binding[FS_MAX_VARS];
+    uint32_t n_var;
+
     uint32_t float_id;
     uint32_t int_id;
     uint32_t v3float_id;
@@ -1652,6 +1661,14 @@ static bool fs_id_in(const uint32_t *arr, uint32_t n, uint32_t id)
 {
     for (uint32_t i = 0; i < n; i++) if (arr[i] == id) return true;
     return false;
+}
+
+static int fs_var_index(const FsScan *s, uint32_t id)
+{
+    for (uint32_t i = 0; i < s->n_var; i++)
+        if (s->var_ids[i] == id)
+            return (int)i;
+    return -1;
 }
 
 static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
@@ -1721,6 +1738,22 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             if (wc >= 4 && w[i+2] == 1 && s->int_id && w[i+3] == s->int_id)
                 s->ptr_int_in_id = w[i+1];
             break;
+        case 59:  /* OpVariable */
+        {
+            if (wc >= 4 && s->n_var < FS_MAX_VARS)
+            {
+                uint32_t idx = s->n_var++;
+                s->var_ids[idx] = w[i+2];
+                s->var_types[idx] = w[i+1];
+        
+                STEREO_LOG(
+                    "FS variable: id=%u type=%u storage=%u",
+                    w[i+2],
+                    w[i+1],
+                    w[i+3]);
+            }
+        }
+        break;
         case 71:  /* OpDecorate */
             if (wc >= 4) {
 
@@ -1730,18 +1763,27 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
 
                 /* Descriptor binding */
                 if (w[i+2] == 33) {
+                    int vi = fs_var_index(s, w[i+1]);
+                    if (vi >= 0)
+                        s->var_binding[vi] = w[i+3];
                     STEREO_LOG(
-                        "FS binding: id=%u binding=%u",
-                        w[i+1],
-                        w[i+3]);
+                    "FS binding: id=%u binding=%u var=%d",
+                    w[i+1],
+                    w[i+3],
+                    vi);
                 }
 
                 /* Descriptor set */
                 if (w[i+2] == 34) {
+                    int vi = fs_var_index(s, w[i+1]);
+                    if (vi >= 0)
+                        s->var_set[vi] = w[i+3];
+                
                     STEREO_LOG(
-                        "FS set: id=%u set=%u",
-                        w[i+1],
-                        w[i+3]);
+                    "FS set: id=%u set=%u var=%d",
+                    w[i+1],
+                    w[i+3],
+                    vi);
                 }
             }
             break;
@@ -1762,9 +1804,10 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     s->load_ids[idx] = w[i+2];
 
                     STEREO_LOG(
-                        "FS OpLoad: type=%u result=%u",
-                        w[i+1],
-                        w[i+2]);
+                    "FS OpLoad: type=%u result=%u var=%u",
+                    w[i+1],
+                    w[i+2],
+                    w[i+3]);
                 }
 
                 /* OpSampledImage combining a patched image+sampler */
