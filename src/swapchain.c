@@ -1516,7 +1516,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     if (!needs_upgrade)
        {
         STEREO_LOG(
-            "VIEW_PASSTHROUGH image=%p fmt=%u aspect=0x%X viewType=%u layers=%u depthTracked=%u colorTracked=%u",
+            "VIEW_PASSTHROUGH image=%p fmt=%u aspect=0x%X viewType=%u layers=%u depthTracked=%u colorTracked=%u usage_unknown=1",
             (void*)(uintptr_t)pCreateInfo->image,
             pCreateInfo->format,
             pCreateInfo->subresourceRange.aspectMask,

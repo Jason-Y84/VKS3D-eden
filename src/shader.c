@@ -2331,7 +2331,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 e->words,
                 (void*)ci->pStages[fs_s].module);
             STEREO_LOG(
-                "VS_PATCH hash=%016llx words=%zu module=%p vs_stage=%u",
+                "PATCH hash=%016llx words=%zu module=%p vs_stage=%u",
                 (unsigned long long)hash_spv(e->spv, e->words),
                 e->words,
                 (void*)(has_vs ? ci->pStages[vs_stage].module : VK_NULL_HANDLE),
