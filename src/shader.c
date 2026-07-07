@@ -2211,10 +2211,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         bool in_mv_rp = false;
         if (ci->renderPass != VK_NULL_HANDLE) {
             rpi = stereo_rp_lookup(sd, ci->renderPass);
-            in_mv_rp =
-                (rpi && rpi->has_multiview) ||
-                ((view_mask & 0x3) != 0) ||
-                sd->stereo.multiview;
+            /* Render-pass pipelines are multiview only if the render pass itself
+             * was created with multiview support. Shadow passes must stay mono. */
+            in_mv_rp = (rpi && rpi->has_multiview);
         }
         else if (sd->stereo.multiview && (view_mask & 0x3) != 0) {
         /* VK 1.3 dynamic rendering: no renderPass handle, but we already
