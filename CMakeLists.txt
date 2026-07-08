@@ -170,7 +170,7 @@ target_compile_definitions(${TARGET_NAME} PRIVATE
 # ── Windows-specific settings ────────────────────────────────────────────────
 if(WIN32)
     # .def file controls exports (correct on both x64 and x86 __stdcall)
-    target_sources(${TARGET_NAME} PRIVATE src/VKS3D.def src/VKS3D.rc)
+    target_sources(${TARGET_NAME} PRIVATE src/VKS3D.def "${CMAKE_BINARY_DIR}/VKS3D.rc")
     set_target_properties(${TARGET_NAME} PROPERTIES
         LINK_FLAGS "/DEF:${CMAKE_SOURCE_DIR}/src/VKS3D.def"
     )
