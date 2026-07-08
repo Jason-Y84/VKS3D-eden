@@ -243,6 +243,10 @@ stereo_CreateDevice(
     SET_LOADER_MAGIC_VALUE(sd);
 
     sd->real_device = real_dev;
+    STEREO_LOG(
+        "CREATE_DEVICE wrapper_sd=%p real_device=%p",
+        (void *)sd,
+        (void *)real_dev);
     sd->si          = sp_si;
     sd->real_physdev = real_physdev;
     sd->stereo      = sp_si->stereo;
@@ -285,6 +289,10 @@ stereo_CreateDevice(
         }
     }
 
+    STEREO_LOG(
+        "RETURN_DEVICE wrapper=%p real=%p",
+        (void *)sd,
+        (void *)real_dev);
     *pDevice = real_dev;
     STEREO_LOG("Device created: %p", (void*)real_dev);
     return VK_SUCCESS;
@@ -298,13 +306,19 @@ stereo_AllocateDescriptorSets(
 {
     StereoDevice *sd = (StereoDevice *)device;
     STEREO_LOG(
-        "ALLOC_DESCRIPTOR_SETS device=%p count=%u",
-        (void*)device,
-        pAllocateInfo->descriptorSetCount);
+        "ALLOC_DESCRIPTOR_SETS ENTER device=%p sd=%p",
+        (void *)device,
+        (void *)sd);
     STEREO_LOG(
-        "ALLOC_DESCRIPTOR_SETS ENTER device=%p real=%p",
-        (void*)device,
-        (void*)sd->real_device);
+        "ALLOC first bytes %016llx %016llx %016llx",
+        *(unsigned long long *)((char *)sd + 0),
+        *(unsigned long long *)((char *)sd + 8),
+        *(unsigned long long *)((char *)sd + 16));
+    STEREO_LOG(
+        "ALLOC real_device=%p alloc=%p update=%p",
+        (void *)sd->real_device,
+        (void *)sd->real.AllocateDescriptorSets,
+        (void *)sd->real.UpdateDescriptorSets);
     STEREO_LOG(
         "ALLOC_DESCRIPTOR_SETS calling real.AllocateDescriptorSets=%p",
         (void*)sd->real.AllocateDescriptorSets);
