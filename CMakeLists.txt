@@ -12,6 +12,7 @@ set(VKS3D_VER_BUILD 0 CACHE STRING "Build version number")
 
 # Configure the RC file from the template
 configure_file(
+    "src/VKS3D.rc.in"
     "src/VKS3D.rc"
 )
 
