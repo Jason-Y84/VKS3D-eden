@@ -139,6 +139,42 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 #endif
 #undef PD_FN
 
+    /* ── Core physical-device entrypoints ───────────────────────────── */
+    if (!strcmp(name, "vkGetPhysicalDeviceProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceProperties;
+    if (!strcmp(name, "vkGetPhysicalDeviceFeatures"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceFeatures;
+    if (!strcmp(name, "vkGetPhysicalDeviceMemoryProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceMemoryProperties;
+    if (!strcmp(name, "vkGetPhysicalDeviceQueueFamilyProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceQueueFamilyProperties;
+    if (!strcmp(name, "vkGetPhysicalDeviceFormatProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceFormatProperties;
+    if (!strcmp(name, "vkGetPhysicalDeviceImageFormatProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceImageFormatProperties;
+    if (!strcmp(name, "vkGetPhysicalDeviceSparseImageFormatProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceSparseImageFormatProperties;
+    if (!strcmp(name, "vkGetPhysicalDeviceProperties2"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceProperties2;
+    if (!strcmp(name, "vkGetPhysicalDeviceFeatures2"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceFeatures2;
+    if (!strcmp(name, "vkGetPhysicalDeviceMemoryProperties2"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceMemoryProperties2;
+    if (!strcmp(name, "vkGetPhysicalDeviceQueueFamilyProperties2"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceQueueFamilyProperties2;
+    if (!strcmp(name, "vkGetPhysicalDeviceFormatProperties2"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceFormatProperties2;
+    if (!strcmp(name, "vkGetPhysicalDeviceImageFormatProperties2"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceImageFormatProperties2;
+    if (!strcmp(name, "vkGetPhysicalDeviceSparseImageFormatProperties2"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceSparseImageFormatProperties2;
+    if (!strcmp(name, "vkGetPhysicalDeviceExternalBufferProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceExternalBufferProperties;
+    if (!strcmp(name, "vkGetPhysicalDeviceExternalFenceProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceExternalFenceProperties;
+    if (!strcmp(name, "vkGetPhysicalDeviceExternalSemaphoreProperties"))
+        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceExternalSemaphoreProperties;
+
     /* ── KHR aliases — same underlying wrapper as the core 1.1 function ──── */
     /* Vulkan 1.1 promoted these KHR extensions to core.  The NVIDIA ICD uses
      * the same function pointer for both names.  We alias to the core wrapper
