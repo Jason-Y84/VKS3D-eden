@@ -262,6 +262,10 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
+    STEREO_LOG(
+        "GDPA_QUERY device=%p name=%s",
+        (void*)device,
+        pName ? pName : "(null)");
     if (!pName) return NULL;
 
     /* ── VKS3D-wrapped device commands ───────────────────────────────── */
@@ -338,8 +342,16 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
             PFN_vkGetDeviceProcAddr real_gdpa =
                 (PFN_vkGetDeviceProcAddr)
                 g_devices[i]->real.GetDeviceProcAddr;
-            if (real_gdpa)
-                return real_gdpa(g_devices[i]->real_device, pName);
+            if (real_gdpa) {
+                PFN_vkVoidFunction real_fn =
+                    real_gdpa(g_devices[i]->real_device, pName);
+                STEREO_LOG(
+                    "GDPA_FWD name=%s real_device=%p fn=%p",
+                    pName,
+                    (void*)g_devices[i]->real_device,
+                    (void*)real_fn);
+                return real_fn;
+            }
             break;
         }
     }
