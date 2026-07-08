@@ -266,6 +266,15 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
+    StereoDevice *sd = (StereoDevice *)(uintptr_t)device;
+    
+    STEREO_LOG(
+        "GDPA ENTER device=%p sd=%p magic=0x%llx real=%p name=%s",
+        (void*)device,
+        (void*)sd,
+        (unsigned long long)sd->loader_data.loaderMagic,
+        (void*)sd->real_device,
+        pName ? pName : "<null>");
     STEREO_LOG(
         "GDPA_ENTER device=%p name=%s",
         (void*)device,
