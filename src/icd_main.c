@@ -24,6 +24,10 @@ stereo_dl_t               stereo_get_real_icd_handle(void);
 static PFN_vkVoidFunction get_instance_proc_addr_internal(
     VkInstance instance, const char *name)
 {
+    if (name && strstr(name, "GetPhysicalDevice"))
+    {
+        STEREO_LOG("GET_PHYSDEV_PROC %s", name);
+    }
     /* Pre-instance commands */
     if (!strcmp(name, "vkCreateInstance"))
         return (PFN_vkVoidFunction)stereo_CreateInstance;
