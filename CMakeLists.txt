@@ -6,14 +6,21 @@ project(VKS3D
     DESCRIPTION "Vulkan Stereoscopic 3D ICD"
 )
 
-# Set default values for version numbers
-set(VKS3D_VER_PATCH 0 CACHE STRING "Patch version number")
-set(VKS3D_VER_BUILD 0 CACHE STRING "Build version number")
+# ── Version number cache variables ──────────────────────────────────────────
+# Allow passing via: cmake -DVKS3D_VER_PATCH=10 -DVKS3D_VER_BUILD=2
+if(NOT DEFINED VKS3D_VER_PATCH)
+    set(VKS3D_VER_PATCH 0 CACHE STRING "Patch version number (0-65535)")
+endif()
+if(NOT DEFINED VKS3D_VER_BUILD)
+    set(VKS3D_VER_BUILD 0 CACHE STRING "Build version number (0-65535)")
+endif()
 
-# Configure the RC file from the template
+message(STATUS "VKS3D: version 1.0.${VKS3D_VER_PATCH}.${VKS3D_VER_BUILD}")
+
+# ── Configure RC file from template ──────────────────────────────────────────
 configure_file(
-    "src/VKS3D.rc.in"
-    "src/VKS3D.rc"
+    "${CMAKE_SOURCE_DIR}/src/VKS3D.rc.in"
+    "${CMAKE_BINARY_DIR}/VKS3D.rc"
 )
 
 # ── Policy: MSVC requires C11 via /std:c11 ─────────────────────────────────
