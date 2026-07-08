@@ -51,7 +51,7 @@ uint32_t                     g_instance_count = 0;
 static StereoPhysdev    g_physdev_wrappers[MAX_PHYSICAL_DEVICES];
 static uint32_t         g_physdev_count = 0;
 
-StereoDevice                 g_devices[MAX_DEVICES];
+StereoDevice                 *g_devices[MAX_DEVICES];
 uint32_t                     g_device_count = 0;
 
 static stereo_mutex_t        g_registry_lock;
@@ -611,7 +611,7 @@ StereoDevice *stereo_device_from_handle(VkDevice h) {
     ensure_registry_init();
     stereo_mutex_lock(&g_registry_lock);
     for (uint32_t i = 0; i < g_device_count; i++) {
-        if (g_devices[i].real_device == h) {
+        if (g_devices[i]->real_device == h) {
             stereo_mutex_unlock(&g_registry_lock); return &g_devices[i];
         }
     }
@@ -622,7 +622,7 @@ void stereo_device_free(VkDevice h) {
     ensure_registry_init();
     stereo_mutex_lock(&g_registry_lock);
     for (uint32_t i = 0; i < g_device_count; i++) {
-        if (g_devices[i].real_device == h) {
+        if (g_devices[i]->real_device == h) {
             stereo_mutex_destroy(&g_devices[i].lock);
             g_devices[i] = g_devices[--g_device_count]; break;
         }
