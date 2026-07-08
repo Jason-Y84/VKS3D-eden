@@ -738,9 +738,11 @@ stereo_CmdBeginRendering(
         sd->real.CmdBeginRendering,
         modified.viewMask,
         modified.layerCount);
+    STEREO_LOG("BEGIN_RENDERING CALL ENTER");
     sd->real.CmdBeginRendering(
         commandBuffer,
         &modified);
+    STEREO_LOG("BEGIN_RENDERING CALL EXIT");
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -771,7 +773,9 @@ stereo_CmdEndRendering(
     STEREO_LOG(
         "END_RENDERING FORWARD real=%p",
         sd->real.CmdEndRendering);
+    STEREO_LOG("END_RENDERING CALL ENTER");
     sd->real.CmdEndRendering(commandBuffer);
+    STEREO_LOG("END_RENDERING CALL EXIT");
 }
 
 VKAPI_ATTR void VKAPI_CALL
