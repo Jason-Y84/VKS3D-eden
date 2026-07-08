@@ -782,7 +782,13 @@ void stereo_populate_instance_dispatch(StereoInstance *si)
 void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
 {
 #define L(fn) sd->real.fn = (PFN_vk##fn)(g_real_giPA)((real_inst), "vk"#fn)
-    L(GetDeviceProcAddr); /* load first so we can use it as fallback */
+    /* Obtain the real vkGetDeviceProcAddr from the loader */
+    L(GetDeviceProcAddr);
+    PFN_vkGetDeviceProcAddr gdpa = sd->real.GetDeviceProcAddr;
+    if (!gdpa) {
+        STEREO_ERR("Failed to obtain vkGetDeviceProcAddr");
+        return;
+    }
     L(DestroyDevice); L(GetDeviceQueue); L(QueueSubmit); L(QueueWaitIdle);
     L(DeviceWaitIdle); L(AllocateMemory); L(FreeMemory); L(MapMemory);
     L(UnmapMemory); L(FlushMappedMemoryRanges); L(InvalidateMappedMemoryRanges);
@@ -804,15 +810,23 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
     L(CreateDescriptorSetLayout); L(DestroyDescriptorSetLayout);
     L(CreateDescriptorPool); L(DestroyDescriptorPool);
     L(ResetDescriptorPool);
-    L(AllocateDescriptorSets);
     L(FreeDescriptorSets);
-    L(UpdateDescriptorSets);
+    sd->real.AllocateDescriptorSets =
+        (PFN_vkAllocateDescriptorSets)
+            gdpa(sd->real_device, "vkAllocateDescriptorSets");
+    sd->real.UpdateDescriptorSets =
+        (PFN_vkUpdateDescriptorSets)
+            gdpa(sd->real_device, "vkUpdateDescriptorSets");
     STEREO_LOG(
         "GDPA=%p AllocDS=%p UpdateDS=%p CmdBindDS=%p",
-        sd->real.GetDeviceProcAddr,
+        gdpa,
         sd->real.AllocateDescriptorSets,
         sd->real.UpdateDescriptorSets,
         sd->real.CmdBindDescriptorSets);
+    STEREO_LOG(
+        "GDPA direct Allocate=%p Update=%p",
+        gdpa(sd->real_device, "vkAllocateDescriptorSets"),
+        gdpa(sd->real_device, "vkUpdateDescriptorSets"));
     L(CreateFramebuffer); L(DestroyFramebuffer);
     L(CreateRenderPass); L(DestroyRenderPass); L(GetRenderAreaGranularity);
     L(CreateCommandPool); L(DestroyCommandPool); L(ResetCommandPool);

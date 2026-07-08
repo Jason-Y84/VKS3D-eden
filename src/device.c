@@ -249,6 +249,9 @@ stereo_CreateDevice(
 
     stereo_populate_device_dispatch(sd, sp_si->real_instance);
     STEREO_LOG(
+        "real.GetDeviceProcAddr=%p",
+        sd->real.GetDeviceProcAddr);
+    STEREO_LOG(
         "Dispatch: Allocate=%p Update=%p CreateImageView=%p CreateFramebuffer=%p",
         (void*)sd->real.AllocateDescriptorSets,
         (void*)sd->real.UpdateDescriptorSets,
