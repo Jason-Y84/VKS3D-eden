@@ -294,7 +294,9 @@ stereo_AllocateDescriptorSets(
             sd->real_device,
             pAllocateInfo,
             pDescriptorSets);
-
+    STEREO_LOG(
+        "ALLOC_DESCRIPTOR_SETS returned %d",
+        r);
     if (r != VK_SUCCESS)
         return r;
 
