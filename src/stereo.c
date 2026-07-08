@@ -807,6 +807,12 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
     L(AllocateDescriptorSets);
     L(FreeDescriptorSets);
     L(UpdateDescriptorSets);
+    STEREO_LOG(
+        "GDPA=%p AllocDS=%p UpdateDS=%p CmdBindDS=%p",
+        sd->real.GetDeviceProcAddr,
+        sd->real.AllocateDescriptorSets,
+        sd->real.UpdateDescriptorSets,
+        sd->real.CmdBindDescriptorSets);
     L(CreateFramebuffer); L(DestroyFramebuffer);
     L(CreateRenderPass); L(DestroyRenderPass); L(GetRenderAreaGranularity);
     L(CreateCommandPool); L(DestroyCommandPool); L(ResetCommandPool);
