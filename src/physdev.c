@@ -42,13 +42,16 @@ stereo_GetPhysicalDeviceProperties(
         (void*)pd);
 
     LOOKUP_PD(pd);
-
     STEREO_LOG(
         "PHY_PROPS REAL_CALL si=%p real_pd=%p GetProps=%p",
         (void*)_si,
         (void*)_real,
         (void*)_si->real.GetPhysicalDeviceProperties);
-
+    STEREO_LOG(
+        "PHYSDEV CHECK wrapper=%p real_pd=%p si=%p",
+        (void*)pd,
+        (void*)_real,
+        (void*)_si);
     _si->real.GetPhysicalDeviceProperties(_real, p);
 
     STEREO_LOG(

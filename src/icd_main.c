@@ -509,6 +509,9 @@ vk_icdGetInstanceProcAddr(VkInstance instance, const char *pName)
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 vk_icdGetPhysicalDeviceProcAddr(VkInstance instance, const char *pName)
 {
+    STEREO_LOG(
+        "GET_PHYSDEV_PROC name=%s",
+        pName ? pName : "<null>");
     if (!pName)
         return NULL;
     STEREO_LOG("vk_icdGetPhysicalDeviceProcAddr: instance=%p name='%s'",
