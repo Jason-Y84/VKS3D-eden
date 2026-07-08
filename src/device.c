@@ -274,7 +274,15 @@ stereo_CreateDevice(
             for (uint32_t i = 0; i < qf_count; i++) {
                 if (qfps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
                     sd->gfx_qf = i;
+                    STEREO_LOG(
+                        "GET_DEVICE_QUEUE CALL fn=%p dev=%p family=%u index=0",
+                        (void*)sd->real.GetDeviceQueue,
+                        (void*)real_dev,
+                        i);
                     sd->real.GetDeviceQueue(real_dev, i, 0, &sd->gfx_queue);
+                    STEREO_LOG(
+                        "GET_DEVICE_QUEUE RETURN queue=%p",
+                        (void*)sd->gfx_queue);
                     break;
                 }
             }

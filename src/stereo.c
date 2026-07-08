@@ -798,6 +798,11 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
         return;
     }
     L(DestroyDevice); L(GetDeviceQueue); L(QueueSubmit); L(QueueWaitIdle);
+    STEREO_LOG(
+        "DISPATCH GetDeviceQueue=%p QueueSubmit=%p QueueWaitIdle=%p",
+        (void*)sd->real.GetDeviceQueue,
+        (void*)sd->real.QueueSubmit,
+        (void*)sd->real.QueueWaitIdle);
     L(DeviceWaitIdle); L(AllocateMemory); L(FreeMemory); L(MapMemory);
     L(UnmapMemory); L(FlushMappedMemoryRanges); L(InvalidateMappedMemoryRanges);
     L(BindBufferMemory); L(BindImageMemory);
