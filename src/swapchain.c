@@ -1461,14 +1461,24 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
 
     if (!sd->stereo.multiview)
         return sd->real.CreateImageView(sd->real_device, pCreateInfo, pAllocator, pView);
+    bool depthTracked = false;
+    bool colorTracked = false;
+    
+    for (uint32_t i = 0; i < sd->intercepted_depth_count; i++)
+        if (sd->intercepted_depth[i] == pCreateInfo->image)
+            depthTracked = true;
+    
+    for (uint32_t i = 0; i < sd->intercepted_color_count; i++)
+        if (sd->intercepted_color[i] == pCreateInfo->image)
+            colorTracked = true;
     STEREO_LOG(
         "VIEW_INPUT image=%p fmt=%u tracked_depth=%u tracked_color=%u usage_unknown=%u layers=%u",
         (void*)(uintptr_t)pCreateInfo->image,
         pCreateInfo->format,
-        image_is_intercepted_depth(sd, pCreateInfo->image),
-        image_is_intercepted_color(sd, pCreateInfo->image),
+        depthTracked,
+        colorTracked,
         1,
-+        pCreateInfo->subresourceRange.layerCount);
+        pCreateInfo->subresourceRange.layerCount);
     //STEREO_LOG(
     //    "[VIEW CREATE RAW] image=%p viewType=%u layers=%u",
     //    pCreateInfo->image,
