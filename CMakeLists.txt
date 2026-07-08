@@ -6,6 +6,15 @@ project(VKS3D
     DESCRIPTION "Vulkan Stereoscopic 3D ICD"
 )
 
+# Set default values for version numbers
+set(VKS3D_VER_PATCH 0 CACHE STRING "Patch version number")
+set(VKS3D_VER_BUILD 0 CACHE STRING "Build version number")
+
+# Configure the RC file from the template
+configure_file(
+    "src/VKS3D.rc"
+)
+
 # ── Policy: MSVC requires C11 via /std:c11 ─────────────────────────────────
 if(POLICY CMP0091)
     cmake_policy(SET CMP0091 NEW)
