@@ -263,6 +263,10 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
     STEREO_LOG(
+        "GDPA_ENTER device=%p name=%s",
+        (void*)device,
+        pName ? pName : "(null)");
+    STEREO_LOG(
         "GDPA_QUERY device=%p name=%s",
         (void*)device,
         pName ? pName : "(null)");
@@ -350,6 +354,10 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
                     pName,
                     (void*)g_devices[i]->real_device,
                     (void*)real_fn);
+                STEREO_LOG(
+                    "GDPA_RETURN name=%s fn=%p",
+                    pName,
+                    (void*)real_fn);
                 if (!real_fn) {
                     STEREO_LOG(
                         "GDPA_MISSING name=%s device=%p real=%p",
@@ -363,7 +371,15 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         }
     }
     /* Fallback: use instance-level lookup */
-    return get_instance_proc_addr_internal(VK_NULL_HANDLE, pName);
+    PFN_vkVoidFunction fn =
+        get_instance_proc_addr_internal(VK_NULL_HANDLE, pName);
+    
+    STEREO_LOG(
+        "GDPA_FALLBACK name=%s fn=%p",
+        pName,
+        (void*)fn);
+    
+    return fn;
 }
 
 /* ── Loader interface v6+: DXGI adapter physdev enumeration ─────────────────
