@@ -69,8 +69,14 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
  * the loader calls it with the real physdev handle — this is fine because
  * the real ICD's VkPhysicalDevice.  The real ICD would dereference our
  * wrapper as its own internal struct, corrupt heap state, and crash.      */
-#define PD_FN(fn) if (!strcmp(name, "vk"#fn)) return (PFN_vkVoidFunction)stereo_##fn;
-
+#define PD_FN(fn)                                                   \
+    if (!strcmp(name, "vk"#fn)) {                                  \
+        STEREO_LOG(                                                 \
+            "PD_FN_MATCH %s -> %p",                                 \
+            name,                                                   \
+            (void*)stereo_##fn);                                    \
+        return (PFN_vkVoidFunction)stereo_##fn;                     \
+    }
     /* ── Vulkan 1.0 core ── */
     PD_FN(GetPhysicalDeviceProperties)
     PD_FN(GetPhysicalDeviceFeatures)
