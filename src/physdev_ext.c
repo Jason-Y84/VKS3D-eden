@@ -78,24 +78,24 @@ static inline PFN_vkVoidFunction ext_fn(StereoInstance *si, const char *name)
 
 VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceFeatures2KHR(VkPhysicalDevice pd, VkPhysicalDeviceFeatures2 *f)
-    { stereo_GetPhysicalDeviceFeatures2(pd, f); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceFeatures2(pd, f); }
 
 VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceProperties2KHR(VkPhysicalDevice pd, VkPhysicalDeviceProperties2 *p)
-    { stereo_GetPhysicalDeviceProperties2(pd, p); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceProperties2(pd, p); }
 
 VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice pd, VkFormat fmt, VkFormatProperties2 *p)
-    { stereo_GetPhysicalDeviceFormatProperties2(pd, fmt, p); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceFormatProperties2(pd, fmt, p); }
 
 VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceMemoryProperties2KHR(VkPhysicalDevice pd, VkPhysicalDeviceMemoryProperties2 *p)
-    { stereo_GetPhysicalDeviceMemoryProperties2(pd, p); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceMemoryProperties2(pd, p); }
 
 VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceQueueFamilyProperties2KHR(
     VkPhysicalDevice pd, uint32_t *pCount, VkQueueFamilyProperties2 *pProps)
-    { stereo_GetPhysicalDeviceQueueFamilyProperties2(pd, pCount, pProps); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceQueueFamilyProperties2(pd, pCount, pProps); }
 
 /* ── ImageFormatProperties2 (core 1.1 + KHR alias) ─────────────────────── */
 
@@ -105,6 +105,7 @@ stereo_GetPhysicalDeviceImageFormatProperties2(
     const VkPhysicalDeviceImageFormatInfo2 *pInfo,
     VkImageFormatProperties2               *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__);
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice,
         const VkPhysicalDeviceImageFormatInfo2 *, VkImageFormatProperties2 *);
@@ -117,7 +118,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_GetPhysicalDeviceImageFormatProperties2KHR(
     VkPhysicalDevice pd, const VkPhysicalDeviceImageFormatInfo2 *pInfo,
     VkImageFormatProperties2 *pProps)
-    { return stereo_GetPhysicalDeviceImageFormatProperties2(pd, pInfo, pProps); }
+    { STEREO_LOG("ENTER %s", __func__); return stereo_GetPhysicalDeviceImageFormatProperties2(pd, pInfo, pProps); }
 
 /* ── SparseImageFormatProperties2 (core 1.1 + KHR alias) ───────────────── */
 
@@ -128,6 +129,7 @@ stereo_GetPhysicalDeviceSparseImageFormatProperties2(
     uint32_t                                     *pCount,
     VkSparseImageFormatProperties2               *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__);
     LOOKUP_PD(pd);
     typedef void (VKAPI_PTR *PFN)(VkPhysicalDevice,
         const VkPhysicalDeviceSparseImageFormatInfo2 *,
@@ -140,7 +142,7 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceSparseImageFormatProperties2KHR(
     VkPhysicalDevice pd, const VkPhysicalDeviceSparseImageFormatInfo2 *pInfo,
     uint32_t *pCount, VkSparseImageFormatProperties2 *pProps)
-    { stereo_GetPhysicalDeviceSparseImageFormatProperties2(pd, pInfo, pCount, pProps); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceSparseImageFormatProperties2(pd, pInfo, pCount, pProps); }
 
 /* ── External resource properties (core 1.1 + KHR aliases) ─────────────── */
 
@@ -150,6 +152,7 @@ stereo_GetPhysicalDeviceExternalBufferProperties(
     const VkPhysicalDeviceExternalBufferInfo *pInfo,
     VkExternalBufferProperties               *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD(pd);
     typedef void (VKAPI_PTR *PFN)(VkPhysicalDevice,
         const VkPhysicalDeviceExternalBufferInfo *, VkExternalBufferProperties *);
@@ -161,7 +164,7 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceExternalBufferPropertiesKHR(
     VkPhysicalDevice pd, const VkPhysicalDeviceExternalBufferInfo *pInfo,
     VkExternalBufferProperties *pProps)
-    { stereo_GetPhysicalDeviceExternalBufferProperties(pd, pInfo, pProps); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceExternalBufferProperties(pd, pInfo, pProps); }
 
 VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceExternalFenceProperties(
@@ -169,6 +172,7 @@ stereo_GetPhysicalDeviceExternalFenceProperties(
     const VkPhysicalDeviceExternalFenceInfo *pInfo,
     VkExternalFenceProperties               *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD(pd);
     typedef void (VKAPI_PTR *PFN)(VkPhysicalDevice,
         const VkPhysicalDeviceExternalFenceInfo *, VkExternalFenceProperties *);
@@ -180,7 +184,7 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceExternalFencePropertiesKHR(
     VkPhysicalDevice pd, const VkPhysicalDeviceExternalFenceInfo *pInfo,
     VkExternalFenceProperties *pProps)
-    { stereo_GetPhysicalDeviceExternalFenceProperties(pd, pInfo, pProps); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceExternalFenceProperties(pd, pInfo, pProps); }
 
 VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceExternalSemaphoreProperties(
@@ -188,6 +192,7 @@ stereo_GetPhysicalDeviceExternalSemaphoreProperties(
     const VkPhysicalDeviceExternalSemaphoreInfo *pInfo,
     VkExternalSemaphoreProperties               *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD(pd);
     typedef void (VKAPI_PTR *PFN)(VkPhysicalDevice,
         const VkPhysicalDeviceExternalSemaphoreInfo *, VkExternalSemaphoreProperties *);
@@ -199,7 +204,7 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceExternalSemaphorePropertiesKHR(
     VkPhysicalDevice pd, const VkPhysicalDeviceExternalSemaphoreInfo *pInfo,
     VkExternalSemaphoreProperties *pProps)
-    { stereo_GetPhysicalDeviceExternalSemaphoreProperties(pd, pInfo, pProps); }
+    { STEREO_LOG("ENTER %s", __func__); stereo_GetPhysicalDeviceExternalSemaphoreProperties(pd, pInfo, pProps); }
 
 /* ── EnumeratePhysicalDeviceGroups (instance-level but returns pd handles) ─
  * Must wrap: the VkPhysicalDeviceGroupProperties structs it fills contain
@@ -211,6 +216,7 @@ stereo_EnumeratePhysicalDeviceGroups(
     uint32_t                        *pCount,
     VkPhysicalDeviceGroupProperties *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     StereoInstance *si = stereo_instance_from_handle(instance);
     if (!si) return VK_ERROR_INITIALIZATION_FAILED;
     typedef VkResult (VKAPI_PTR *PFN)(VkInstance, uint32_t *,
@@ -238,7 +244,7 @@ stereo_EnumeratePhysicalDeviceGroups(
 VKAPI_ATTR VkResult VKAPI_CALL
 stereo_EnumeratePhysicalDeviceGroupsKHR(
     VkInstance instance, uint32_t *pCount, VkPhysicalDeviceGroupProperties *pProps)
-    { return stereo_EnumeratePhysicalDeviceGroups(instance, pCount, pProps); }
+    { STEREO_LOG("ENTER %s", __func__); return stereo_EnumeratePhysicalDeviceGroups(instance, pCount, pProps); }
 
 /* ── Surface extension queries ───────────────────────────────────────────── */
 
@@ -248,6 +254,7 @@ stereo_GetPhysicalDeviceSurfaceCapabilities2KHR(
     const VkPhysicalDeviceSurfaceInfo2KHR *pInfo,
     VkSurfaceCapabilities2KHR             *pCaps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice,
         const VkPhysicalDeviceSurfaceInfo2KHR *, VkSurfaceCapabilities2KHR *);
@@ -263,6 +270,7 @@ stereo_GetPhysicalDeviceSurfaceFormats2KHR(
     uint32_t                              *pCount,
     VkSurfaceFormat2KHR                   *pFormats)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     STEREO_LOG("stereo_GetPhysicalDeviceSurfaceFormats2KHR: pd=%p", (void*)pd);
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice,
@@ -280,6 +288,7 @@ stereo_GetPhysicalDeviceSurfacePresentModes2EXT(
     uint32_t                              *pCount,
     VkPresentModeKHR                      *pModes)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice,
         const VkPhysicalDeviceSurfaceInfo2KHR *, uint32_t *, VkPresentModeKHR *);
@@ -296,6 +305,7 @@ stereo_GetPhysicalDevicePresentRectanglesKHR(
     uint32_t        *pRectCount,
     VkRect2D        *pRects)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice,
         VkSurfaceKHR, uint32_t *, VkRect2D *);
@@ -310,6 +320,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL
 stereo_GetPhysicalDeviceWin32PresentationSupportKHR(
     VkPhysicalDevice pd, uint32_t queueFamilyIndex)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_FALSE);
     typedef VkBool32 (VKAPI_PTR *PFN)(VkPhysicalDevice, uint32_t);
     PFN fn = (PFN)ext_fn(_si, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
@@ -324,6 +335,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_GetPhysicalDeviceCalibrateableTimeDomainsEXT(
     VkPhysicalDevice pd, uint32_t *pCount, VkTimeDomainEXT *pDomains)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, uint32_t *, VkTimeDomainEXT *);
     PFN fn = (PFN)ext_fn(_si, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
@@ -338,6 +350,7 @@ stereo_GetPhysicalDeviceMultisamplePropertiesEXT(
     VkSampleCountFlagBits       samples,
     VkMultisamplePropertiesEXT *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD(pd);
     typedef void (VKAPI_PTR *PFN)(VkPhysicalDevice,
         VkSampleCountFlagBits, VkMultisamplePropertiesEXT *);
@@ -358,6 +371,7 @@ stereo_GetPhysicalDeviceExternalImageFormatPropertiesNV(
     VkExternalMemoryHandleTypeFlagsNV  externalHandleType,
     VkExternalImageFormatPropertiesNV *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV fn =
         (PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV)
@@ -372,6 +386,7 @@ stereo_GetPhysicalDeviceGeneratedCommandsPropertiesNVX(
     void            *pFeatures,   /* VkDeviceGeneratedCommandsFeaturesNVX* */
     void            *pLimits)     /* VkDeviceGeneratedCommandsLimitsNVX*   */
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD(pd);
     /* Use void* to stay compilable against older SDK headers */
     typedef void (VKAPI_PTR *PFN)(VkPhysicalDevice, void *, void *);
@@ -386,6 +401,7 @@ stereo_GetPhysicalDeviceCooperativeMatrixPropertiesNV(
     uint32_t                        *pCount,
     VkCooperativeMatrixPropertiesNV *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     PFN_vkGetPhysicalDeviceCooperativeMatrixPropertiesNV fn =
         (PFN_vkGetPhysicalDeviceCooperativeMatrixPropertiesNV)
@@ -402,6 +418,7 @@ stereo_GetPhysicalDeviceSupportedFramebufferMixedSamplesCombinationsNV(
     uint32_t                              *pCount,
     VkFramebufferMixedSamplesCombinationNV *pCombinations)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, uint32_t *,
         VkFramebufferMixedSamplesCombinationNV *);
@@ -421,6 +438,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_GetPhysicalDeviceDisplayPropertiesKHR(
     VkPhysicalDevice pd, uint32_t *pCount, VkDisplayPropertiesKHR *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     STEREO_LOG("stereo_GetPhysicalDeviceDisplayPropertiesKHR: pd=%p", (void*)pd);
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, uint32_t *, VkDisplayPropertiesKHR *);
@@ -433,6 +451,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_GetPhysicalDeviceDisplayPlanePropertiesKHR(
     VkPhysicalDevice pd, uint32_t *pCount, VkDisplayPlanePropertiesKHR *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     STEREO_LOG("stereo_GetPhysicalDeviceDisplayPlanePropertiesKHR: pd=%p", (void*)pd);
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, uint32_t *, VkDisplayPlanePropertiesKHR *);
@@ -445,6 +464,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_GetDisplayPlaneSupportedDisplaysKHR(
     VkPhysicalDevice pd, uint32_t planeIndex, uint32_t *pCount, VkDisplayKHR *pDisplays)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, uint32_t, uint32_t *, VkDisplayKHR *);
     PFN fn = (PFN)ext_fn(_si, "vkGetDisplayPlaneSupportedDisplaysKHR");
@@ -457,6 +477,7 @@ stereo_GetDisplayModePropertiesKHR(
     VkPhysicalDevice pd, VkDisplayKHR display,
     uint32_t *pCount, VkDisplayModePropertiesKHR *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, VkDisplayKHR, uint32_t *, VkDisplayModePropertiesKHR *);
     PFN fn = (PFN)ext_fn(_si, "vkGetDisplayModePropertiesKHR");
@@ -471,6 +492,7 @@ stereo_CreateDisplayModeKHR(
     const VkAllocationCallbacks *pAllocator,
     VkDisplayModeKHR *pMode)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, VkDisplayKHR,
         const VkDisplayModeCreateInfoKHR *, const VkAllocationCallbacks *, VkDisplayModeKHR *);
@@ -484,6 +506,7 @@ stereo_GetDisplayPlaneCapabilitiesKHR(
     VkPhysicalDevice pd, VkDisplayModeKHR mode,
     uint32_t planeIndex, VkDisplayPlaneCapabilitiesKHR *pCaps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, VkDisplayModeKHR, uint32_t,
         VkDisplayPlaneCapabilitiesKHR *);
@@ -496,6 +519,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_GetPhysicalDeviceDisplayProperties2KHR(
     VkPhysicalDevice pd, uint32_t *pCount, VkDisplayProperties2KHR *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     STEREO_LOG("stereo_GetPhysicalDeviceDisplayProperties2KHR: pd=%p", (void*)pd);
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, uint32_t *, VkDisplayProperties2KHR *);
@@ -508,6 +532,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_GetPhysicalDeviceDisplayPlaneProperties2KHR(
     VkPhysicalDevice pd, uint32_t *pCount, VkDisplayPlaneProperties2KHR *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     STEREO_LOG("stereo_GetPhysicalDeviceDisplayPlaneProperties2KHR: pd=%p", (void*)pd);
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, uint32_t *, VkDisplayPlaneProperties2KHR *);
@@ -521,6 +546,7 @@ stereo_GetDisplayModeProperties2KHR(
     VkPhysicalDevice pd, VkDisplayKHR display,
     uint32_t *pCount, VkDisplayModeProperties2KHR *pProps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice, VkDisplayKHR,
         uint32_t *, VkDisplayModeProperties2KHR *);
@@ -535,6 +561,7 @@ stereo_GetDisplayPlaneCapabilities2KHR(
     const VkDisplayPlaneInfo2KHR *pDisplayPlaneInfo,
     VkDisplayPlaneCapabilities2KHR *pCaps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
     typedef VkResult (VKAPI_PTR *PFN)(VkPhysicalDevice,
         const VkDisplayPlaneInfo2KHR *, VkDisplayPlaneCapabilities2KHR *);
@@ -547,6 +574,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_GetPhysicalDeviceSurfaceCapabilities2EXT(
     VkPhysicalDevice pd, VkSurfaceKHR surface, VkSurfaceCapabilities2EXT *pSurfaceCaps)
 {
+    STEREO_LOG("ENTER %s", __func__); 
     STEREO_LOG("stereo_GetPhysicalDeviceSurfaceCapabilities2EXT: pd=%p surface=%p",
                (void*)pd, (void*)(uintptr_t)surface);
     LOOKUP_PD_R(pd, VK_ERROR_INITIALIZATION_FAILED);
