@@ -298,19 +298,19 @@ stereo_AllocateDescriptorSets(
     if (r != VK_SUCCESS)
         return r;
 
-    /*
-     * Temporary pass-through tracking.
-     * Later we will need a wrapped handle if VKS3D allocates its own objects.
-     */
-    for (uint32_t i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
-        if (sd->descriptor_set_count < MAX_DESCRIPTOR_SETS) {
-            sd->descriptor_sets[sd->descriptor_set_count].wrapped =
-                pDescriptorSets[i];
-            sd->descriptor_sets[sd->descriptor_set_count].real =
-                pDescriptorSets[i];
-            sd->descriptor_set_count++;
-        }
-    }
+   ///*
+   // * Temporary pass-through tracking.
+   // * Later we will need a wrapped handle if VKS3D allocates its own objects.
+   // */
+   //for (uint32_t i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
+   //    if (sd->descriptor_set_count < MAX_DESCRIPTOR_SETS) {
+   //        sd->descriptor_sets[sd->descriptor_set_count].wrapped =
+   //            pDescriptorSets[i];
+   //        sd->descriptor_sets[sd->descriptor_set_count].real =
+   //            pDescriptorSets[i];
+   //        sd->descriptor_set_count++;
+   //    }
+   //}
 
     return VK_SUCCESS;
 }
@@ -344,27 +344,27 @@ stereo_UpdateDescriptorSets(
             pDescriptorWrites[i].descriptorCount,
             pDescriptorWrites[i].descriptorType);
     }
-    VkWriteDescriptorSet writes[64];
-    if (descriptorWriteCount > 64)
-        descriptorWriteCount = 64;
-    memcpy(writes,
-           pDescriptorWrites,
-           sizeof(VkWriteDescriptorSet) * descriptorWriteCount);
-    for (uint32_t i = 0; i < descriptorWriteCount; i++) {
-        for (uint32_t j = 0; j < sd->descriptor_set_count; j++) {
-            if (writes[i].dstSet ==
-                sd->descriptor_sets[j].wrapped)
-            {
-                writes[i].dstSet =
-                    sd->descriptor_sets[j].real;
-                break;
-            }
-        }
-    }
+    //VkWriteDescriptorSet writes[64];
+    //if (descriptorWriteCount > 64)
+    //    descriptorWriteCount = 64;
+    //memcpy(writes,
+    //       pDescriptorWrites,
+    //       sizeof(VkWriteDescriptorSet) * descriptorWriteCount);
+    //for (uint32_t i = 0; i < descriptorWriteCount; i++) {
+    //    for (uint32_t j = 0; j < sd->descriptor_set_count; j++) {
+    //        if (writes[i].dstSet ==
+    //            sd->descriptor_sets[j].wrapped)
+    //        {
+    //            writes[i].dstSet =
+    //                sd->descriptor_sets[j].real;
+    //            break;
+    //        }
+    //    }
+    //}
     sd->real.UpdateDescriptorSets(
         sd->real_device,
         descriptorWriteCount,
-        writes,
+        pDescriptorWrites,
         descriptorCopyCount,
         pDescriptorCopies);
 }
