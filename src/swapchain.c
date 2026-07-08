@@ -1156,13 +1156,13 @@ stereo_QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
     for (uint32_t d = 0; d < g_device_count && !sd; d++) {
         for (uint32_t p = 0; p < pPresentInfo->swapchainCount; p++) {
             StereoSwapchain *found = stereo_swapchain_lookup(
-                &g_devices[d], pPresentInfo->pSwapchains[p]);
-            if (found) { sd = &g_devices[d]; sc = found; break; }
+                g_devices[d], pPresentInfo->pSwapchains[p]);
+            if (found) { sd = g_devices[d]; sc = found; break; }
         }
     }
 
     if (!sd || !sc || !sd->stereo.enabled || !sc->stereo_active) {
-        StereoDevice *fwd = sd ? sd : (g_device_count > 0 ? &g_devices[0] : NULL);
+        StereoDevice *fwd = sd ? sd : (g_device_count > 0 ? g_devices[0] : NULL);
         if (!fwd) return VK_ERROR_DEVICE_LOST;
         return fwd->real.QueuePresentKHR(queue, pPresentInfo);
     }

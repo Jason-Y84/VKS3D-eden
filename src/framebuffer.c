@@ -445,7 +445,7 @@ stereo_CmdBeginRenderPass(
 
     for (uint32_t d = 0; d < g_device_count; d++)
     {
-        StereoDevice *dev = &g_devices[d];
+        StereoDevice *dev = g_devices[d];
         STEREO_LOG(
             "DEVICE[%u] dev=%p real_device=%p fb_track_count=%u",
             d,
@@ -454,7 +454,7 @@ stereo_CmdBeginRenderPass(
             dev->fb_track_count);
     }
     for (uint32_t d = 0; d < g_device_count && !sd; d++) {
-        StereoDevice *dev = &g_devices[d];
+        StereoDevice *dev = g_devices[d];
         STEREO_LOG(
             "FB_TRACK_SCAN dev=%p count=%u",
             dev,
@@ -588,7 +588,7 @@ stereo_CmdBeginRenderPass(
     if (!sd) {
         /* Framebuffer not in our tracking → non-MV; find any live device */
         for (uint32_t d = 0; d < g_device_count; d++) {
-            if (g_devices[d]->real_device) { sd = &g_devices[d]; break; }
+            if (g_devices[d]->real_device) { sd = g_devices[d]; break; }
         }
     }
     if (!sd) return;
@@ -859,7 +859,7 @@ find_any_device(void)
     for (uint32_t i = 0; i < g_device_count; i++)
     {
         if (g_devices[i]->real_device)
-            return &g_devices[i];
+            return g_devices[i];
     }
 
     return NULL;

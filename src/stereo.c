@@ -598,8 +598,14 @@ StereoDevice *stereo_device_alloc(void) {
     if (g_device_count >= MAX_DEVICES) {
         stereo_mutex_unlock(&g_registry_lock); return NULL;
     }
-    StereoDevice *sd = &g_devices[g_device_count++];
-    memset(sd, 0, sizeof(*sd));
+    StereoDevice *sd = calloc(1, sizeof(*sd));
+    if (!sd)
+    {
+        stereo_mutex_unlock(&g_registry_lock);
+        return NULL;
+    }
+    
+    g_devices[g_device_count++] = sd;
     stereo_mutex_init(&sd->lock);
     /* Copy INI paths established in DllMain */
     strncpy(sd->global_ini, g_global_ini, sizeof(sd->global_ini) - 1);
@@ -612,7 +618,7 @@ StereoDevice *stereo_device_from_handle(VkDevice h) {
     stereo_mutex_lock(&g_registry_lock);
     for (uint32_t i = 0; i < g_device_count; i++) {
         if (g_devices[i]->real_device == h) {
-            stereo_mutex_unlock(&g_registry_lock); return &g_devices[i];
+            stereo_mutex_unlock(&g_registry_lock); return g_devices[i];
         }
     }
     stereo_mutex_unlock(&g_registry_lock);
@@ -624,7 +630,9 @@ void stereo_device_free(VkDevice h) {
     for (uint32_t i = 0; i < g_device_count; i++) {
         if (g_devices[i]->real_device == h) {
             stereo_mutex_destroy(&g_devices[i]->lock);
-            g_devices[i] = g_devices[--g_device_count]; break;
+            free(g_devices[i]);
+            g_devices[i] = g_devices[--g_device_count];
+            break;
         }
     }
     stereo_mutex_unlock(&g_registry_lock);

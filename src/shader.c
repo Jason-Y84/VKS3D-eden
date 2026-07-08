@@ -873,7 +873,7 @@ stereo_device_from_command_buffer(
 
     for (uint32_t d = 0; d < g_device_count; d++)
     {
-        StereoDevice *sd = &g_devices[d];
+        StereoDevice *sd = g_devices[d];
 
         for (uint32_t i = 0; i < sd->cb_track_count; i++)
         {
