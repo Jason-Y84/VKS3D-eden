@@ -337,9 +337,9 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
             g_devices[i]->real_device == device) {
             PFN_vkGetDeviceProcAddr real_gdpa =
                 (PFN_vkGetDeviceProcAddr)
-                g_devices[i]->real.GetDeviceProcAddr;
+                g_devices[i].real.GetDeviceProcAddr;
             if (real_gdpa)
-                return real_gdpa(g_devices[i]->real_device, pName);
+                return real_gdpa(g_devices[i].real_device, pName);
             break;
         }
     }

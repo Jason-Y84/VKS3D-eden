@@ -623,7 +623,7 @@ void stereo_device_free(VkDevice h) {
     stereo_mutex_lock(&g_registry_lock);
     for (uint32_t i = 0; i < g_device_count; i++) {
         if (g_devices[i]->real_device == h) {
-            stereo_mutex_destroy(&g_devices[i]->lock);
+            stereo_mutex_destroy(&g_devices[i].lock);
             g_devices[i] = g_devices[--g_device_count]; break;
         }
     }
