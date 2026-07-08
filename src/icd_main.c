@@ -350,6 +350,13 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
                     pName,
                     (void*)g_devices[i]->real_device,
                     (void*)real_fn);
+                if (!real_fn) {
+                    STEREO_LOG(
+                        "GDPA_MISSING name=%s device=%p real=%p",
+                        pName,
+                        (void*)device,
+                        (void*)g_devices[i]->real_device);
+                }
                 return real_fn;
             }
             break;
