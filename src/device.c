@@ -248,7 +248,10 @@ stereo_CreateDevice(
     sd->stereo      = sp_si->stereo;
 
     stereo_populate_device_dispatch(sd, sp_si->real_instance);
-
+    STEREO_LOG(
+        "DISPATCH AllocateDescriptorSets=%p UpdateDescriptorSets=%p",
+        (void*)sd->real.AllocateDescriptorSets,
+        (void*)sd->real.UpdateDescriptorSets);
     {
         uint32_t qf_count = 0;
         sp_si->real.GetPhysicalDeviceQueueFamilyProperties(real_physdev, &qf_count, NULL);
@@ -289,13 +292,20 @@ stereo_AllocateDescriptorSets(
         "ALLOC_DESCRIPTOR_SETS device=%p count=%u",
         (void*)device,
         pAllocateInfo->descriptorSetCount);
+    STEREO_LOG(
+        "ALLOC_DESCRIPTOR_SETS ENTER device=%p real=%p",
+        (void*)device,
+        (void*)sd->real_device);
+    STEREO_LOG(
+        "ALLOC_DESCRIPTOR_SETS calling real.AllocateDescriptorSets=%p",
+        (void*)sd->real.AllocateDescriptorSets);
     VkResult r =
         sd->real.AllocateDescriptorSets(
             sd->real_device,
             pAllocateInfo,
             pDescriptorSets);
     STEREO_LOG(
-        "ALLOC_DESCRIPTOR_SETS returned %d",
+        "ALLOC_DESCRIPTOR_SETS RETURN result=%d",
         r);
     if (r != VK_SUCCESS)
         return r;
