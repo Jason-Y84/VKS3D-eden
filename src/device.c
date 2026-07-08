@@ -293,8 +293,11 @@ stereo_CreateDevice(
         "RETURN_DEVICE wrapper=%p real=%p",
         (void *)sd,
         (void *)real_dev);
-    *pDevice = real_dev;
-    STEREO_LOG("Device created: %p", (void*)real_dev);
+    *pDevice = (VkDevice)(uintptr_t)sd;
+    STEREO_LOG(
+        "Device created wrapper=%p real=%p",
+        (void *)sd,
+        (void *)real_dev);
     return VK_SUCCESS;
 }
 
