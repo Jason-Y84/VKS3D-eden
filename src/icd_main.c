@@ -330,7 +330,7 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 
     /* ── Forward everything else to the real device ──────────────────── */
     /* Look up the real device from our registry to get its proc addr fn */
-    extern StereoDevice g_devices[];
+    extern StereoDevice *g_devices[];
     extern uint32_t     g_device_count;
     for (uint32_t i = 0; i < g_device_count; i++) {
         if ((VkDevice)(uintptr_t)g_devices[i] == device ||

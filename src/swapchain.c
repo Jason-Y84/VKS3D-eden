@@ -1148,7 +1148,7 @@ stereo_QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
     //    pPresentInfo->swapchainCount : 0);
     //STEREO_LOG("stereo_QueuePresentKHR: queue=%p swapchainCount=%u",
     //           (void*)queue, pPresentInfo ? pPresentInfo->swapchainCount : 0);
-    extern StereoDevice g_devices[];
+    extern StereoDevice *g_devices[];
     extern uint32_t     g_device_count;
 
     StereoDevice    *sd = NULL;
