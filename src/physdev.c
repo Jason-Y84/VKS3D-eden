@@ -36,8 +36,25 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceProperties(
     VkPhysicalDevice pd, VkPhysicalDeviceProperties *p)
 {
+    STEREO_LOG(
+        "PHY_PROPS ENTER wrapper_pd=%p",
+        (void*)pd);
+
     LOOKUP_PD(pd);
+
+    STEREO_LOG(
+        "PHY_PROPS REAL_CALL si=%p real_pd=%p GetProps=%p",
+        (void*)_si,
+        (void*)_real,
+        (void*)_si->real.GetPhysicalDeviceProperties);
+
     _si->real.GetPhysicalDeviceProperties(_real, p);
+
+    STEREO_LOG(
+        "PHY_PROPS EXIT api=%u.%u.%u",
+        VK_VERSION_MAJOR(p->apiVersion),
+        VK_VERSION_MINOR(p->apiVersion),
+        VK_VERSION_PATCH(p->apiVersion));
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -88,11 +105,30 @@ stereo_GetPhysicalDeviceMemoryProperties2(
 VKAPI_ATTR void VKAPI_CALL
 stereo_GetPhysicalDeviceQueueFamilyProperties(
     VkPhysicalDevice pd,
-    uint32_t *pCount,
-    VkQueueFamilyProperties *pProps)
+    uint32_t *count,
+    VkQueueFamilyProperties *props)
 {
+    STEREO_LOG(
+        "QUEUE_PROPS ENTER wrapper_pd=%p count_ptr=%p props=%p",
+        (void*)pd,
+        (void*)count,
+        (void*)props);
+
     LOOKUP_PD(pd);
-    _si->real.GetPhysicalDeviceQueueFamilyProperties(_real, pCount, pProps);
+
+    STEREO_LOG(
+        "QUEUE_PROPS REAL_CALL real_pd=%p GetQFP=%p",
+        (void*)_real,
+        (void*)_si->real.GetPhysicalDeviceQueueFamilyProperties);
+
+    _si->real.GetPhysicalDeviceQueueFamilyProperties(
+        _real,
+        count,
+        props);
+
+    STEREO_LOG(
+        "QUEUE_PROPS EXIT count=%u",
+        count ? *count : 0);
 }
 
 VKAPI_ATTR void VKAPI_CALL
