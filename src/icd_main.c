@@ -24,6 +24,12 @@ stereo_dl_t               stereo_get_real_icd_handle(void);
 static PFN_vkVoidFunction get_instance_proc_addr_internal(
     VkInstance instance, const char *name)
 {
+    if (name &&
+        (strstr(name, "vkGetPhysicalDevice") == name)) {
+        STEREO_LOG(
+            "PHYSDEV_LOOKUP name=%s",
+            name);
+    }
     if (name && strstr(name, "GetPhysicalDevice"))
     {
         STEREO_LOG("GET_PHYSDEV_PROC %s", name);
@@ -517,6 +523,12 @@ vk_icdGetPhysicalDeviceProcAddr(VkInstance instance, const char *pName)
     STEREO_LOG("vk_icdGetPhysicalDeviceProcAddr: instance=%p name='%s'",
                (void*)instance, pName);
     PFN_vkVoidFunction fn = get_instance_proc_addr_internal(instance, pName);
+    if (pName && strstr(pName, "vkGetPhysicalDevice") == pName) {
+        STEREO_LOG(
+            "PHYSDEV_RETURN name=%s fn=%p",
+            pName,
+            (void*)(uintptr_t)fn);
+    }
     STEREO_LOG("vk_icdGetPhysicalDeviceProcAddr: '%s' -> %p", pName, (void*)(uintptr_t)fn);
     return fn;
 }
