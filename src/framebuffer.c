@@ -426,7 +426,7 @@ stereo_CmdBeginRenderPass(
     const VkRenderPassBeginInfo *pRenderPassBegin,
     VkSubpassContents            contents)
 {
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t     g_device_count;
     StereoDevice *sd   = NULL;
     VkRenderPass mv_rp = VK_NULL_HANDLE;
@@ -588,7 +588,7 @@ stereo_CmdBeginRenderPass(
     if (!sd) {
         /* Framebuffer not in our tracking → non-MV; find any live device */
         for (uint32_t d = 0; d < g_device_count; d++) {
-            if (g_devices[d].real_device) { sd = &g_devices[d]; break; }
+            if (g_devices[d]->real_device) { sd = &g_devices[d]; break; }
         }
     }
     if (!sd) return;
@@ -701,7 +701,7 @@ stereo_CmdBeginRendering(
         "BEGIN_RENDERING ENTER cb=%p info=%p",
         (void*)commandBuffer,
         (void*)pRenderingInfo);
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
     StereoDevice *sd = NULL;
     for (uint32_t i = 0; i < g_device_count; i++)
@@ -748,7 +748,7 @@ stereo_CmdEndRendering(
     VkCommandBuffer commandBuffer)
 {
     STEREO_LOG("END_RENDERING ENTER");
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
     
     StereoDevice *sd = NULL;
@@ -780,7 +780,7 @@ stereo_CmdBindPipeline(
     VkPipelineBindPoint pipelineBindPoint,
     VkPipeline pipeline)
 {
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
 
     StereoDevice *sd = NULL;
@@ -853,7 +853,7 @@ stereo_CmdBindPipeline(
 static StereoDevice *
 find_any_device(void)
 {
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
 
     for (uint32_t i = 0; i < g_device_count; i++)
