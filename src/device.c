@@ -285,7 +285,10 @@ stereo_AllocateDescriptorSets(
     VkDescriptorSet *pDescriptorSets)
 {
     StereoDevice *sd = (StereoDevice *)device;
-
+    STEREO_LOG(
+        "ALLOC_DESCRIPTOR_SETS device=%p count=%u",
+        (void*)device,
+        pAllocateInfo->descriptorSetCount);
     VkResult r =
         sd->real.AllocateDescriptorSets(
             sd->real_device,
