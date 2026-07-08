@@ -588,7 +588,7 @@ stereo_CmdBeginRenderPass(
     if (!sd) {
         /* Framebuffer not in our tracking → non-MV; find any live device */
         for (uint32_t d = 0; d < g_device_count; d++) {
-            if (g_devices[d].real_device) { sd = &g_devices[d]; break; }
+            if (g_devices[d]->real_device) { sd = &g_devices[d]; break; }
         }
     }
     if (!sd) return;
