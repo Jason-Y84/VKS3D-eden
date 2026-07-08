@@ -90,7 +90,7 @@ jobs:
 
     - name: Download SPIR-V header
       run: |
-        curl --ssl-revoke-best-effort --create-dirs -L "https://raw.githubusercontent.com/KhronosGroup/SPIRV-Headers/8d56066eee52f490535afd5731d5ae2fffc85036/include/spirv/unified1/spirv.h" -o "third_party/SPIRV-Headers/include/spirv/unified1/spirv.h"
+        curl --ssl-revoke-best-effort --create-dirs -L "https://raw.githubusercontent.com/KhronosGroup/SPIRV-Headers/$(git rev-parse HEAD:third_party/SPIRV-Headers)/include/spirv/unified1/spirv.h" -o "third_party/SPIRV-Headers/include/spirv/unified1/spirv.h"
 
     - name: Collect dependencies
       if: steps.cache-nv3dlib.outputs.cache-hit != 'true'
