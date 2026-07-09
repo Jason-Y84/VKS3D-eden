@@ -2406,6 +2406,15 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         bool is_quad = !ci->pVertexInputState ||
                        ci->pVertexInputState->vertexBindingDescriptionCount == 0;
 
+        if (is_quad) {
+            STEREO_LOG(
+                "QUAD_DECISION p=%u in_mv=%u rp=%p orig_rp=%p",
+                p,
+                (unsigned)in_mv_rp,
+                (void*)ci->renderPass,
+                (void*)orig_rp);
+        }
+
         if (is_quad && ci->stageCount > 0) {
             /* Find FS stage */
             uint32_t fs_s = ~0u;
