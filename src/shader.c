@@ -1630,6 +1630,7 @@ void spirv_patched_free(uint32_t *w) { free(w); }
 
 typedef struct {
     uint32_t img_ids[FS_MAX_IMG];       uint32_t n_img;
+    uint32_t img_patchable[FS_MAX_IMG];
     uint32_t img_depth[FS_MAX_IMG];
     uint32_t img_arrayed[FS_MAX_IMG];
 
@@ -1717,16 +1718,25 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 /* Existing path */
                 if (w[i+3] == 1 && w[i+5] == 0 && s->n_img < FS_MAX_IMG)
                 {
-                    STEREO_LOG(
-                        "FS image candidate type=%u",
-                        w[i+1]);
                     /*
-                     * Do not immediately patch all 2D textures.
-                     * The descriptor binding must later prove that this image
-                     * corresponds to an upgraded framebuffer/depth image.
+                     * Record the image type only.
+                     *
+                     * Do NOT patch here. At this point we only know:
+                     *
+                     *   Dim=2D
+                     *   Arrayed=0
+                     *
+                     * This includes:
+                     *   - G-buffer attachments
+                     *   - SSAO depth textures
+                     *   - normal textures
+                     *   - noise textures
+                     *   - material textures
+                     *
+                     * The descriptor binding must decide later.
                      */
                     STEREO_LOG(
-                        "FS candidate image type=%u awaiting binding correlation",
+                        "FS image candidate type=%u awaiting descriptor correlation",
                         w[i+1]);
                     s->img_ids[s->n_img++] = w[i+1];
                 }
@@ -1776,11 +1786,23 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     int vi = fs_var_index(s, w[i+1]);
                     if (vi >= 0)
                         s->var_binding[vi] = w[i+3];
-                    STEREO_LOG(
-                    "FS binding: var=%u binding=%u",
-                    w[i+1],
-                    w[i+3],
-                    vi);
+                    /*
+                     * Deferred lighting inputs:
+                     *
+                     * binding 0 = position/depth buffer
+                     * binding 1 = normal buffer
+                     * binding 2 = noise texture
+                     *
+                     * Only upgraded framebuffer images become arrays.
+                     */
+                    if (vi >= 0 &&
+                        (w[i+3] == 0 || w[i+3] == 1))
+                    {
+                        STEREO_LOG(
+                           "FS stereo image accepted var=%u binding=%u",
+                           w[i+1],
+                           w[i+3]);
+                    }
                 }
 
                 /* Descriptor set */
@@ -2025,8 +2047,8 @@ bool spirv_patch_stereo_fs(
                 in[i+2],
                 in[i+3],
                 load_var,
-                 (fs_var_index(&s, load_var) >= 0) ? s.var_set[fs_var_index(&s, load_var)] : 0xffffffff,
-                 (fs_var_index(&s, load_var) >= 0) ? s.var_binding[fs_var_index(&s, load_var)] : 0xffffffff,
+                fs_var_index(&s, load_var) >= 0 ?
+                    s.var_binding[fs_var_index(&s, load_var)] : 999,
                 in[i+4],
                 fs_id_in(s.load_ids, s.n_load, in[i+3]));
             if (wc > 5)
