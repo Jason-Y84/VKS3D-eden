@@ -1646,6 +1646,13 @@ typedef struct {
     uint32_t var_ids[FS_MAX_VARS];
     uint32_t var_types[FS_MAX_VARS];
     uint32_t var_set[FS_MAX_VARS];
+
+    /* Decorations can legally appear before OpVariable. */
+    uint32_t dec_target[FS_MAX_VARS];
+    uint32_t dec_binding[FS_MAX_VARS];
+    uint32_t dec_set[FS_MAX_VARS];
+    uint32_t n_dec;
+
     uint32_t var_binding[FS_MAX_VARS];
     uint32_t n_var;
 
@@ -1766,6 +1773,22 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 uint32_t idx = s->n_var++;
                 s->var_ids[idx] = w[i+2];
                 s->var_types[idx] = w[i+1];
+                /* Apply any cached descriptor decorations. */
+                for (uint32_t d = 0; d < s->n_dec; ++d)
+                {
+                    if (s->dec_target[d] == w[i+2])
+                    {
+                        s->var_binding[idx] = s->dec_binding[d];
+                        s->var_set[idx]     = s->dec_set[d];
+                
+                        STEREO_LOG(
+                            "FS_DECORATION_APPLY var=%u set=%u binding=%u",
+                            w[i+2],
+                            s->dec_set[d],
+                            s->dec_binding[d]);
+                        break;
+                    }
+                }
                 STEREO_LOG(
                     "FS var declare id=%u type=%u storage=%u",
                     w[i+2],
@@ -1787,13 +1810,18 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
 
                 /* Descriptor binding */
                 if (w[i+2] == 33) {
-                    int vi = fs_var_index(s, w[i+1]);
-                    STEREO_LOG(
-                        "FS_BIND_LOOKUP target=%u index=%d",
-                        w[i+1],
-                        vi);
-                    if (vi >= 0)
-                        s->var_binding[vi] = w[i+3];
+                    if (s->n_dec < FS_MAX_VARS)
+                    {
+                        uint32_t d = s->n_dec++;
+                        s->dec_target[d]  = w[i+1];
+                        s->dec_binding[d] = w[i+3];
+                        s->dec_set[d]     = 0xffffffffu;
+                    
+                        STEREO_LOG(
+                            "FS_BIND_CACHE target=%u binding=%u",
+                            w[i+1],
+                            w[i+3]);
+                    }
                     /*
                      * Deferred lighting inputs:
                      *
@@ -1814,19 +1842,27 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 }
                 /* Descriptor set */
                 if (w[i+2] == 34) {
-                    int vi = fs_var_index(s, w[i+1]);
+                    bool found = false;
+                    for (uint32_t d = 0; d < s->n_dec; ++d)
+                    {
+                        if (s->dec_target[d] == w[i+1])
+                        {
+                            s->dec_set[d] = w[i+3];
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found && s->n_dec < FS_MAX_VARS)
+                    {
+                        uint32_t d = s->n_dec++;
+                        s->dec_target[d]  = w[i+1];
+                        s->dec_binding[d] = 0xffffffffu;
+                        s->dec_set[d]     = w[i+3];
+                    }
                     STEREO_LOG(
-                        "FS_SET_LOOKUP target=%u index=%d",
+                        "FS_SET_CACHE target=%u set=%u",
                         w[i+1],
-                        vi);
-                    if (vi >= 0)
-                        s->var_set[vi] = w[i+3];
-                
-                    STEREO_LOG(
-                    "FS set: var=%u set=%u",
-                    w[i+1],
-                    w[i+3],
-                    vi);
+                        w[i+3]);
                 }
             }
             break;
