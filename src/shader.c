@@ -2629,6 +2629,13 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (unsigned long long)hash_spv(e->spv, e->words),
                 e->words,
                 (void*)ci->pStages[vs_stage].module);
+            STEREO_LOG(
+                "VS_CONTEXT hash=%016llx rp=%p mv=%d color=%p depth=%d",
+                (unsigned long long)hash_spv(e->spv, e->words),
+                (void*)ci->renderPass,
+                in_mv_rp,
+                (void*)ci->renderPass,
+                (ci->pDepthStencilState != NULL));
             if (dump) {
                 uint64_t spv_hash = hash_spv(e->spv, e->words);
                 char dp[512];
