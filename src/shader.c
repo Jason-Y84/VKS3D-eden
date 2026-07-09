@@ -2010,13 +2010,15 @@ bool spirv_patch_stereo_fs(
                 }
             }
             STEREO_LOG(
-                "FS_SAMPLE op=%u wc=%u resultType=%u result=%u sampledImage=%u var=%u coord=%u patched=%u",
+                "FS_SAMPLE op=%u wc=%u resultType=%u result=%u sampledImage=%u var=%u set=%u binding=%u coord=%u patched=%u",
                 op,
                 wc,
                 in[i+1],
                 in[i+2],
                 in[i+3],
                 load_var,
+                 (fs_var_index(&s, load_var) >= 0) ? s.var_set[fs_var_index(&s, load_var)] : 0xffffffff,
+                 (fs_var_index(&s, load_var) >= 0) ? s.var_binding[fs_var_index(&s, load_var)] : 0xffffffff,
                 in[i+4],
                 fs_id_in(s.load_ids, s.n_load, in[i+3]));
             if (wc > 5)
