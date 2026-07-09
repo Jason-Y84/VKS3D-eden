@@ -2416,6 +2416,25 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 STEREO_LOG("Pipe %u: quad but no FS stage", p);
                 continue;
             }
+            /*
+             * Log fullscreen quad FS identity.
+             * Used to identify SSAO/deferred/post-process shaders.
+             */
+            StereoShaderCache *fs_dbg =
+                cache_find(sd, ci->pStages[fs_s].module);
+            if (fs_dbg) {
+                STEREO_LOG(
+                    "QUAD_FS_SHADER p=%u hash=%016llx words=%zu module=%p",
+                    p,
+                    (unsigned long long)hash_spv(fs_dbg->spv, fs_dbg->words),
+                    fs_dbg->words,
+                    (void*)ci->pStages[fs_s].module);
+            } else {
+                STEREO_LOG(
+                    "QUAD_FS_SHADER p=%u module=%p NOT_CACHED",
+                    p,
+                    (void*)ci->pStages[fs_s].module);
+            }
             StereoShaderCache *e = cache_find(sd, ci->pStages[fs_s].module);
             if (!e) {
                 STEREO_LOG("Pipe %u: quad FS not cached (stageCount=%u)", p, ci->stageCount);
