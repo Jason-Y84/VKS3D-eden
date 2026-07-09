@@ -2062,8 +2062,9 @@ bool spirv_patch_stereo_fs(
             }
             STEREO_LOG(
                 "FS_SAMPLE_VAR sampledImage=%u descriptorVar=%u",
-                sampled_image_id,
-                descriptor_var);
+                in[i+3],
+                load_var);
+            int vi = fs_var_index(&s, load_var);
             STEREO_LOG(
                 "FS_SAMPLE op=%u wc=%u resultType=%u result=%u sampledImage=%u var=%u set=%u binding=%u coord=%u patched=%u",
                 op,
@@ -2072,8 +2073,8 @@ bool spirv_patch_stereo_fs(
                 in[i+2],
                 in[i+3],
                 load_var,
-                fs_var_index(&s, load_var) >= 0 ?
-                    s.var_binding[fs_var_index(&s, load_var)] : 999,
+                vi >= 0 ? s.var_set[vi] : 999,
+                vi >= 0 ? s.var_binding[vi] : 999,
                 in[i+4],
                 fs_id_in(s.load_ids, s.n_load, in[i+3]));
             if (wc > 5)
