@@ -2617,11 +2617,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (unsigned long long)hash_spv(e->spv, e->words),
                 e->words,
                 (void*)ci->pStages[vs_stage].module);
-            STEREO_LOG(
-                "SHADER_MODULE stage=FS hash=%016llx words=%u module=%p",
-                (unsigned long long)fs_hash,
-                fs_words,
-                (void*)fs_module);
             if (dump) {
                 uint64_t spv_hash = hash_spv(e->spv, e->words);
                 char dp[512];
