@@ -2373,12 +2373,12 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 has_vs,
                 has_tes,
                 ci->stageCount);
-
-            /* IMPORTANT:
-             * Do NOT patch renderpass-based multiview logic for clearly mono pipelines
-             * BUT still allow FS quad / UI heuristics to run later
-             */
-            goto PIPE_DECISION_CONTINUE;
+        /*
+         * Do not reject yet.
+         * Full-screen deferred passes (SSAO, lighting, bloom)
+         * may need FS stereo array patching even when their
+         * render pass itself is not multiview.
+         */
         }
 
         /* Substitute multiview render pass for pipeline compilation.
@@ -2494,6 +2494,12 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 sc2);
             continue;
         }
+
+        /* Mono render passes can still contain fullscreen deferred FS passes.
+         * Only skip geometry VS/TES patching here.
+         */
+        if (!in_mv_rp)
+            goto PIPE_DECISION_CONTINUE;
 
         /* ── Path A: patch existing TES ──────────────────────────────── */
         if (has_tes && tes_stage!=~0u) {
