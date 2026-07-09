@@ -2605,11 +2605,23 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             continue;
         }
 
+        STEREO_LOG(
+        "PATHB_GATE p=%u in_mv=%d has_vs=%d has_tcs=%d vs_stage=%u",
+        p,
+        in_mv_rp,
+        has_vs,
+        has_tcs,
+        vs_stage);
         /* ── Path B: patch VS with gl_ViewIndex ──────────────────────────
-         * Works on all modern drivers. No topology change, no extra stages.
-         * Replaces the TCS+TES injection approach which crashed on newer
-         * drivers due to strict PerVertex block interface validation.       */
-        if (ci->stageCount > 0 && has_vs && !has_tcs && vs_stage!=~0u) {
+         * Only patch actual multiview render passes.
+         * Non-multiview passes include deferred G-buffer, shadow, SSAO,
+         * and post-processing passes that must remain center-eye.
+         */
+        if (in_mv_rp &&
+            ci->stageCount > 0 &&
+            has_vs &&
+            !has_tcs &&
+            vs_stage!=~0u) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[vs_stage].module);
             if (!e) { STEREO_LOG("Pipe %u PathB: VS not cached",p); continue; }
             STEREO_LOG(
