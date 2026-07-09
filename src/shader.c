@@ -1756,9 +1756,8 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 uint32_t idx = s->n_var++;
                 s->var_ids[idx] = w[i+2];
                 s->var_types[idx] = w[i+1];
-        
                 STEREO_LOG(
-                    "FS variable: id=%u type=%u storage=%u",
+                    "FS var declare id=%u type=%u storage=%u",
                     w[i+2],
                     w[i+1],
                     w[i+3]);
@@ -1943,6 +1942,12 @@ bool spirv_patch_stereo_fs(
 
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == 25 && wc >= 9 && fs_id_in(s.img_ids, s.n_img, in[i+1])) {
+            STEREO_LOG(
+                "FS_PATCH_IMAGE type=%u dim=%u depth=%u arrayed=%u",
+                in[i+1],
+                in[i+3],
+                in[i+4],
+                in[i+5]);
             STEREO_LOG(
                 "FS discovered image type id=%u depth=%u arrayed=%u sampled=%u",
                 in[i+1],
