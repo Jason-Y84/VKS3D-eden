@@ -63,8 +63,8 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1.0.2
 
-    - name: List files
-      run: Get-ChildItem -Path "." -File -Recurse | Select-Object FullName
+    #- name: List files
+    #  run: Get-ChildItem -Path "." -File -Recurse | Select-Object FullName
 
     - name: Cache NV3D-Lib
       id: cache-nv3dlib
@@ -97,8 +97,8 @@ jobs:
       run: |
         move "third_party\NV3D-Lib\NV3DLib\lib\x${{matrix.Settings.Bits}}\Release-MD\NV3DLib-md.lib" "third_party\NV3D-Lib\NV3DLib\lib\NV3DLib.lib"
 
-    - name: List files
-      run: Get-ChildItem -Path "." -File -Recurse | Select-Object FullName
+    #- name: List files
+    #  run: Get-ChildItem -Path "." -File -Recurse | Select-Object FullName
 
     - name: Configure
       run: >
@@ -115,8 +115,8 @@ jobs:
     - name: Build
       run: cmake --build "${{github.workspace}}/build" --config "${{matrix.Configuration}}"
 
-    - name: List files
-      run: ls -R
+    #- name: List files
+    #  run: ls -R
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
