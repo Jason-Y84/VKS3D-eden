@@ -331,6 +331,8 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         "GDPA_QUERY device=%p name=%s",
         (void*)device,
         pName ? pName : "(null)");
+    STEREO_LOG("GDPA device=%p name=%s", device, pName);
+
     if (!pName) return NULL;
 
     /* ── VKS3D-wrapped device commands ───────────────────────────────── */
@@ -345,6 +347,7 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
     if (!strcmp(pName, "vkAllocateDescriptorSets"))
         return (PFN_vkVoidFunction)stereo_AllocateDescriptorSets;
     if (!strcmp(pName, "vkUpdateDescriptorSets"))
+        STEREO_LOG("GDPA returning stereo_UpdateDescriptorSets");
         return (PFN_vkVoidFunction)stereo_UpdateDescriptorSets;
     if (!strcmp(pName, "vkCreateFramebuffer"))
         return (PFN_vkVoidFunction)stereo_CreateFramebuffer;
