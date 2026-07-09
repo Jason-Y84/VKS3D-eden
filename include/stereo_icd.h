@@ -540,19 +540,6 @@ typedef struct StereoDevice {
 #define MAX_UPGRADED_VIEWS     4096
     VkImageView            upgraded_views[MAX_UPGRADED_VIEWS];
     uint32_t               upgraded_view_count;
-    /* -- Descriptor image tracking ---------------------------------------
-     * Tracks descriptor bindings so shader patching can determine whether
-     * a sampled image is a stereo-upgraded render target or a normal texture.
-     */
-#define MAX_DESCRIPTOR_IMAGES 16384
-    struct {
-        VkDescriptorSet        set;
-        uint32_t               binding;
-        VkDescriptorType       type;
-        VkImageView            image_view;
-        VkImageLayout          image_layout;
-    } descriptor_images[MAX_DESCRIPTOR_IMAGES];
-    uint32_t descriptor_image_count;
 #define MAX_DESCRIPTOR_SETS 16384
     struct {
         VkDescriptorSet        wrapped;
@@ -761,7 +748,6 @@ VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateDevice(VkPhysicalDevice, const VkDev
 VKAPI_ATTR void     VKAPI_CALL stereo_DestroyDevice(VkDevice, const VkAllocationCallbacks*);
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL stereo_GetDeviceProcAddr(VkDevice, const char*);
 VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateImageView(VkDevice, const VkImageViewCreateInfo*, const VkAllocationCallbacks*, VkImageView*);
-VKAPI_ATTR VkResult VKAPI_CALL stereo_AllocateDescriptorSets(VkDevice, const VkDescriptorSetAllocateInfo*, VkDescriptorSet*);
 VKAPI_ATTR void     VKAPI_CALL stereo_UpdateDescriptorSets(VkDevice, uint32_t, const VkWriteDescriptorSet *, uint32_t, const VkCopyDescriptorSet *);
 bool stereo_lookup_descriptor_image(
     StereoDevice *sd,
