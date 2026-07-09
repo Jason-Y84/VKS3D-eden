@@ -1182,15 +1182,5 @@ bool stereo_lookup_descriptor_image(
 {
     if (!sd || !out_view)
         return false;
-
-    for (uint32_t i = 0; i < sd->descriptor_image_count; i++) {
-        if (sd->descriptor_images[i].set == set &&
-            sd->descriptor_images[i].binding == binding)
-        {
-            *out_view = sd->descriptor_images[i].image_view;
-            return true;
-        }
-    }
-
     return false;
 }
