@@ -1717,6 +1717,9 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 /* Existing path */
                 if (w[i+3] == 1 && w[i+5] == 0 && s->n_img < FS_MAX_IMG)
                 {
+                    STEREO_LOG(
+                        "FS image candidate type=%u",
+                        w[i+1]);
                     /*
                      * Do not immediately patch all 2D textures.
                      * The descriptor binding must later prove that this image
