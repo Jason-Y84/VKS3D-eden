@@ -1822,23 +1822,6 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             w[i+1],
                             w[i+3]);
                     }
-                    /*
-                     * Deferred lighting inputs:
-                     *
-                     * binding 0 = position/depth buffer
-                     * binding 1 = normal buffer
-                     * binding 2 = noise texture
-                     *
-                     * Only upgraded framebuffer images become arrays.
-                     */
-                    if (vi >= 0 &&
-                        (w[i+3] == 0 || w[i+3] == 1))
-                    {
-                        STEREO_LOG(
-                           "FS stereo image accepted var=%u binding=%u",
-                           w[i+1],
-                           w[i+3]);
-                    }
                 }
                 /* Descriptor set */
                 if (w[i+2] == 34) {
