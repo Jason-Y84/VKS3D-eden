@@ -547,7 +547,7 @@ typedef struct StereoDevice {
 #define MAX_DESCRIPTOR_IMAGES 16384
     struct {
 //        VkDescriptorSet        set;
-//        uint32_t               binding;
+        uint32_t               binding;
 //        VkDescriptorType       type;
 //        VkImageView            image_view;
 //        VkImageLayout          image_layout;
