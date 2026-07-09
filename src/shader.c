@@ -1695,6 +1695,13 @@ static bool fs_binding_is_stereo_attachment(FsScan *s, uint32_t var)
     int vi = fs_var_index(s, var);
     if (vi < 0)
         return false;
+    uint32_t binding = s->var_binding[vi];
+    STEREO_LOG(
+        "FS_BINDING_TEST var=%u vi=%d binding=%u stereo=%u",
+        var,
+        vi,
+        binding,
+        (binding <= 2));
     /*
      * Only framebuffer/deferred attachments become stereo arrays.
      *
