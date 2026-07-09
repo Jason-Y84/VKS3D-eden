@@ -1690,6 +1690,24 @@ static int fs_dec_index(FsScan *s, uint32_t target)
     return -1;
 }
 
+static bool fs_binding_is_stereo_attachment(FsScan *s, uint32_t var)
+{
+    int vi = fs_var_index(s, var);
+    if (vi < 0)
+        return false;
+
+    /*
+     * Only framebuffer/deferred attachments become stereo arrays.
+     *
+     * binding 0 = position/depth
+     * binding 1 = normal
+     *
+     * SSAO/noise/material textures must remain mono.
+     */
+    return (s->var_binding[vi] == 0 ||
+            s->var_binding[vi] == 1);
+}
+
 static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
 {
     memset(s, 0, sizeof(*s));
@@ -2127,6 +2145,28 @@ bool spirv_patch_stereo_fs(
                 in[i+4],
                 in[i+2]);
             uint32_t coord_id = in[i+4];
+            uint32_t descriptor_var = 0;
+            for (uint32_t k = 0; k < s.n_load; ++k)
+            {
+                if (s.load_ids[k] == in[i+3])
+                {
+                    descriptor_var = s.load_vars[k];
+                    break;
+                }
+            }
+            
+            if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
+            {
+                STEREO_LOG(
+                    "FS_SAMPLE_SKIP_MONO sampledImage=%u descriptorVar=%u",
+                    in[i+3],
+                    descriptor_var);
+            
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
+
             uint32_t id_lv  = samp_nid++;
             uint32_t id_cvt = samp_nid++;
             uint32_t id_u   = samp_nid++;
@@ -2163,6 +2203,27 @@ bool spirv_patch_stereo_fs(
         if (in_func && op == 95 && wc >= 5)
         {
             uint32_t coord_id = in[i+4];
+            uint32_t descriptor_var = 0;
+            for (uint32_t k = 0; k < s.n_load; ++k)
+            {
+                if (s.load_ids[k] == in[i+3])
+                {
+                    descriptor_var = s.load_vars[k];
+                    break;
+                }
+            }
+            
+            if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
+            {
+                STEREO_LOG(
+                    "FS_FETCH_SKIP_MONO sampledImage=%u descriptorVar=%u",
+                    in[i+3],
+                    descriptor_var);
+            
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
 
             uint32_t id_lv = samp_nid++;
             uint32_t id_x  = samp_nid++;
