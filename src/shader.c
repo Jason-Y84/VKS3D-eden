@@ -1695,7 +1695,11 @@ static bool fs_binding_is_stereo_attachment(FsScan *s, uint32_t var)
     int vi = fs_var_index(s, var);
     if (vi < 0)
         return false;
-
+    STEREO_LOG(
+        "FS_BINDING_TEST var=%u binding=%u stereo=%u",
+        var,
+        binding,
+        (binding <= 2));
     /*
      * Only framebuffer/deferred attachments become stereo arrays.
      *
@@ -1704,8 +1708,7 @@ static bool fs_binding_is_stereo_attachment(FsScan *s, uint32_t var)
      *
      * SSAO/noise/material textures must remain mono.
      */
-    return (s->var_binding[vi] == 0 ||
-            s->var_binding[vi] == 1);
+    return binding <= 2;
 }
 
 static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
@@ -2028,7 +2031,9 @@ bool spirv_patch_stereo_fs(
         }
 
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
-        if (op == 25 && wc >= 9 && fs_id_in(s.img_ids, s.n_img, in[i+1])) {
+        if (op == 25 && wc >= 9 &&
+            fs_id_in(s.img_ids, s.n_img, in[i+1]) &&
+            fs_image_type_has_stereo_binding(&s, in[i+1])) {
             STEREO_LOG(
                 "FS_PATCH_IMAGE type=%u dim=%u depth=%u arrayed=%u",
                 in[i+1],
@@ -2153,18 +2158,6 @@ bool spirv_patch_stereo_fs(
                     descriptor_var = s.load_vars[k];
                     break;
                 }
-            }
-            
-            if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
-            {
-                STEREO_LOG(
-                    "FS_SAMPLE_SKIP_MONO sampledImage=%u descriptorVar=%u",
-                    in[i+3],
-                    descriptor_var);
-            
-                sb_push_n(&ob, &in[i], wc);
-                i += wc;
-                continue;
             }
 
             uint32_t id_lv  = samp_nid++;
