@@ -27,9 +27,8 @@
     STEREO_LOG("%s: pd=%p", __func__, (void*)(uintptr_t)(pd)); \
     StereoPhysdev   *_spd  = (StereoPhysdev *)(uintptr_t)(pd); \
     STEREO_LOG( \
-        "LOOKUP_PD_R spd=%p magic=0x%llx real_pd=%p si=%p", \
+        "LOOKUP_PD_R spd=%p real_pd=%p si=%p", \
         (void*)_spd, \
-        _spd ? (unsigned long long)_spd->magic : 0ULL, \
         _spd ? (void*)_spd->real_pd : NULL, \
         _spd ? (void*)_spd->si : NULL); \
     StereoInstance  *_si   = _spd ? _spd->si : NULL; \
