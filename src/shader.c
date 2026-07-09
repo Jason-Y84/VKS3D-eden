@@ -1853,6 +1853,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     {
                         s->dec_set[di] = w[i+3];
                     }
+                }
             }
             break;
         case 54:  /* OpFunction */
