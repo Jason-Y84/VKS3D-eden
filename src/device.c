@@ -375,9 +375,8 @@ stereo_UpdateDescriptorSets(
         (void*)device);
     StereoDevice *sd = (StereoDevice *)device;
     STEREO_LOG(
-        "UPDATE sd=%p magic=0x%llx real=%p Update=%p",
+        "UPDATE sd=%p real=%p Update=%p",
         (void*)sd,
-        (unsigned long long)sd->magic,
         (void*)sd->real_device,
         (void*)sd->real.UpdateDescriptorSets);
     STEREO_LOG(
