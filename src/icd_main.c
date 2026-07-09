@@ -342,16 +342,22 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         return (PFN_vkVoidFunction)stereo_DestroyDevice;
     if (!strcmp(pName, "vkCreateImage"))
         return (PFN_vkVoidFunction)stereo_CreateImage;
+
     if (!strcmp(pName, "vkCreateImageView"))
         return (PFN_vkVoidFunction)stereo_CreateImageView;
-    if (!strcmp(pName, "vkAllocateDescriptorSets"))
+    if (!strcmp(pName, "vkAllocateDescriptorSets")) {
+        STEREO_LOG(
+            "GDPA RETURN WRAPPER vkAllocateDescriptorSets -> %p",
+            (void*)stereo_AllocateDescriptorSets);
         return (PFN_vkVoidFunction)stereo_AllocateDescriptorSets;
+    }
     if (!strcmp(pName, "vkUpdateDescriptorSets")) {
         STEREO_LOG("GDPA returning stereo_UpdateDescriptorSets");
         return (PFN_vkVoidFunction)stereo_UpdateDescriptorSets;
     }
     if (!strcmp(pName, "vkCreateFramebuffer"))
         return (PFN_vkVoidFunction)stereo_CreateFramebuffer;
+
     if (!strcmp(pName, "vkDestroyFramebuffer"))
         return (PFN_vkVoidFunction)stereo_DestroyFramebuffer;
     if (!strcmp(pName, "vkCmdBeginRenderPass"))
@@ -415,10 +421,11 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
                 PFN_vkVoidFunction real_fn =
                     real_gdpa(g_devices[i]->real_device, pName);
                 STEREO_LOG(
-                    "GDPA_FWD name=%s real_device=%p fn=%p",
+                    "GDPA_FWD name=%s real_device=%p fn=%p wrapper_alloc=%p",
                     pName,
                     (void*)g_devices[i]->real_device,
-                    (void*)real_fn);
+                    (void*)real_fn,
+                    (void*)stereo_AllocateDescriptorSets);
                 STEREO_LOG(
                     "GDPA_RETURN name=%s fn=%p",
                     pName,
