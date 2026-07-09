@@ -63,8 +63,8 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v1.0.2
 
-    - name: List files
-      run: Get-ChildItem -Path "." -File -Recurse | Select-Object FullName
+    #- name: List files
+    #  run: Get-ChildItem -Path "." -File -Recurse | Select-Object FullName
 
     - name: Cache NV3D-Lib
       id: cache-nv3dlib
@@ -90,15 +90,15 @@ jobs:
 
     - name: Download SPIR-V header
       run: |
-        curl --ssl-revoke-best-effort --create-dirs -L "https://raw.githubusercontent.com/KhronosGroup/SPIRV-Headers/refs/heads/main/include/spirv/unified1/spirv.h" -o "third_party/SPIRV-Headers/include/spirv/unified1/spirv.h"
+        curl --verbose --ssl-revoke-best-effort --create-dirs -L "https://raw.githubusercontent.com/KhronosGroup/SPIRV-Headers/$(git rev-parse HEAD:third_party/SPIRV-Headers)/include/spirv/unified1/spirv.h" -o "third_party/SPIRV-Headers/include/spirv/unified1/spirv.h"
 
     - name: Collect dependencies
       if: steps.cache-nv3dlib.outputs.cache-hit != 'true'
       run: |
         move "third_party\NV3D-Lib\NV3DLib\lib\x${{matrix.Settings.Bits}}\Release-MD\NV3DLib-md.lib" "third_party\NV3D-Lib\NV3DLib\lib\NV3DLib.lib"
 
-    - name: List files
-      run: Get-ChildItem -Path "." -File -Recurse | Select-Object FullName
+    #- name: List files
+    #  run: Get-ChildItem -Path "." -File -Recurse | Select-Object FullName
 
     - name: Configure
       run: >
@@ -115,8 +115,8 @@ jobs:
     - name: Build
       run: cmake --build "${{github.workspace}}/build" --config "${{matrix.Configuration}}"
 
-    - name: List files
-      run: ls -R
+    #- name: List files
+    #  run: ls -R
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
