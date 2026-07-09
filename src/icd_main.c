@@ -346,9 +346,10 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         return (PFN_vkVoidFunction)stereo_CreateImageView;
     if (!strcmp(pName, "vkAllocateDescriptorSets"))
         return (PFN_vkVoidFunction)stereo_AllocateDescriptorSets;
-    if (!strcmp(pName, "vkUpdateDescriptorSets"))
-        STEREO_LOG("GDPA returning stereo_UpdateDescriptorSets")
+    if (!strcmp(pName, "vkUpdateDescriptorSets")) {
+        STEREO_LOG("GDPA returning stereo_UpdateDescriptorSets");
         return (PFN_vkVoidFunction)stereo_UpdateDescriptorSets;
+    }
     if (!strcmp(pName, "vkCreateFramebuffer"))
         return (PFN_vkVoidFunction)stereo_CreateFramebuffer;
     if (!strcmp(pName, "vkDestroyFramebuffer"))
