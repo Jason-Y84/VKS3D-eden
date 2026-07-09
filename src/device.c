@@ -361,68 +361,6 @@ stereo_AllocateDescriptorSets(
     return VK_SUCCESS;
 }
 
-/* ── vkUpdateDescriptorSets ────────────────────────────────────────────────────── */
-VKAPI_ATTR void VKAPI_CALL
-stereo_UpdateDescriptorSets(
-    VkDevice device,
-    uint32_t descriptorWriteCount,
-    const VkWriteDescriptorSet *pDescriptorWrites,
-    uint32_t descriptorCopyCount,
-    const VkCopyDescriptorSet *pDescriptorCopies)
-{
-    STEREO_LOG(
-        "ENTER stereo_UpdateDescriptorSets device=%p",
-        (void*)device);
-    StereoDevice *sd = (StereoDevice *)device;
-    STEREO_LOG(
-        "UPDATE sd=%p real=%p Update=%p",
-        (void*)sd,
-        (void*)sd->real_device,
-        (void*)sd->real.UpdateDescriptorSets);
-    STEREO_LOG(
-        "UPDATE_DESCRIPTOR_SETS device=%p sd=%p real_device=%p writes_ptr=%p",
-        (void*)(uintptr_t)device,
-        (void*)sd,
-        sd ? (void*)(uintptr_t)sd->real_device : NULL,
-        (void*)pDescriptorWrites);
-    STEREO_LOG(
-        "UPDATE_DESCRIPTOR_SETS writes=%u copies=%u",
-        descriptorWriteCount,
-        descriptorCopyCount);
-    for (uint32_t i = 0; i < descriptorWriteCount; i++) {
-        STEREO_LOG(
-            "DESC_WRITE[%u] dstSet=%p binding=%u count=%u type=%u",
-            i,
-            (void *)(uintptr_t)pDescriptorWrites[i].dstSet,
-            pDescriptorWrites[i].dstBinding,
-            pDescriptorWrites[i].descriptorCount,
-            pDescriptorWrites[i].descriptorType);
-    }
-    VkWriteDescriptorSet writes[64];
-    if (descriptorWriteCount > 64)
-        descriptorWriteCount = 64;
-    memcpy(writes,
-           pDescriptorWrites,
-           sizeof(VkWriteDescriptorSet) * descriptorWriteCount);
-    for (uint32_t i = 0; i < descriptorWriteCount; i++) {
-        for (uint32_t j = 0; j < sd->descriptor_set_count; j++) {
-            if (writes[i].dstSet ==
-                sd->descriptor_sets[j].wrapped)
-            {
-                writes[i].dstSet =
-                    sd->descriptor_sets[j].real;
-                break;
-            }
-        }
-    }
-    sd->real.UpdateDescriptorSets(
-        sd->real_device,
-        descriptorWriteCount,
-        writes,
-        descriptorCopyCount,
-        pDescriptorCopies);
-}
-
 /* ── vkDestroyDevice ────────────────────────────────────────────────────── */
 VKAPI_ATTR void VKAPI_CALL
 stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
