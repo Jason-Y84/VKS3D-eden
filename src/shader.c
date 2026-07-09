@@ -2343,6 +2343,24 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             (!ci->pVertexInputState ||
              ci->pVertexInputState->vertexBindingDescriptionCount == 0));
 
+        for (uint32_t fs_dbg_i = 0; fs_dbg_i < ci->stageCount; fs_dbg_i++) {
+            if (ci->pStages[fs_dbg_i].stage == VK_SHADER_STAGE_FRAGMENT_BIT) {
+                StereoShaderCache *fs_dbg =
+                    cache_find(sd, ci->pStages[fs_dbg_i].module);
+                if (fs_dbg) {
+                    STEREO_LOG(
+                        "ALL_FS_SHADER p=%u hash=%016llx words=%zu module=%p quad=%u in_mv=%u",
+                        p,
+                        (unsigned long long)hash_spv(fs_dbg->spv, fs_dbg->words),
+                        fs_dbg->words,
+                        (void*)ci->pStages[fs_dbg_i].module,
+                        (!ci->pVertexInputState ||
+                         ci->pVertexInputState->vertexBindingDescriptionCount == 0),
+                        (unsigned)in_mv_rp);
+                }
+            }
+        }
+
         /* ── PATCH 3: Pipeline multiview FIXED (NO pipeline struct exists) ─────────────── */
         /* Multiview is render-pass driven ONLY.
          * Pipeline pNext must NOT contain VkPipelineMultiviewCreateInfo (invalid Vulkan API). */
