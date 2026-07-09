@@ -1680,6 +1680,16 @@ static int fs_var_index(const FsScan *s, uint32_t id)
     return -1;
 }
 
+static int fs_dec_index(FsScan *s, uint32_t target)
+{
+    for (uint32_t i = 0; i < s->n_dec; ++i)
+    {
+        if (s->dec_target[i] == target)
+            return (int)i;
+    }
+    return -1;
+}
+
 static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
 {
     memset(s, 0, sizeof(*s));
@@ -1776,11 +1786,12 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 /* Apply any cached descriptor decorations. */
                 for (uint32_t d = 0; d < s->n_dec; ++d)
                 {
-                    if (s->dec_target[d] == w[i+2])
+                    if (s->dec_target[d] == w[i+2] &&
+                        s->dec_binding[d] != 0xffffffffu &&
+                        s->dec_set[d] != 0xffffffffu)
                     {
                         s->var_binding[idx] = s->dec_binding[d];
                         s->var_set[idx]     = s->dec_set[d];
-                
                         STEREO_LOG(
                             "FS_DECORATION_APPLY var=%u set=%u binding=%u",
                             w[i+2],
@@ -1807,16 +1818,19 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 /* BuiltIn ViewIndex */
                 if (w[i+2] == 11 && w[i+3] == 4440)
                     s->vi_var_id = w[i+1];
-
                 /* Descriptor binding */
                 if (w[i+2] == 33) {
-                    if (s->n_dec < FS_MAX_VARS)
+                    int di = fs_dec_index(s, w[i+1]);
+                    if (di < 0 && s->n_dec < FS_MAX_VARS)
                     {
-                        uint32_t d = s->n_dec++;
-                        s->dec_target[d]  = w[i+1];
-                        s->dec_binding[d] = w[i+3];
-                        s->dec_set[d]     = 0xffffffffu;
-                    
+                        di = s->n_dec++;
+                        s->dec_target[di]  = w[i+1];
+                        s->dec_binding[di] = 0xffffffffu;
+                        s->dec_set[di]     = 0xffffffffu;
+                    }
+                    if (di >= 0)
+                    {
+                        s->dec_binding[di] = w[i+3];
                         STEREO_LOG(
                             "FS_BIND_CACHE target=%u binding=%u",
                             w[i+1],
@@ -1825,28 +1839,20 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 }
                 /* Descriptor set */
                 if (w[i+2] == 34) {
-                    bool found = false;
-                    for (uint32_t d = 0; d < s->n_dec; ++d)
+                    int di = fs_dec_index(s, w[i+1]);
+                
+                    if (di < 0 && s->n_dec < FS_MAX_VARS)
                     {
-                        if (s->dec_target[d] == w[i+1])
-                        {
-                            s->dec_set[d] = w[i+3];
-                            found = true;
-                            break;
-                        }
+                        di = s->n_dec++;
+                        s->dec_target[di]  = w[i+1];
+                        s->dec_binding[di] = 0xffffffffu;
+                        s->dec_set[di]     = 0xffffffffu;
                     }
-                    if (!found && s->n_dec < FS_MAX_VARS)
+                
+                    if (di >= 0)
                     {
-                        uint32_t d = s->n_dec++;
-                        s->dec_target[d]  = w[i+1];
-                        s->dec_binding[d] = 0xffffffffu;
-                        s->dec_set[d]     = w[i+3];
+                        s->dec_set[di] = w[i+3];
                     }
-                    STEREO_LOG(
-                        "FS_SET_CACHE target=%u set=%u",
-                        w[i+1],
-                        w[i+3]);
-                }
             }
             break;
         case 54:  /* OpFunction */
