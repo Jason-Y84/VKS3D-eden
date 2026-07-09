@@ -1695,11 +1695,6 @@ static bool fs_binding_is_stereo_attachment(FsScan *s, uint32_t var)
     int vi = fs_var_index(s, var);
     if (vi < 0)
         return false;
-    STEREO_LOG(
-        "FS_BINDING_TEST var=%u binding=%u stereo=%u",
-        var,
-        binding,
-        (binding <= 2));
     /*
      * Only framebuffer/deferred attachments become stereo arrays.
      *
@@ -2032,8 +2027,7 @@ bool spirv_patch_stereo_fs(
 
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == 25 && wc >= 9 &&
-            fs_id_in(s.img_ids, s.n_img, in[i+1]) &&
-            fs_image_type_has_stereo_binding(&s, in[i+1])) {
+            fs_id_in(s.img_ids, s.n_img, in[i+1])) {
             STEREO_LOG(
                 "FS_PATCH_IMAGE type=%u dim=%u depth=%u arrayed=%u",
                 in[i+1],
