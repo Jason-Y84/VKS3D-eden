@@ -1776,7 +1776,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
         break;
         case 71:  /* OpDecorate */
             if (wc >= 4) {
-
+                STEREO_LOG(
+                    "FS_DECORATE target=%u decoration=%u literal=%u",
+                    w[i+1],
+                    w[i+2],
+                    w[i+3]);
                 /* BuiltIn ViewIndex */
                 if (w[i+2] == 11 && w[i+3] == 4440)
                     s->vi_var_id = w[i+1];
@@ -1784,6 +1788,10 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 /* Descriptor binding */
                 if (w[i+2] == 33) {
                     int vi = fs_var_index(s, w[i+1]);
+                    STEREO_LOG(
+                        "FS_BIND_LOOKUP target=%u index=%d",
+                        w[i+1],
+                        vi);
                     if (vi >= 0)
                         s->var_binding[vi] = w[i+3];
                     /*
@@ -1804,10 +1812,13 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                            w[i+3]);
                     }
                 }
-
                 /* Descriptor set */
                 if (w[i+2] == 34) {
                     int vi = fs_var_index(s, w[i+1]);
+                    STEREO_LOG(
+                        "FS_SET_LOOKUP target=%u index=%d",
+                        w[i+1],
+                        vi);
                     if (vi >= 0)
                         s->var_set[vi] = w[i+3];
                 
@@ -1858,8 +1869,18 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         if (s->load_ids[j] == w[i+3])
                         {
                             s->load_vars[idx] = s->load_vars[j];
+                            STEREO_LOG(
+                                "FS_LOAD_PROPAGATE sampledImage=%u descriptorVar=%u",
+                                w[i+3],
+                                s->load_vars[j]);
                             break;
                         }
+                    }
+                    if (s->load_vars[idx] == 0)
+                    {
+                        STEREO_LOG(
+                            "FS_LOAD_PROPAGATE FAILED sampledImage=%u",
+                            w[i+3]);
                     }
                     STEREO_LOG(
                         "FS OpSampledImage type=%u result=%u image=%u sampler=%u imagePatched=%u samplerPatched=%u",
@@ -2039,6 +2060,10 @@ bool spirv_patch_stereo_fs(
                     }
                 }
             }
+            STEREO_LOG(
+                "FS_SAMPLE_VAR sampledImage=%u descriptorVar=%u",
+                sampled_image_id,
+                descriptor_var);
             STEREO_LOG(
                 "FS_SAMPLE op=%u wc=%u resultType=%u result=%u sampledImage=%u var=%u set=%u binding=%u coord=%u patched=%u",
                 op,
