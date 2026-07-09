@@ -1148,7 +1148,7 @@ stereo_QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
     //    pPresentInfo->swapchainCount : 0);
     //STEREO_LOG("stereo_QueuePresentKHR: queue=%p swapchainCount=%u",
     //           (void*)queue, pPresentInfo ? pPresentInfo->swapchainCount : 0);
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t     g_device_count;
 
     StereoDevice    *sd = NULL;
@@ -1156,13 +1156,13 @@ stereo_QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
     for (uint32_t d = 0; d < g_device_count && !sd; d++) {
         for (uint32_t p = 0; p < pPresentInfo->swapchainCount; p++) {
             StereoSwapchain *found = stereo_swapchain_lookup(
-                g_devices[d], pPresentInfo->pSwapchains[p]);
-            if (found) { sd = g_devices[d]; sc = found; break; }
+                &g_devices[d], pPresentInfo->pSwapchains[p]);
+            if (found) { sd = &g_devices[d]; sc = found; break; }
         }
     }
 
     if (!sd || !sc || !sd->stereo.enabled || !sc->stereo_active) {
-        StereoDevice *fwd = sd ? sd : (g_device_count > 0 ? g_devices[0] : NULL);
+        StereoDevice *fwd = sd ? sd : (g_device_count > 0 ? &g_devices[0] : NULL);
         if (!fwd) return VK_ERROR_DEVICE_LOST;
         return fwd->real.QueuePresentKHR(queue, pPresentInfo);
     }
@@ -1461,24 +1461,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
 
     if (!sd->stereo.multiview)
         return sd->real.CreateImageView(sd->real_device, pCreateInfo, pAllocator, pView);
-    bool depthTracked = false;
-    bool colorTracked = false;
-    
-    for (uint32_t i = 0; i < sd->intercepted_depth_count; i++)
-        if (sd->intercepted_depth[i] == pCreateInfo->image)
-            depthTracked = true;
-    
-    for (uint32_t i = 0; i < sd->intercepted_color_count; i++)
-        if (sd->intercepted_color[i] == pCreateInfo->image)
-            colorTracked = true;
-    STEREO_LOG(
-        "VIEW_INPUT image=%p fmt=%u tracked_depth=%u tracked_color=%u usage_unknown=%u layers=%u",
-        (void*)(uintptr_t)pCreateInfo->image,
-        pCreateInfo->format,
-        depthTracked,
-        colorTracked,
-        1,
-        pCreateInfo->subresourceRange.layerCount);
+
     //STEREO_LOG(
     //    "[VIEW CREATE RAW] image=%p viewType=%u layers=%u",
     //    pCreateInfo->image,
@@ -1542,7 +1525,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
        {
         for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
         {
-            if (sd->upgraded_images[i] == pCreateInfo->image)
+            if (sd->upgraded_views[i] == pCreateInfo->image)
             {
                 STEREO_LOG(
                     "WARNING view handle matches upgraded image? image=%p",

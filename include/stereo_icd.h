@@ -540,12 +540,6 @@ typedef struct StereoDevice {
 #define MAX_UPGRADED_VIEWS     4096
     VkImageView            upgraded_views[MAX_UPGRADED_VIEWS];
     uint32_t               upgraded_view_count;
-#define MAX_DESCRIPTOR_SETS 16384
-    struct {
-        VkDescriptorSet        wrapped;
-        VkDescriptorSet        real;
-    } descriptor_sets[MAX_DESCRIPTOR_SETS];
-    uint32_t descriptor_set_count;
     /* Per-framebuffer: which render pass (multiview version) was used */
 #define MAX_FB_TRACK           512
     StereoFramebufferTrack fb_tracks[MAX_FB_TRACK];
@@ -748,7 +742,6 @@ VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateDevice(VkPhysicalDevice, const VkDev
 VKAPI_ATTR void     VKAPI_CALL stereo_DestroyDevice(VkDevice, const VkAllocationCallbacks*);
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL stereo_GetDeviceProcAddr(VkDevice, const char*);
 VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateImageView(VkDevice, const VkImageViewCreateInfo*, const VkAllocationCallbacks*, VkImageView*);
-VKAPI_ATTR VkResult VKAPI_CALL stereo_AllocateDescriptorSets(VkDevice, const VkDescriptorSetAllocateInfo*, VkDescriptorSet*);
 /* -- framebuffer.c -------------------------------------------------------- */
 VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateFramebuffer(VkDevice, const VkFramebufferCreateInfo *, const VkAllocationCallbacks *, VkFramebuffer *);
 VKAPI_ATTR void     VKAPI_CALL stereo_DestroyFramebuffer(VkDevice, VkFramebuffer, const VkAllocationCallbacks *);

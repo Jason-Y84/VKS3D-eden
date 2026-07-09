@@ -2,16 +2,16 @@
  * VKS3D.rc — Windows DLL version / metadata resource
  *
  * Compiled into both VKS3D_x64.dll and VKS3D_x86.dll by the CMake build.
- * Version numbers are injected from CMakeLists.txt via configure_file().
+ * Provides the version info visible in Windows Explorer Properties.
  */
 
 #include <winver.h>
 
-/* Version numbers — configured via CMake at build time */
+/* Version numbers — keep in sync with CMakeLists.txt */
 #define VKS3D_VER_MAJOR  1
 #define VKS3D_VER_MINOR  0
-#define VKS3D_VER_PATCH  @VKS3D_VER_PATCH@
-#define VKS3D_VER_BUILD  @VKS3D_VER_BUILD@
+#define VKS3D_VER_PATCH  0
+#define VKS3D_VER_BUILD  0
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     VKS3D_VER_MAJOR, VKS3D_VER_MINOR, VKS3D_VER_PATCH, VKS3D_VER_BUILD
@@ -28,12 +28,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "3DJ"
             VALUE "FileDescription",  "Vulkan stereoscopic 3D driver"
-            VALUE "FileVersion",      "1.0.@VKS3D_VER_PATCH@.@VKS3D_VER_BUILD@"
+            VALUE "FileVersion",      "1.0.0.0"
             VALUE "InternalName",     "VKS3D"
             VALUE "LegalCopyright",   "GPLv3 License"
             VALUE "OriginalFilename", "VKS3D.dll"
             VALUE "ProductName",      "VKS3D"
-            VALUE "ProductVersion",   "1.0.@VKS3D_VER_PATCH@.@VKS3D_VER_BUILD@"
+            VALUE "ProductVersion",   "1.0.0.0"
         END
     END
     BLOCK "VarFileInfo"

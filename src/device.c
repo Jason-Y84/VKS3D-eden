@@ -243,28 +243,12 @@ stereo_CreateDevice(
     SET_LOADER_MAGIC_VALUE(sd);
 
     sd->real_device = real_dev;
-    STEREO_LOG(
-        "CREATE_DEVICE wrapper_sd=%p real_device=%p",
-        (void *)sd,
-        (void *)real_dev);
     sd->si          = sp_si;
     sd->real_physdev = real_physdev;
     sd->stereo      = sp_si->stereo;
 
     stereo_populate_device_dispatch(sd, sp_si->real_instance);
-    STEREO_LOG(
-        "real.GetDeviceProcAddr=%p",
-        sd->real.GetDeviceProcAddr);
-    STEREO_LOG(
-        "Dispatch: Allocate=%p Update=%p CreateImageView=%p CreateFramebuffer=%p",
-        (void*)sd->real.AllocateDescriptorSets,
-        (void*)sd->real.UpdateDescriptorSets,
-        (void*)sd->real.CreateImageView,
-        (void*)sd->real.CreateFramebuffer);
-    STEREO_LOG(
-        "DISPATCH AllocateDescriptorSets=%p UpdateDescriptorSets=%p",
-        (void*)sd->real.AllocateDescriptorSets,
-        (void*)sd->real.UpdateDescriptorSets);
+
     {
         uint32_t qf_count = 0;
         sp_si->real.GetPhysicalDeviceQueueFamilyProperties(real_physdev, &qf_count, NULL);
@@ -274,15 +258,7 @@ stereo_CreateDevice(
             for (uint32_t i = 0; i < qf_count; i++) {
                 if (qfps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
                     sd->gfx_qf = i;
-                    STEREO_LOG(
-                        "GET_DEVICE_QUEUE CALL fn=%p dev=%p family=%u index=0",
-                        (void*)sd->real.GetDeviceQueue,
-                        (void*)real_dev,
-                        i);
                     sd->real.GetDeviceQueue(real_dev, i, 0, &sd->gfx_queue);
-                    STEREO_LOG(
-                        "GET_DEVICE_QUEUE RETURN queue=%p",
-                        (void*)sd->gfx_queue);
                     break;
                 }
             }
@@ -297,67 +273,8 @@ stereo_CreateDevice(
         }
     }
 
-    STEREO_LOG(
-        "RETURN_DEVICE wrapper=%p real=%p",
-        (void *)sd,
-        (void *)real_dev);
-    *pDevice = (VkDevice)(uintptr_t)sd;
-    STEREO_LOG(
-        "Device created wrapper=%p real=%p",
-        (void*)sd,
-        (void*)real_dev);
-    return VK_SUCCESS;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL
-stereo_AllocateDescriptorSets(
-    VkDevice device,
-    const VkDescriptorSetAllocateInfo *pAllocateInfo,
-    VkDescriptorSet *pDescriptorSets)
-{
-    StereoDevice *sd = (StereoDevice *)device;
-    STEREO_LOG(
-        "ALLOC_DESCRIPTOR_SETS ENTER device=%p sd=%p",
-        (void *)device,
-        (void *)sd);
-    STEREO_LOG(
-        "ALLOC first bytes %016llx %016llx %016llx",
-        *(unsigned long long *)((char *)sd + 0),
-        *(unsigned long long *)((char *)sd + 8),
-        *(unsigned long long *)((char *)sd + 16));
-    STEREO_LOG(
-        "ALLOC real_device=%p alloc=%p update=%p",
-        (void *)sd->real_device,
-        (void *)sd->real.AllocateDescriptorSets,
-        (void *)sd->real.UpdateDescriptorSets);
-    STEREO_LOG(
-        "ALLOC_DESCRIPTOR_SETS calling real.AllocateDescriptorSets=%p",
-        (void*)sd->real.AllocateDescriptorSets);
-    VkResult r =
-        sd->real.AllocateDescriptorSets(
-            sd->real_device,
-            pAllocateInfo,
-            pDescriptorSets);
-    STEREO_LOG(
-        "ALLOC_DESCRIPTOR_SETS RETURN result=%d",
-        r);
-    if (r != VK_SUCCESS)
-        return r;
-
-    /*
-     * Temporary pass-through tracking.
-     * Later we will need a wrapped handle if VKS3D allocates its own objects.
-     */
-    for (uint32_t i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
-        if (sd->descriptor_set_count < MAX_DESCRIPTOR_SETS) {
-            sd->descriptor_sets[sd->descriptor_set_count].wrapped =
-                pDescriptorSets[i];
-            sd->descriptor_sets[sd->descriptor_set_count].real =
-                pDescriptorSets[i];
-            sd->descriptor_set_count++;
-        }
-    }
-
+    *pDevice = real_dev;
+    STEREO_LOG("Device created: %p", (void*)real_dev);
     return VK_SUCCESS;
 }
 

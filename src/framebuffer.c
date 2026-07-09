@@ -426,7 +426,7 @@ stereo_CmdBeginRenderPass(
     const VkRenderPassBeginInfo *pRenderPassBegin,
     VkSubpassContents            contents)
 {
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t     g_device_count;
     StereoDevice *sd   = NULL;
     VkRenderPass mv_rp = VK_NULL_HANDLE;
@@ -445,7 +445,7 @@ stereo_CmdBeginRenderPass(
 
     for (uint32_t d = 0; d < g_device_count; d++)
     {
-        StereoDevice *dev = g_devices[d];
+        StereoDevice *dev = &g_devices[d];
         STEREO_LOG(
             "DEVICE[%u] dev=%p real_device=%p fb_track_count=%u",
             d,
@@ -454,7 +454,7 @@ stereo_CmdBeginRenderPass(
             dev->fb_track_count);
     }
     for (uint32_t d = 0; d < g_device_count && !sd; d++) {
-        StereoDevice *dev = g_devices[d];
+        StereoDevice *dev = &g_devices[d];
         STEREO_LOG(
             "FB_TRACK_SCAN dev=%p count=%u",
             dev,
@@ -588,7 +588,7 @@ stereo_CmdBeginRenderPass(
     if (!sd) {
         /* Framebuffer not in our tracking → non-MV; find any live device */
         for (uint32_t d = 0; d < g_device_count; d++) {
-            if (g_devices[d]->real_device) { sd = g_devices[d]; break; }
+            if (g_devices[d].real_device) { sd = &g_devices[d]; break; }
         }
     }
     if (!sd) return;
@@ -701,14 +701,14 @@ stereo_CmdBeginRendering(
         "BEGIN_RENDERING ENTER cb=%p info=%p",
         (void*)commandBuffer,
         (void*)pRenderingInfo);
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
     StereoDevice *sd = NULL;
     for (uint32_t i = 0; i < g_device_count; i++)
     {
-        if (g_devices[i]->real_device)
+        if (g_devices[i].real_device)
         {
-            sd = g_devices[i];
+            sd = &g_devices[i];
             break;
         }
     }
@@ -738,11 +738,9 @@ stereo_CmdBeginRendering(
         sd->real.CmdBeginRendering,
         modified.viewMask,
         modified.layerCount);
-    STEREO_LOG("BEGIN_RENDERING CALL ENTER");
     sd->real.CmdBeginRendering(
         commandBuffer,
         &modified);
-    STEREO_LOG("BEGIN_RENDERING CALL EXIT");
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -750,16 +748,16 @@ stereo_CmdEndRendering(
     VkCommandBuffer commandBuffer)
 {
     STEREO_LOG("END_RENDERING ENTER");
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
     
     StereoDevice *sd = NULL;
     
     for (uint32_t i = 0; i < g_device_count; i++)
     {
-        if (g_devices[i]->real_device)
+        if (g_devices[i].real_device)
         {
-            sd = g_devices[i];
+            sd = &g_devices[i];
             break;
         }
     }
@@ -773,9 +771,7 @@ stereo_CmdEndRendering(
     STEREO_LOG(
         "END_RENDERING FORWARD real=%p",
         sd->real.CmdEndRendering);
-    STEREO_LOG("END_RENDERING CALL ENTER");
     sd->real.CmdEndRendering(commandBuffer);
-    STEREO_LOG("END_RENDERING CALL EXIT");
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -784,7 +780,7 @@ stereo_CmdBindPipeline(
     VkPipelineBindPoint pipelineBindPoint,
     VkPipeline pipeline)
 {
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
 
     StereoDevice *sd = NULL;
@@ -794,9 +790,9 @@ stereo_CmdBindPipeline(
 
     for (uint32_t i = 0; i < g_device_count; i++)
     {
-        if (g_devices[i]->real_device)
+        if (g_devices[i].real_device)
         {
-            sd = g_devices[i];
+            sd = &g_devices[i];
             break;
         }
     }
@@ -857,13 +853,13 @@ stereo_CmdBindPipeline(
 static StereoDevice *
 find_any_device(void)
 {
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
 
     for (uint32_t i = 0; i < g_device_count; i++)
     {
-        if (g_devices[i]->real_device)
-            return g_devices[i];
+        if (g_devices[i].real_device)
+            return &g_devices[i];
     }
 
     return NULL;

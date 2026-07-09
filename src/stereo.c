@@ -51,7 +51,7 @@ uint32_t                     g_instance_count = 0;
 static StereoPhysdev    g_physdev_wrappers[MAX_PHYSICAL_DEVICES];
 static uint32_t         g_physdev_count = 0;
 
-StereoDevice                 *g_devices[MAX_DEVICES];
+StereoDevice                 g_devices[MAX_DEVICES];
 uint32_t                     g_device_count = 0;
 
 static stereo_mutex_t        g_registry_lock;
@@ -598,14 +598,8 @@ StereoDevice *stereo_device_alloc(void) {
     if (g_device_count >= MAX_DEVICES) {
         stereo_mutex_unlock(&g_registry_lock); return NULL;
     }
-    StereoDevice *sd = calloc(1, sizeof(*sd));
-    if (!sd)
-    {
-        stereo_mutex_unlock(&g_registry_lock);
-        return NULL;
-    }
-    
-    g_devices[g_device_count++] = sd;
+    StereoDevice *sd = &g_devices[g_device_count++];
+    memset(sd, 0, sizeof(*sd));
     stereo_mutex_init(&sd->lock);
     /* Copy INI paths established in DllMain */
     strncpy(sd->global_ini, g_global_ini, sizeof(sd->global_ini) - 1);
@@ -617,8 +611,8 @@ StereoDevice *stereo_device_from_handle(VkDevice h) {
     ensure_registry_init();
     stereo_mutex_lock(&g_registry_lock);
     for (uint32_t i = 0; i < g_device_count; i++) {
-        if (g_devices[i]->real_device == h) {
-            stereo_mutex_unlock(&g_registry_lock); return g_devices[i];
+        if (g_devices[i].real_device == h) {
+            stereo_mutex_unlock(&g_registry_lock); return &g_devices[i];
         }
     }
     stereo_mutex_unlock(&g_registry_lock);
@@ -628,11 +622,9 @@ void stereo_device_free(VkDevice h) {
     ensure_registry_init();
     stereo_mutex_lock(&g_registry_lock);
     for (uint32_t i = 0; i < g_device_count; i++) {
-        if (g_devices[i]->real_device == h) {
-            stereo_mutex_destroy(&g_devices[i]->lock);
-            free(g_devices[i]);
-            g_devices[i] = g_devices[--g_device_count];
-            break;
+        if (g_devices[i].real_device == h) {
+            stereo_mutex_destroy(&g_devices[i].lock);
+            g_devices[i] = g_devices[--g_device_count]; break;
         }
     }
     stereo_mutex_unlock(&g_registry_lock);
@@ -790,19 +782,8 @@ void stereo_populate_instance_dispatch(StereoInstance *si)
 void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
 {
 #define L(fn) sd->real.fn = (PFN_vk##fn)(g_real_giPA)((real_inst), "vk"#fn)
-    /* Obtain the real vkGetDeviceProcAddr from the loader */
-    L(GetDeviceProcAddr);
-    PFN_vkGetDeviceProcAddr gdpa = sd->real.GetDeviceProcAddr;
-    if (!gdpa) {
-        STEREO_ERR("Failed to obtain vkGetDeviceProcAddr");
-        return;
-    }
+    L(GetDeviceProcAddr); /* load first so we can use it as fallback */
     L(DestroyDevice); L(GetDeviceQueue); L(QueueSubmit); L(QueueWaitIdle);
-    STEREO_LOG(
-        "DISPATCH GetDeviceQueue=%p QueueSubmit=%p QueueWaitIdle=%p",
-        (void*)sd->real.GetDeviceQueue,
-        (void*)sd->real.QueueSubmit,
-        (void*)sd->real.QueueWaitIdle);
     L(DeviceWaitIdle); L(AllocateMemory); L(FreeMemory); L(MapMemory);
     L(UnmapMemory); L(FlushMappedMemoryRanges); L(InvalidateMappedMemoryRanges);
     L(BindBufferMemory); L(BindImageMemory);
@@ -822,24 +803,8 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
     L(CreateSampler); L(DestroySampler);
     L(CreateDescriptorSetLayout); L(DestroyDescriptorSetLayout);
     L(CreateDescriptorPool); L(DestroyDescriptorPool);
-    L(ResetDescriptorPool);
-    L(FreeDescriptorSets);
-    sd->real.AllocateDescriptorSets =
-        (PFN_vkAllocateDescriptorSets)
-            gdpa(sd->real_device, "vkAllocateDescriptorSets");
-    sd->real.UpdateDescriptorSets =
-        (PFN_vkUpdateDescriptorSets)
-            gdpa(sd->real_device, "vkUpdateDescriptorSets");
-    STEREO_LOG(
-        "GDPA=%p AllocDS=%p UpdateDS=%p CmdBindDS=%p",
-        gdpa,
-        sd->real.AllocateDescriptorSets,
-        sd->real.UpdateDescriptorSets,
-        sd->real.CmdBindDescriptorSets);
-    STEREO_LOG(
-        "GDPA direct Allocate=%p Update=%p",
-        gdpa(sd->real_device, "vkAllocateDescriptorSets"),
-        gdpa(sd->real_device, "vkUpdateDescriptorSets"));
+    L(ResetDescriptorPool); L(AllocateDescriptorSets); L(FreeDescriptorSets);
+    L(UpdateDescriptorSets);
     L(CreateFramebuffer); L(DestroyFramebuffer);
     L(CreateRenderPass); L(DestroyRenderPass); L(GetRenderAreaGranularity);
     L(CreateCommandPool); L(DestroyCommandPool); L(ResetCommandPool);

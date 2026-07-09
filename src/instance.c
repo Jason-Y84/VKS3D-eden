@@ -232,12 +232,8 @@ stereo_CreateInstance(
         memset(&app_info, 0, sizeof(app_info));
         app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     }
-    /*
-     * Do not force Vulkan 1.1.
-     * The application requested version must remain compatible
-     * with the real driver's supported API version.
-     */
-    app_info.apiVersion = app_ver;
+    if (app_ver < VK_API_VERSION_1_1)
+        app_info.apiVersion = VK_API_VERSION_1_1;
     ci.pApplicationInfo = &app_info;
 
     STEREO_LOG("stereo_CreateInstance: calling real vkCreateInstance, apiVersion=0x%x extCount=%u",

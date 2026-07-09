@@ -6,23 +6,6 @@ project(VKS3D
     DESCRIPTION "Vulkan Stereoscopic 3D ICD"
 )
 
-# ── Version number cache variables ──────────────────────────────────────────
-# Allow passing via: cmake -DVKS3D_VER_PATCH=10 -DVKS3D_VER_BUILD=2
-if(NOT DEFINED VKS3D_VER_PATCH)
-    set(VKS3D_VER_PATCH 0 CACHE STRING "Patch version number (0-65535)")
-endif()
-if(NOT DEFINED VKS3D_VER_BUILD)
-    set(VKS3D_VER_BUILD 0 CACHE STRING "Build version number (0-65535)")
-endif()
-
-message(STATUS "VKS3D: version 1.0.${VKS3D_VER_PATCH}.${VKS3D_VER_BUILD}")
-
-# ── Configure RC file from template ──────────────────────────────────────────
-configure_file(
-    "${CMAKE_SOURCE_DIR}/src/VKS3D.rc.in"
-    "${CMAKE_BINARY_DIR}/VKS3D.rc"
-)
-
 # ── Policy: MSVC requires C11 via /std:c11 ─────────────────────────────────
 if(POLICY CMP0091)
     cmake_policy(SET CMP0091 NEW)
@@ -170,7 +153,7 @@ target_compile_definitions(${TARGET_NAME} PRIVATE
 # ── Windows-specific settings ────────────────────────────────────────────────
 if(WIN32)
     # .def file controls exports (correct on both x64 and x86 __stdcall)
-    target_sources(${TARGET_NAME} PRIVATE src/VKS3D.def "${CMAKE_BINARY_DIR}/VKS3D.rc")
+    target_sources(${TARGET_NAME} PRIVATE src/VKS3D.def src/VKS3D.rc)
     set_target_properties(${TARGET_NAME} PROPERTIES
         LINK_FLAGS "/DEF:${CMAKE_SOURCE_DIR}/src/VKS3D.def"
     )

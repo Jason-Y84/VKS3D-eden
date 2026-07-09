@@ -24,16 +24,6 @@ stereo_dl_t               stereo_get_real_icd_handle(void);
 static PFN_vkVoidFunction get_instance_proc_addr_internal(
     VkInstance instance, const char *name)
 {
-    if (name &&
-        (strstr(name, "vkGetPhysicalDevice") == name)) {
-        STEREO_LOG(
-            "PHYSDEV_LOOKUP name=%s",
-            name);
-    }
-    if (name && strstr(name, "GetPhysicalDevice"))
-    {
-        STEREO_LOG("GET_PHYSDEV_PROC %s", name);
-    }
     /* Pre-instance commands */
     if (!strcmp(name, "vkCreateInstance"))
         return (PFN_vkVoidFunction)stereo_CreateInstance;
@@ -69,14 +59,8 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
  * the loader calls it with the real physdev handle — this is fine because
  * the real ICD's VkPhysicalDevice.  The real ICD would dereference our
  * wrapper as its own internal struct, corrupt heap state, and crash.      */
-#define PD_FN(fn)                                                   \
-    if (!strcmp(name, "vk"#fn)) {                                  \
-        STEREO_LOG(                                                 \
-            "PD_FN_MATCH %s -> %p",                                 \
-            name,                                                   \
-            (void*)stereo_##fn);                                    \
-        return (PFN_vkVoidFunction)stereo_##fn;                     \
-    }
+#define PD_FN(fn) if (!strcmp(name, "vk"#fn)) return (PFN_vkVoidFunction)stereo_##fn;
+
     /* ── Vulkan 1.0 core ── */
     PD_FN(GetPhysicalDeviceProperties)
     PD_FN(GetPhysicalDeviceFeatures)
@@ -145,42 +129,6 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 #endif
 #undef PD_FN
 
-    /* ── Core physical-device entrypoints ───────────────────────────── */
-    if (!strcmp(name, "vkGetPhysicalDeviceProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceProperties;
-    if (!strcmp(name, "vkGetPhysicalDeviceFeatures"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceFeatures;
-    if (!strcmp(name, "vkGetPhysicalDeviceMemoryProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceMemoryProperties;
-    if (!strcmp(name, "vkGetPhysicalDeviceQueueFamilyProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceQueueFamilyProperties;
-    if (!strcmp(name, "vkGetPhysicalDeviceFormatProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceFormatProperties;
-    if (!strcmp(name, "vkGetPhysicalDeviceImageFormatProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceImageFormatProperties;
-    if (!strcmp(name, "vkGetPhysicalDeviceSparseImageFormatProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceSparseImageFormatProperties;
-    if (!strcmp(name, "vkGetPhysicalDeviceProperties2"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceProperties2;
-    if (!strcmp(name, "vkGetPhysicalDeviceFeatures2"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceFeatures2;
-    if (!strcmp(name, "vkGetPhysicalDeviceMemoryProperties2"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceMemoryProperties2;
-    if (!strcmp(name, "vkGetPhysicalDeviceQueueFamilyProperties2"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceQueueFamilyProperties2;
-    if (!strcmp(name, "vkGetPhysicalDeviceFormatProperties2"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceFormatProperties2;
-    if (!strcmp(name, "vkGetPhysicalDeviceImageFormatProperties2"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceImageFormatProperties2;
-    if (!strcmp(name, "vkGetPhysicalDeviceSparseImageFormatProperties2"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceSparseImageFormatProperties2;
-    if (!strcmp(name, "vkGetPhysicalDeviceExternalBufferProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceExternalBufferProperties;
-    if (!strcmp(name, "vkGetPhysicalDeviceExternalFenceProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceExternalFenceProperties;
-    if (!strcmp(name, "vkGetPhysicalDeviceExternalSemaphoreProperties"))
-        return (PFN_vkVoidFunction)stereo_GetPhysicalDeviceExternalSemaphoreProperties;
-
     /* ── KHR aliases — same underlying wrapper as the core 1.1 function ──── */
     /* Vulkan 1.1 promoted these KHR extensions to core.  The NVIDIA ICD uses
      * the same function pointer for both names.  We alias to the core wrapper
@@ -244,8 +192,6 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
         return (PFN_vkVoidFunction)stereo_DestroyDevice;
     if (!strcmp(name, "vkCreateImageView"))
         return (PFN_vkVoidFunction)stereo_CreateImageView;
-    if (!strcmp(name, "vkAllocateDescriptorSets"))
-        return (PFN_vkVoidFunction)stereo_AllocateDescriptorSets;
     if (!strcmp(name, "vkCreateFramebuffer"))
         return (PFN_vkVoidFunction)stereo_CreateFramebuffer;
     if (!strcmp(name, "vkDestroyFramebuffer"))
@@ -312,25 +258,6 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
-    StereoDevice *sd = (StereoDevice *)(uintptr_t)device;
-    
-    STEREO_LOG(
-        "GDPA ENTER device=%p sd=%p magic=0x%llx real=%p name=%s",
-        (void*)device,
-        (void*)sd,
-        (unsigned long long)sd->loader_data.loaderMagic,
-        (void*)sd->real_device,
-        pName ? pName : "<null>");
-    STEREO_LOG(
-        "GDPA_ENTER device=%p name=%s",
-        (void*)device,
-        pName ? pName : "(null)");
-    STEREO_LOG(
-        "GDPA_QUERY device=%p name=%s",
-        (void*)device,
-        pName ? pName : "(null)");
-    STEREO_LOG("GDPA device=%p name=%s", device, pName);
-
     if (!pName) return NULL;
 
     /* ── VKS3D-wrapped device commands ───────────────────────────────── */
@@ -340,18 +267,10 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         return (PFN_vkVoidFunction)stereo_DestroyDevice;
     if (!strcmp(pName, "vkCreateImage"))
         return (PFN_vkVoidFunction)stereo_CreateImage;
-
     if (!strcmp(pName, "vkCreateImageView"))
         return (PFN_vkVoidFunction)stereo_CreateImageView;
-    if (!strcmp(pName, "vkAllocateDescriptorSets")) {
-        STEREO_LOG(
-            "GDPA RETURN WRAPPER vkAllocateDescriptorSets -> %p",
-            (void*)stereo_AllocateDescriptorSets);
-        return (PFN_vkVoidFunction)stereo_AllocateDescriptorSets;
-    }
     if (!strcmp(pName, "vkCreateFramebuffer"))
         return (PFN_vkVoidFunction)stereo_CreateFramebuffer;
-
     if (!strcmp(pName, "vkDestroyFramebuffer"))
         return (PFN_vkVoidFunction)stereo_DestroyFramebuffer;
     if (!strcmp(pName, "vkCmdBeginRenderPass"))
@@ -403,49 +322,21 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 
     /* ── Forward everything else to the real device ──────────────────── */
     /* Look up the real device from our registry to get its proc addr fn */
-    extern StereoDevice *g_devices[];
+    extern StereoDevice g_devices[];
     extern uint32_t     g_device_count;
     for (uint32_t i = 0; i < g_device_count; i++) {
-        if ((VkDevice)(uintptr_t)g_devices[i] == device ||
-            g_devices[i]->real_device == device) {
+        if (g_devices[i].real_device == device ||
+            (VkDevice)(uintptr_t)&g_devices[i] == device) {
             PFN_vkGetDeviceProcAddr real_gdpa =
                 (PFN_vkGetDeviceProcAddr)
-                g_devices[i]->real.GetDeviceProcAddr;
-            if (real_gdpa) {
-                PFN_vkVoidFunction real_fn =
-                    real_gdpa(g_devices[i]->real_device, pName);
-                STEREO_LOG(
-                    "GDPA_FWD name=%s real_device=%p fn=%p wrapper_alloc=%p",
-                    pName,
-                    (void*)g_devices[i]->real_device,
-                    (void*)real_fn,
-                    (void*)stereo_AllocateDescriptorSets);
-                STEREO_LOG(
-                    "GDPA_RETURN name=%s fn=%p",
-                    pName,
-                    (void*)real_fn);
-                if (!real_fn) {
-                    STEREO_LOG(
-                        "GDPA_MISSING name=%s device=%p real=%p",
-                        pName,
-                        (void*)device,
-                        (void*)g_devices[i]->real_device);
-                }
-                return real_fn;
-            }
+                g_devices[i].real.GetDeviceProcAddr;
+            if (real_gdpa)
+                return real_gdpa(g_devices[i].real_device, pName);
             break;
         }
     }
     /* Fallback: use instance-level lookup */
-    PFN_vkVoidFunction fn =
-        get_instance_proc_addr_internal(VK_NULL_HANDLE, pName);
-    
-    STEREO_LOG(
-        "GDPA_FALLBACK name=%s fn=%p",
-        pName,
-        (void*)fn);
-    
-    return fn;
+    return get_instance_proc_addr_internal(VK_NULL_HANDLE, pName);
 }
 
 /* ── Loader interface v6+: DXGI adapter physdev enumeration ─────────────────
@@ -562,20 +453,11 @@ vk_icdGetInstanceProcAddr(VkInstance instance, const char *pName)
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 vk_icdGetPhysicalDeviceProcAddr(VkInstance instance, const char *pName)
 {
-    STEREO_LOG(
-        "GET_PHYSDEV_PROC name=%s",
-        pName ? pName : "<null>");
     if (!pName)
         return NULL;
     STEREO_LOG("vk_icdGetPhysicalDeviceProcAddr: instance=%p name='%s'",
                (void*)instance, pName);
     PFN_vkVoidFunction fn = get_instance_proc_addr_internal(instance, pName);
-    if (pName && strstr(pName, "vkGetPhysicalDevice") == pName) {
-        STEREO_LOG(
-            "PHYSDEV_RETURN name=%s fn=%p",
-            pName,
-            (void*)(uintptr_t)fn);
-    }
     STEREO_LOG("vk_icdGetPhysicalDeviceProcAddr: '%s' -> %p", pName, (void*)(uintptr_t)fn);
     return fn;
 }
