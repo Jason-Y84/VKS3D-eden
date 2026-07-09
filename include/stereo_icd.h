@@ -544,15 +544,15 @@ typedef struct StereoDevice {
      * Tracks descriptor bindings so shader patching can determine whether
      * a sampled image is a stereo-upgraded render target or a normal texture.
      */
-//#define MAX_DESCRIPTOR_IMAGES 16384
-//    struct {
+#define MAX_DESCRIPTOR_IMAGES 16384
+    struct {
 //        VkDescriptorSet        set;
 //        uint32_t               binding;
 //        VkDescriptorType       type;
 //        VkImageView            image_view;
 //        VkImageLayout          image_layout;
-//    } descriptor_images[MAX_DESCRIPTOR_IMAGES];
-//    uint32_t descriptor_image_count;
+    } descriptor_images[MAX_DESCRIPTOR_IMAGES];
+    uint32_t descriptor_image_count;
 #define MAX_DESCRIPTOR_SETS 16384
     struct {
         VkDescriptorSet        wrapped;
