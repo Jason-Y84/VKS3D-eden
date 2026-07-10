@@ -1902,11 +1902,8 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+3],
                         w[i+4]);
                 }
-
-                /* OpLoad tracking */
+                /* OpLoad of sampled/image/sampled-image objects */
                 if (op == 61 && wc >= 4 &&
-                    (fs_id_in(s->si_ids, s->n_si, w[i+1]) ||
-                     fs_id_in(s->img_ids, s->n_img, w[i+1])) &&
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t idx = s->n_load++;
@@ -1956,6 +1953,37 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+4],
                         fs_id_in(s->load_ids, s->n_load, w[i+3]),
                         fs_id_in(s->load_ids, s->n_load, w[i+4]));
+                }
+                /* Propagate image object IDs.
+                 *
+                 * Deferred multisampling often does:
+                 *
+                 *   OpLoad        %169
+                 *   OpImageFetch  %198
+                 *
+                 * The descriptor variable is attached to %169,
+                 * but OpImageFetch consumes %198.
+                 */
+                if ((op == 86 || op == 87 || op == 88 || op == 89 || op == 90 || op == 95) &&
+                    wc >= 5 &&
+                    s->n_load < FS_MAX_LOADS)
+                {
+                    uint32_t src = w[i+3];
+                    for (uint32_t k = 0; k < s->n_load; ++k)
+                    {
+                        if (s->load_ids[k] == src)
+                        {
+                            uint32_t idx = s->n_load++;
+                            s->load_ids[idx] = w[i+2];
+                            s->load_vars[idx] = s->load_vars[k];
+                            STEREO_LOG(
+                                "FS_IMAGE_PROPAGATE src=%u dst=%u var=%u",
+                                src,
+                                w[i+2],
+                                s->load_vars[k]);
+                            break;
+                        }
+                    }
                 }
                 /* Propagate image descriptor through image-producing operations.
                  *
@@ -2212,6 +2240,11 @@ bool spirv_patch_stereo_fs(
                 if (s.load_ids[k] == in[i+3])
                 {
                     descriptor_var = s.load_vars[k];
+                    STEREO_LOG(
+                        "FS_FETCH_MATCH image=%u load=%u var=%u",
+                        in[i+3],
+                        k,
+                        descriptor_var);
                     break;
                 }
             }
