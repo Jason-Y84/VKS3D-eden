@@ -2341,25 +2341,6 @@ bool spirv_patch_stereo_fs(
         /* Extend OpImageFetch ivec2 -> ivec3(x,y,ViewIndex) */
         if (in_func && op == 95 && wc >= 5)
         {
-            /*
-             * Do not stereo-patch multisampled images yet.
-             *
-             * Deferred multisampling uses OpImageFetch with MS images.
-             * Their coordinate semantics differ from normal G-buffer fetches.
-             */
-            uint32_t image_type = in[i+1];
-            
-            if (fs_image_type_is_ms(&s, image_type))
-            {
-                STEREO_LOG(
-                    "FS_FETCH_SKIP_MS type=%u image=%u",
-                    image_type,
-                    in[i+3]);
-            
-                sb_push_n(&ob, &in[i], wc);
-                i += wc;
-                continue;
-            }
             uint32_t coord_id = in[i+4];
             uint32_t descriptor_var = 0;
             for (uint32_t k = 0; k < s.n_load; ++k)
