@@ -1717,7 +1717,7 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
      *
      * SSAO/noise/material textures must remain mono.
      */
-    return binding <= 2;
+    return binding <= 3;
 }
 
 static const char *spv_op_name(uint32_t op)
