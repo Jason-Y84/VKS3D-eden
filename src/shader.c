@@ -1957,6 +1957,34 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         fs_id_in(s->load_ids, s->n_load, w[i+3]),
                         fs_id_in(s->load_ids, s->n_load, w[i+4]));
                 }
+                /* Propagate image descriptor through image-producing operations.
+                 *
+                 * OpImageFetch often receives an intermediate image ID instead of
+                 * the original OpLoad result.
+                 */
+                if ((op == 86 || op == 87 || op == 88 || op == 89 || op == 90) &&
+                    wc >= 5 &&
+                    s->n_load < FS_MAX_LOADS)
+                {
+                    uint32_t src = w[i+3];
+                
+                    for (uint32_t k = 0; k < s->n_load; ++k)
+                    {
+                        if (s->load_ids[k] == src)
+                        {
+                            uint32_t idx = s->n_load++;
+                            s->load_ids[idx] = w[i+2];
+                            s->load_vars[idx] = s->load_vars[k];
+                
+                            STEREO_LOG(
+                                "FS_IMAGE_PROPAGATE src=%u dst=%u var=%u",
+                                src,
+                                w[i+2],
+                                s->load_vars[k]);
+                            break;
+                        }
+                    }
+                }
             }
             break;
         }
@@ -2230,6 +2258,11 @@ bool spirv_patch_stereo_fs(
                 if (s.load_ids[k] == in[i+3])
                 {
                     descriptor_var = s.load_vars[k];
+                    STEREO_LOG(
+                        "FS_FETCH_MATCH image=%u loadIndex=%u var=%u",
+                        in[i+3],
+                        k,
+                        descriptor_var);
                     break;
                 }
             }
