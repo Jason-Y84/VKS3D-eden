@@ -1690,7 +1690,7 @@ static int fs_dec_index(FsScan *s, uint32_t target)
     return -1;
 }
 
-static bool fs_binding_is_stereo_attachment(FsScan *s, uint32_t var)
+static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
 {
     int vi = fs_var_index(s, var);
     if (vi < 0)
@@ -2079,7 +2079,24 @@ static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
 
         /* OpImageFetch */
         if (in_func && op == 95 && wc >= 5)
-            count++;
+        {
+            uint32_t descriptor_var = 0;
+        
+            for (uint32_t k = 0; k < s->n_load; ++k)
+            {
+                if (s->load_ids[k] == w[i+3])
+                {
+                    descriptor_var = s->load_vars[k];
+                    break;
+                }
+            }
+            if (fs_binding_is_stereo_attachment(
+                    s,
+                    descriptor_var))
+            {
+                count++;
+            }
+        }
         i += wc;
     }
     return count;
