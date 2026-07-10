@@ -1989,7 +1989,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+1],
                         s->load_vars[idx]);
                     STEREO_LOG(
-                        "FS OpLoad IMAGE/SAMPLED: type=%u result=%u var=%u",
+                        "FS OpLoad IMAGE_TYPE: type=%u result=%u var=%u",
                         w[i+1],
                         w[i+2],
                         w[i+3]);
@@ -2013,7 +2013,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                      * OpImageSample* logging can recover the binding.
                      */
                     s->load_vars[idx] = 0;
-                    for (uint32_t j = 0; j < s->n_load; ++j)
+                    for (uint32_t j = 0; j < idx; ++j)
                     {
                         if (s->load_ids[j] == w[i+3])
                         {
@@ -2053,8 +2053,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                  * so %198 must inherit %196's descriptor variable.
                  */
                 if ((op == SpvOpImage ||          /* OpImage */
-                     op == SpvOpCopyObject ||     /* OpCopyObject */
-                     op == SpvOpSampledImage) &&  /* OpSampledImage */
+                     op == SpvOpCopyObject) &&    /* OpCopyObject */
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t src = w[i+3];
