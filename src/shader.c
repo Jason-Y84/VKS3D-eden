@@ -1903,21 +1903,21 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+4]);
                 }
 
-                /* OpLoad of patched sampled-image type */
+                /* OpLoad tracking */
                 if (op == 61 && wc >= 4 &&
-                    fs_id_in(s->si_ids, s->n_si, w[i+1]) &&
+                    (fs_id_in(s->si_ids, s->n_si, w[i+1]) ||
+                     fs_id_in(s->img_ids, s->n_img, w[i+1])) &&
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t idx = s->n_load++;
-
                     s->load_ids[idx] = w[i+2];
                     s->load_vars[idx] = w[i+3];
 
                     STEREO_LOG(
-                    "FS OpLoad: type=%u result=%u var=%u",
-                    w[i+1],
-                    w[i+2],
-                    w[i+3]);
+                        "FS OpLoad IMAGE/SAMPLED: type=%u result=%u var=%u",
+                        w[i+1],
+                        w[i+2],
+                        w[i+3]);
                 }
                 /* OpSampledImage combining a patched image+sampler */
                 if (op == 86 && wc >= 5 &&
@@ -2233,7 +2233,10 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
-            
+            STEREO_LOG(
+                "FS_FETCH_DESCRIPTOR image=%u descriptorVar=%u",
+                in[i+3],
+                descriptor_var);
             if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
             {
                 STEREO_LOG(
