@@ -1891,6 +1891,18 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
         default:
             if (in_func) {
 
+                if ((op == 87 || op == 88 || op == 89 || op == 90 ||
+                     op == 95 || op == 98 || op == 99) && wc >= 5)
+                {
+                    STEREO_LOG(
+                        "FS_IMAGE_OP op=%u type=%u result=%u image=%u coord=%u",
+                        op,
+                        w[i+1],
+                        w[i+2],
+                        w[i+3],
+                        w[i+4]);
+                }
+
                 /* OpLoad of patched sampled-image type */
                 if (op == 61 && wc >= 4 &&
                     fs_id_in(s->si_ids, s->n_si, w[i+1]) &&
@@ -2039,7 +2051,8 @@ bool spirv_patch_stereo_fs(
 
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == 25 && wc >= 9 &&
-            fs_id_in(s.img_ids, s.n_img, in[i+1])) {
+            fs_id_in(s.img_ids, s.n_img, in[i+1]) &&
+            in[i+6] == 0) {
             STEREO_LOG(
                 "FS_IMAGE_PATCH_DETAIL type=%u sampled=%u dim=%u depth=%u arrayed=%u ms=%u format=%u",
                 in[i+1],
