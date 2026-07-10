@@ -1953,6 +1953,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 }
                 /* OpImage */
                 if (op == 100 && wc >= 4)
+                {
                     STEREO_LOG(
                         "FS OpImage result=%u image=%u",
                         w[i+2],
