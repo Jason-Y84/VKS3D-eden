@@ -2338,15 +2338,15 @@ bool spirv_patch_stereo_fs(
                 }
             }
             int found = 0;
-            for (uint32_t k = 0; k < s->n_load; ++k)
+            for (uint32_t k = 0; k < s.n_load; ++k)
             {
-                if (s->load_ids[k] == in[i+3])
+                if (s.load_ids[k] == in[i+3])
                 {
                     STEREO_LOG(
                         "FS_FETCH_FOUND image=%u loadIndex=%u var=%u",
                         in[i+3],
                         k,
-                        s->load_vars[k]);
+                        s.load_vars[k]);
                     found = 1;
                     break;
                 }
