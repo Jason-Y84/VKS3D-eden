@@ -2004,6 +2004,23 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
         }
         i += wc;
     }
+    for (uint32_t i = 0; i < s->n_var; ++i)
+    {
+        STEREO_LOG(
+            "FS_VAR id=%u type=%u set=%u binding=%u",
+            s->var_ids[i],
+            s->var_types[i],
+            s->var_set[i],
+            s->var_binding[i]);
+    }
+    for (uint32_t i = 0; i < s->n_dec; ++i)
+    {
+        STEREO_LOG(
+            "FS_DEC target=%u set=%u binding=%u",
+            s->dec_target[i],
+            s->dec_set[i],
+            s->dec_binding[i]);
+    }
 }
 
 static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
