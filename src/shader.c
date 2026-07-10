@@ -1952,8 +1952,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+3]);
                 }
                 /* OpImage */
-                if (op == 78 && wc >= 4)
-                {
+                if (op == 100 && wc >= 4)
                     STEREO_LOG(
                         "FS OpImage result=%u image=%u",
                         w[i+2],
@@ -2009,7 +2008,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                  *
                  * so %198 must inherit %196's descriptor variable.
                  */
-                if ((op == 78 ||    /* OpImage */
+                if ((op == 100 ||   /* OpImage */
                      op == 83 ||    /* OpCopyObject */
                      op == 86) &&   /* OpSampledImage */
                     s->n_load < FS_MAX_LOADS)
