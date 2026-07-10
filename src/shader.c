@@ -1737,10 +1737,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 w[i+2] == 47)
             {
                 STEREO_LOG(
-                    "FS_CREATE opcode=%u result=%u wc=%u",
+                    "FS_CREATE opcode=%u result=%u src=%u known=%d",
                     op,
                     w[i+2],
-                    wc);
+                    w[i+3],
+                    fs_find_load(s, w[i+3]) >= 0);
             }
         }
         switch (op) {
