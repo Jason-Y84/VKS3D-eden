@@ -1718,6 +1718,35 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
     return binding <= 2;
 }
 
+static const char *spv_op_name(uint32_t op)
+{
+    switch (op)
+    {
+    case SpvOpImageSampleImplicitLod:
+        return "OpImageSampleImplicitLod";
+    case SpvOpImageSampleExplicitLod:
+        return "OpImageSampleExplicitLod";
+    case SpvOpImageSampleDrefImplicitLod:
+        return "OpImageSampleDrefImplicitLod";
+    case SpvOpImageSampleDrefExplicitLod:
+        return "OpImageSampleDrefExplicitLod";
+    case SpvOpImageFetch:
+        return "OpImageFetch";
+    case SpvOpImageRead:
+        return "OpImageRead";
+    case SpvOpImageWrite:
+        return "OpImageWrite";
+    case SpvOpImage:
+        return "OpImage";
+    case SpvOpSampledImage:
+        return "OpSampledImage";
+    case SpvOpLoad:
+        return "OpLoad";
+    default:
+        return "Unknown";
+    }
+}
+
 static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
 {
     memset(s, 0, sizeof(*s));
@@ -1725,36 +1754,29 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
     for (size_t i = 5; i < c; ) {
         uint32_t op = w[i] & 0xffff, wc = w[i] >> 16;
         if (!wc || i + wc > c) break;
-        if (in_func && wc >= 2)
+        if (in_func &&
+            op == SpvOpImage &&
+            wc >= 4)
         {
-            if (w[i+2] == 198 ||
-                w[i+2] == 207 ||
-                w[i+2] == 216 ||
-                w[i+2] == 224 ||
-                w[i+2] == 251 ||
-                w[i+2] == 258 ||
-                w[i+2] == 265 ||
-                w[i+2] == 47)
+            int known = 0;
+            uint32_t descriptor_var = 0;
+            for (uint32_t k = 0; k < s->n_load; ++k)
             {
-                int known = 0;
-                uint32_t descriptor_var = 0;
-                for (uint32_t k = 0; k < s->n_load; ++k)
+                if (s->load_ids[k] == w[i+3])
                 {
-                    if (s->load_ids[k] == w[i+3])
-                    {
-                        known = 1;
-                        descriptor_var = s->load_vars[k];
-                        break;
-                    }
+                    known = 1;
+                    descriptor_var = s->load_vars[k];
+                    break;
                 }
-                STEREO_LOG(
-                    "FS_CREATE opcode=%u result=%u src=%u known=%d var=%u",
-                    op,
-                    w[i+2],
-                    w[i+3],
-                    known,
-                    descriptor_var);
             }
+            STEREO_LOG(
+                "FS_CREATE op=%s(%u) result=%u src=%u known=%d var=%u",
+                spv_op_name(op),
+                op,
+                w[i+2],
+                w[i+3],
+                known,
+                descriptor_var);
         }
         switch (op) {
         case SpvOpCapability:
@@ -1921,12 +1943,17 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             break;
         default:
             if (in_func) {
-
-                if ((op == 87 || op == 88 || op == 89 || op == 90 ||
-                     op == 95 || op == 98 || op == 99) && wc >= 5)
+                if ((op == SpvOpImageSampleImplicitLod ||
+                     op == SpvOpImageSampleExplicitLod ||
+                     op == SpvOpImageSampleDrefImplicitLod ||
+                     op == SpvOpImageSampleDrefExplicitLod ||
+                     op == SpvOpImageFetch ||
+                     op == SpvOpImageRead ||
+                     op == SpvOpImageWrite) && wc >= 5)
                 {
                     STEREO_LOG(
-                        "FS_IMAGE_OP op=%u type=%u result=%u image=%u coord=%u",
+                        "FS_IMAGE_OP op=%s(%u) type=%u result=%u image=%u coord=%u",
+                        spv_op_name(op),
                         op,
                         w[i+1],
                         w[i+2],
@@ -1934,7 +1961,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+4]);
                 }
                 /* OpLoad of sampled/image/sampled-image objects */
-                if (op == 61 && wc >= 4 &&
+                if (op == SpvOpLoad && wc >= 4 &&
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t idx = s->n_load++;
@@ -1952,7 +1979,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+3]);
                 }
                 /* OpImage */
-                if (op == 100 && wc >= 4)
+                if (op == SpvOpImage && wc >= 4)
                 {
                     STEREO_LOG(
                         "FS OpImage result=%u image=%u",
@@ -1960,7 +1987,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+3]);
                 }
                 /* OpSampledImage */
-                if (op == 86 && wc >= 5 &&
+                if (op == SpvOpSampledImage && wc >= 5 &&
                     fs_id_in(s->si_ids, s->n_si, w[i+1]) &&
                     s->n_load < FS_MAX_LOADS)
                 {
@@ -2009,9 +2036,9 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                  *
                  * so %198 must inherit %196's descriptor variable.
                  */
-                if ((op == 100 ||   /* OpImage */
-                     op == 83 ||    /* OpCopyObject */
-                     op == 86) &&   /* OpSampledImage */
+                if ((op == SpvOpImage ||          /* OpImage */
+                     op == SpvOpCopyObject ||     /* OpCopyObject */
+                     op == SpvOpSampledImage) &&  /* OpSampledImage */
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t src = w[i+3];
