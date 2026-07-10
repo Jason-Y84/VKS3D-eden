@@ -1966,16 +1966,30 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                      op == SpvOpImageRead ||
                      op == SpvOpImageWrite) && wc >= 5)
                 {
-                    STREO_LOG(
-                        "FS_IMAGE_OP op=%s(%u) type=%u result=%u image=%u coord=%u descriptorVar=%u binding=%u",
+                    STEREO_LOG(
+                        "FS_IMAGE_OP op=%s(%u) type=%u result=%u image=%u coord=%u",
                         spv_op_name(op),
                         op,
                         w[i+1],
                         w[i+2],
                         w[i+3],
-                        w[i+4],
-                        fs_load_descriptor_var(s, w[i+3]),
-                        fs_binding_for_var(s, fs_load_descriptor_var(s, w[i+3])));
+                        w[i+4]);
+                    uint32_t descriptor_var = 0;
+                    for (uint32_t k = 0; k < s->n_load; ++k)
+                    {
+                        if (s->load_ids[k] == w[i+3])
+                        {
+                            descriptor_var = s->load_vars[k];
+                            break;
+                        }
+                    }
+                    int vi = fs_var_index(s, descriptor_var);
+                    STEREO_LOG(
+                        "FS_IMAGE_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
+                        w[i+3],
+                        descriptor_var,
+                        vi >= 0 ? s->var_set[vi] : 999,
+                        vi >= 0 ? s->var_binding[vi] : 999);
                 }
                 /* OpLoad of sampled/image/sampled-image objects */
                 if (op == SpvOpLoad &&
