@@ -1916,7 +1916,15 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+2],
                         w[i+3]);
                 }
-                /* OpSampledImage combining a patched image+sampler */
+                /* OpImage */
+                if (op == 78 && wc >= 4)
+                {
+                    STEREO_LOG(
+                        "FS OpImage result=%u image=%u",
+                        w[i+2],
+                        w[i+3]);
+                }
+                /* OpSampledImage */
                 if (op == 86 && wc >= 5 &&
                     fs_id_in(s->si_ids, s->n_si, w[i+1]) &&
                     s->n_load < FS_MAX_LOADS)
@@ -1954,23 +1962,21 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         fs_id_in(s->load_ids, s->n_load, w[i+3]),
                         fs_id_in(s->load_ids, s->n_load, w[i+4]));
                 }
-                /* Propagate image object ownership through image-producing ops.
+                /*
+                 * Propagate descriptor ownership through image-producing
+                 * instructions.
                  *
-                 * Deferred renderers often do:
+                 * Deferred renderers commonly do:
                  *
-                 *   OpLoad %image
-                 *   OpImageFetch %newImage
+                 *   OpLoad          %196
+                 *   OpImage         %198 %196
+                 *   OpImageFetch    ...  %198
                  *
-                 * The descriptor variable belongs to the OpLoad result,
-                 * but later image operations consume the derived object.
+                 * so %198 must inherit %196's descriptor variable.
                  */
-                if ((op == 86 ||   /* OpSampledImage */
-                     op == 87 ||   /* OpImageSampleImplicitLod */
-                     op == 88 ||
-                     op == 89 ||
-                     op == 90 ||
-                     op == 95) &&  /* OpImageFetch */
-                    wc >= 5 &&
+                if ((op == 78 ||    /* OpImage */
+                     op == 83 ||    /* OpCopyObject */
+                     op == 86) &&   /* OpSampledImage */
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t src = w[i+3];
@@ -1980,72 +1986,12 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         if (s->load_ids[k] == src)
                         {
                             uint32_t idx = s->n_load++;
-                
-                            s->load_ids[idx] = w[i+2];
+                            s->load_ids[idx]  = w[i+2];
                             s->load_vars[idx] = s->load_vars[k];
                 
                             STEREO_LOG(
-                                "FS_IMAGE_PROPAGATE src=%u dst=%u var=%u",
-                                src,
-                                w[i+2],
-                                s->load_vars[k]);
-                
-                            break;
-                        }
-                    }
-                }
-                /* Propagate image object IDs.
-                 *
-                 * Deferred multisampling often does:
-                 *
-                 *   OpLoad        %169
-                 *   OpImageFetch  %198
-                 *
-                 * The descriptor variable is attached to %169,
-                 * but OpImageFetch consumes %198.
-                 */
-                if ((op == 86 || op == 87 || op == 88 || op == 89 || op == 90 || op == 95) &&
-                    wc >= 5 &&
-                    s->n_load < FS_MAX_LOADS)
-                {
-                    uint32_t src = w[i+3];
-                    for (uint32_t k = 0; k < s->n_load; ++k)
-                    {
-                        if (s->load_ids[k] == src)
-                        {
-                            uint32_t idx = s->n_load++;
-                            s->load_ids[idx] = w[i+2];
-                            s->load_vars[idx] = s->load_vars[k];
-                            STEREO_LOG(
-                                "FS_IMAGE_PROPAGATE src=%u dst=%u var=%u",
-                                src,
-                                w[i+2],
-                                s->load_vars[k]);
-                            break;
-                        }
-                    }
-                }
-                /* Propagate image descriptor through image-producing operations.
-                 *
-                 * OpImageFetch often receives an intermediate image ID instead of
-                 * the original OpLoad result.
-                 */
-                if ((op == 86 || op == 87 || op == 88 || op == 89 || op == 90) &&
-                    wc >= 5 &&
-                    s->n_load < FS_MAX_LOADS)
-                {
-                    uint32_t src = w[i+3];
-                
-                    for (uint32_t k = 0; k < s->n_load; ++k)
-                    {
-                        if (s->load_ids[k] == src)
-                        {
-                            uint32_t idx = s->n_load++;
-                            s->load_ids[idx] = w[i+2];
-                            s->load_vars[idx] = s->load_vars[k];
-                
-                            STEREO_LOG(
-                                "FS_IMAGE_PROPAGATE src=%u dst=%u var=%u",
+                                "FS_IMAGE_PROPAGATE op=%u src=%u dst=%u var=%u",
+                                op,
                                 src,
                                 w[i+2],
                                 s->load_vars[k]);
