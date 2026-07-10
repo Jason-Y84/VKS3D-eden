@@ -1696,16 +1696,18 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
     if (vi < 0)
     {
         STEREO_LOG(
-            "FS_BINDING_TEST_MISS var=%u",
+            "FS_BINDING_TEST_MISS var=%u reason=no_var",
             var);
         return false;
     }
     uint32_t binding = s->var_binding[vi];
     STEREO_LOG(
-        "FS_BINDING_TEST var=%u vi=%d binding=%u stereo=%u",
+        "FS_BINDING_TEST var=%u vi=%d set=%u binding=%u type=%u stereo=%u",
         var,
         vi,
+        s->var_set[vi],
         binding,
+        s->var_types[vi],
         (binding <= 2));
     /*
      * Only framebuffer/deferred attachments become stereo arrays.
@@ -2153,10 +2155,20 @@ bool spirv_patch_stereo_fs(
     uint32_t **out, size_t *out_c)
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC) return false;
-
     FsScan s;
     fs_prescan(&s, in, in_c);
-
+    for (uint32_t i = 0; i < s.n_var; ++i)
+    {
+        if (s.var_binding[i] != 0xffffffffu)
+        {
+            STEREO_LOG(
+                "FS_DESCRIPTOR_SUMMARY var=%u set=%u binding=%u type=%u",
+                s.var_ids[i],
+                s.var_set[i],
+                s.var_binding[i],
+                s.var_types[i]);
+        }
+    }
     if (s.n_img == 0 || !s.float_id) return false;
 
     uint32_t n_patches = fs_count_patches(&s, in, in_c);
@@ -2429,7 +2441,7 @@ bool spirv_patch_stereo_fs(
             if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
             {
                 STEREO_LOG(
-                    "FS_FETCH_SKIP_MONO sampledImage=%u descriptorVar=%u",
+                    "FS_FETCH_SKIP_MONO sampledImage=%u descriptorVar=%u reason=binding_not_stereo",
                     in[i+3],
                     descriptor_var);
             
