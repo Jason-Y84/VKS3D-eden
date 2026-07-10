@@ -1927,7 +1927,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     uint32_t idx = s->n_load++;
                     s->load_ids[idx] = w[i+2];
                     s->load_vars[idx] = w[i+3];
-
+                    STEREO_LOG(
+                        "FS_LOAD_TABLE idx=%u id=%u var=%u",
+                        idx,
+                        s->load_ids[idx],
+                        s->load_vars[idx]);
                     STEREO_LOG(
                         "FS OpLoad IMAGE/SAMPLED: type=%u result=%u var=%u",
                         w[i+1],
@@ -1998,7 +2002,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t src = w[i+3];
-                
+                    STEREO_LOG(
+                        "FS_PROPAGATE_TRY op=%u src=%u dst=%u",
+                        op,
+                        src,
+                        w[i+2]);
                     for (uint32_t k = 0; k < s->n_load; ++k)
                     {
                         if (s->load_ids[k] == src)
