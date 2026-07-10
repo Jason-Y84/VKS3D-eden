@@ -1725,6 +1725,24 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
     for (size_t i = 5; i < c; ) {
         uint32_t op = w[i] & 0xffff, wc = w[i] >> 16;
         if (!wc || i + wc > c) break;
+        if (in_func && wc >= 2)
+        {
+            if (w[i+2] == 198 ||
+                w[i+2] == 207 ||
+                w[i+2] == 216 ||
+                w[i+2] == 224 ||
+                w[i+2] == 251 ||
+                w[i+2] == 258 ||
+                w[i+2] == 265 ||
+                w[i+2] == 47)
+            {
+                STEREO_LOG(
+                    "FS_CREATE opcode=%u result=%u wc=%u",
+                    op,
+                    w[i+2],
+                    wc);
+            }
+        }
         switch (op) {
         case 17:  /* OpCapability */
             if (wc >= 2 && w[i+1] == 4439) s->has_mv_cap = true;
@@ -2318,6 +2336,26 @@ bool spirv_patch_stereo_fs(
                         descriptor_var);
                     break;
                 }
+            }
+            int found = 0;
+            for (uint32_t k = 0; k < s->n_load; ++k)
+            {
+                if (s->load_ids[k] == in[i+3])
+                {
+                    STEREO_LOG(
+                        "FS_FETCH_FOUND image=%u loadIndex=%u var=%u",
+                        in[i+3],
+                        k,
+                        s->load_vars[k]);
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                STEREO_LOG(
+                    "FS_FETCH_UNKNOWN image=%u",
+                    in[i+3]);
             }
             STEREO_LOG(
                 "FS_FETCH_DESCRIPTOR image=%u descriptorVar=%u",
