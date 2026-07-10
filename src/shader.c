@@ -1757,23 +1757,23 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             }
         }
         switch (op) {
-        case 17:  /* OpCapability */
+        case SpvOpCapability:
             if (wc >= 2 && w[i+1] == 4439) s->has_mv_cap = true;
             break;
-        case 15:  /* OpEntryPoint */
+        case SpvOpEntryPoint:
             if (!s->ep_word) s->ep_word = i;
             break;
-        case 22:  /* OpTypeFloat 32 */
+        case SpvOpTypeFloat:  /* OpTypeFloat 32 */
             if (wc >= 3 && w[i+2] == 32) s->float_id = w[i+1];
             break;
-        case 21:  /* OpTypeInt 32 */
+        case SpvOpTypeInt:  /* OpTypeInt 32 */
             if (wc >= 3 && w[i+2] == 32) s->int_id = w[i+1];
             break;
-        case 23:  /* OpTypeVector float 3 */
+        case SpvOpTypeVector:  /* OpTypeVector float 3 */
             if (wc >= 4 && s->float_id && w[i+2] == s->float_id && w[i+3] == 3)
                 s->v3float_id = w[i+1];
             break;
-        case 25:  /* OpTypeImage */
+        case SpvOpTypeImage:  /* OpTypeImage */
         {
             if (wc >= 9)
             {
@@ -1827,15 +1827,15 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             }
         }
         break;
-        case 27:  /* OpTypeSampledImage: [1]=id [2]=image_type */
+        case SpvOpTypeSampledImage:  /* OpTypeSampledImage: [1]=id [2]=image_type */
             if (wc >= 3 && fs_id_in(s->img_ids, s->n_img, w[i+2]) && s->n_si < FS_MAX_SI)
                 s->si_ids[s->n_si++] = w[i+1];
             break;
-        case 32:  /* OpTypePointer Input int → ptr_int_in */
+        case SpvOpTypePointer:  /* OpTypePointer Input int → ptr_int_in */
             if (wc >= 4 && w[i+2] == 1 && s->int_id && w[i+3] == s->int_id)
                 s->ptr_int_in_id = w[i+1];
             break;
-        case 59:  /* OpVariable */
+        case SpvOpVariable:  /* OpVariable */
         {
             if (wc >= 4 && s->n_var < FS_MAX_VARS)
             {
@@ -1867,7 +1867,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             }
         }
         break;
-        case 71:  /* OpDecorate */
+        case SpvOpDecorate:
             if (wc >= 4) {
                 STEREO_LOG(
                     "FS_DECORATE target=%u decoration=%u literal=%u",
@@ -1915,7 +1915,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 }
             }
             break;
-        case 54:  /* OpFunction */
+        case SpvOpFunction:
             if (!s->fn_word) s->fn_word = i;
             in_func = true;
             break;
