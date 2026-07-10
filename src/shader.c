@@ -1722,6 +1722,8 @@ static const char *spv_op_name(uint32_t op)
 {
     switch (op)
     {
+    case SpvOpCopyObject:
+        return "OpCopyObject";
     case SpvOpImageSampleImplicitLod:
         return "OpImageSampleImplicitLod";
     case SpvOpImageSampleExplicitLod:
@@ -1745,6 +1747,17 @@ static const char *spv_op_name(uint32_t op)
     default:
         return "Unknown";
     }
+}
+
+static bool fs_is_image_related_type(FsScan *s, uint32_t type)
+{
+    if (fs_id_in(s->img_ids, s->n_img, type))
+        return true;
+
+    if (fs_id_in(s->si_ids, s->n_si, type))
+        return true;
+
+    return false;
 }
 
 static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
@@ -1961,16 +1974,19 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+4]);
                 }
                 /* OpLoad of sampled/image/sampled-image objects */
-                if (op == SpvOpLoad && wc >= 4 &&
-                    s->n_load < FS_MAX_LOADS)
+                if (op == SpvOpLoad &&
+                    wc >= 4 &&
+                    s->n_load < FS_MAX_LOADS &&
+                    fs_is_image_related_type(s, w[i+1]))
                 {
                     uint32_t idx = s->n_load++;
                     s->load_ids[idx] = w[i+2];
                     s->load_vars[idx] = w[i+3];
                     STEREO_LOG(
-                        "FS_LOAD_TABLE idx=%u id=%u var=%u",
+                        "FS_LOAD_TABLE image idx=%u id=%u type=%u var=%u",
                         idx,
                         s->load_ids[idx],
+                        w[i+1],
                         s->load_vars[idx]);
                     STEREO_LOG(
                         "FS OpLoad IMAGE/SAMPLED: type=%u result=%u var=%u",
@@ -2043,7 +2059,8 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 {
                     uint32_t src = w[i+3];
                     STEREO_LOG(
-                        "FS_PROPAGATE_TRY op=%u src=%u dst=%u",
+                        "FS_PROPAGATE_TRY op=%s(%u) src=%u dst=%u",
+                        spv_op_name(op),
                         op,
                         src,
                         w[i+2]);
@@ -2056,7 +2073,8 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             s->load_vars[idx] = s->load_vars[k];
                 
                             STEREO_LOG(
-                                "FS_IMAGE_PROPAGATE op=%u src=%u dst=%u var=%u",
+                                "FS_IMAGE_PROPAGATE op=%s(%u) src=%u dst=%u var=%u",
+                                spv_op_name(op),
                                 op,
                                 src,
                                 w[i+2],
