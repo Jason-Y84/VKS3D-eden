@@ -1954,6 +1954,46 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         fs_id_in(s->load_ids, s->n_load, w[i+3]),
                         fs_id_in(s->load_ids, s->n_load, w[i+4]));
                 }
+                /* Propagate image object ownership through image-producing ops.
+                 *
+                 * Deferred renderers often do:
+                 *
+                 *   OpLoad %image
+                 *   OpImageFetch %newImage
+                 *
+                 * The descriptor variable belongs to the OpLoad result,
+                 * but later image operations consume the derived object.
+                 */
+                if ((op == 86 ||   /* OpSampledImage */
+                     op == 87 ||   /* OpImageSampleImplicitLod */
+                     op == 88 ||
+                     op == 89 ||
+                     op == 90 ||
+                     op == 95) &&  /* OpImageFetch */
+                    wc >= 5 &&
+                    s->n_load < FS_MAX_LOADS)
+                {
+                    uint32_t src = w[i+3];
+                
+                    for (uint32_t k = 0; k < s->n_load; ++k)
+                    {
+                        if (s->load_ids[k] == src)
+                        {
+                            uint32_t idx = s->n_load++;
+                
+                            s->load_ids[idx] = w[i+2];
+                            s->load_vars[idx] = s->load_vars[k];
+                
+                            STEREO_LOG(
+                                "FS_IMAGE_PROPAGATE src=%u dst=%u var=%u",
+                                src,
+                                w[i+2],
+                                s->load_vars[k]);
+                
+                            break;
+                        }
+                    }
+                }
                 /* Propagate image object IDs.
                  *
                  * Deferred multisampling often does:
@@ -2241,7 +2281,7 @@ bool spirv_patch_stereo_fs(
                 {
                     descriptor_var = s.load_vars[k];
                     STEREO_LOG(
-                        "FS_FETCH_MATCH image=%u load=%u var=%u",
+                        "FS_SAMPLE_MATCH image=%u load=%u var=%u",
                         in[i+3],
                         k,
                         descriptor_var);
@@ -2284,6 +2324,25 @@ bool spirv_patch_stereo_fs(
         /* Extend OpImageFetch ivec2 -> ivec3(x,y,ViewIndex) */
         if (in_func && op == 95 && wc >= 5)
         {
+            /*
+             * Do not stereo-patch multisampled images yet.
+             *
+             * Deferred multisampling uses OpImageFetch with MS images.
+             * Their coordinate semantics differ from normal G-buffer fetches.
+             */
+            uint32_t image_type = in[i+1];
+            
+            if (fs_image_type_is_ms(&s, image_type))
+            {
+                STEREO_LOG(
+                    "FS_FETCH_SKIP_MS type=%u image=%u",
+                    image_type,
+                    in[i+3]);
+            
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
             uint32_t coord_id = in[i+4];
             uint32_t descriptor_var = 0;
             for (uint32_t k = 0; k < s.n_load; ++k)
