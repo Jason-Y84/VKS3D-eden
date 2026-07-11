@@ -1986,42 +1986,19 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 w[i+2]);
             break;
         case SpvOpFunctionParameter:
-            if (wc >= 3)
+            if (wc >= 3 &&
+                s->n_param < FS_MAX_LOADS)
             {
                 STEREO_LOG(
-                    "FS_FUNCTION_PARAM_RAW function=%u index=%u type=%u id=%u imageRelated=%d",
+                    "FS_FUNCTION_PARAM function=%u index=%u id=%u type=%u",
                     s->current_function_id,
                     s->current_param_index,
-                    w[i+1],
-                    w[i+2],
-                    fs_is_image_related_type(s, w[i+1]));
-            }
-            if (wc >= 3 &&
-            s->n_load < FS_MAX_LOADS &&
-            fs_is_image_related_type(s, w[i+1]))
-            {
-                uint32_t idx = s->n_load++;
-                s->load_ids[idx] = w[i+2];
-                s->load_vars[idx] = 0;
-                if (s->n_param < FS_MAX_LOADS)
-                {
-                    s->param_ids[s->n_param]  = w[i+2];
-                    s->param_vars[s->n_param] = 0;
-                    s->param_functions[s->n_param] = s->current_function_id;
-                    s->n_param++;
-                }
-                STEREO_LOG(
-                    "FS_FUNCTION_PARAM_IMAGE id=%u type=%u",
                     w[i+2],
                     w[i+1]);
-                STEREO_LOG(
-                    "FS_FUNCTION_PARAM_INDEX function=%u index=%u id=%u",
-                    s->current_function_id,
-                    s->current_param_index,
-                    w[i+2]);
-                STEREO_LOG(
-                    "FS_FUNCTION_PARAM_IMAGE_DETAIL paramId=%u",
-                    w[i+2]);
+                s->param_ids[s->n_param] = w[i+2];
+                s->param_vars[s->n_param] = 0;
+                s->param_functions[s->n_param] = s->current_function_id;
+                s->n_param++;
             }
             s->current_param_index++;
         break;
@@ -2044,6 +2021,19 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             "FS_FUNCTION_ARG[%u]=%u",
                             k - 4,
                             w[i+k]);
+                        uint32_t arg_index = k - 4;
+                        for (uint32_t p = 0; p < s->n_param; ++p)
+                        {
+                            if (s->param_functions[p] == w[i+3] &&
+                                p == arg_index)
+                            {
+                                STEREO_LOG(
+                                    "FS_FUNCTION_ARG_MAP function=%u param=%u arg=%u",
+                                    w[i+3],
+                                    s->param_ids[p],
+                                    w[i+k]);
+                            }
+                        }
                     }
                 }
                 if ((op == SpvOpImageSampleImplicitLod ||
