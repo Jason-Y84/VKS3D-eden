@@ -1645,6 +1645,11 @@ typedef struct {
     uint32_t param_vars[FS_MAX_LOADS];
     uint32_t param_functions[FS_MAX_LOADS];
     uint32_t n_param;
+    /* Function call argument bindings */
+    uint32_t call_functions[FS_MAX_LOADS];
+    uint32_t call_params[FS_MAX_LOADS];
+    uint32_t call_args[FS_MAX_LOADS];
+    uint32_t n_call;
     /* Descriptor variable tracking */
 #define FS_MAX_VARS 128
     uint32_t var_ids[FS_MAX_VARS];
@@ -2035,14 +2040,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             k - 4,
                             w[i+k]);
                         uint32_t arg_index = k - 4;
-                        
                         for (uint32_t f = 0; f < s->n_function; ++f)
                         {
                             if (s->function_ids[f] != w[i+3])
                                 continue;
-                        
                             uint32_t p = s->function_param_start[f] + arg_index;
-                        
                             if (p < s->n_param)
                             {
                                 STEREO_LOG(
@@ -2050,6 +2052,15 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                                     w[i+3],
                                     s->param_ids[p],
                                     w[i+k]);
+                                if (s->n_call < FS_MAX_LOADS)
+                                {
+                                    s->call_functions[s->n_call] = w[i+3];
+                                    s->call_params[s->n_call] =
+                                        s->param_ids[p];
+                                    s->call_args[s->n_call] =
+                                        w[i+k];
+                                    s->n_call++;
+                                }
                             }
                         }
                     }
@@ -2096,6 +2107,20 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     uint32_t idx = s->n_load++;
                     s->load_ids[idx] = w[i+2];
                     s->load_vars[idx] = w[i+3];
+                    /* Resolve function parameter ownership */
+                    for (uint32_t p = 0; p < s->n_call; ++p)
+                    {
+                        if (s->call_params[p] == w[i+3])
+                        {
+                            s->load_vars[idx] =
+                                s->call_args[p];
+                            STEREO_LOG(
+                                "FS_PARAM_RESOLVE param=%u descriptor=%u",
+                                w[i+3],
+                                s->call_args[p]);
+                            break;
+                        }
+                    }
                     int vi = fs_var_index(s, w[i+3]);
                     STEREO_LOG(
                         "FS_LOAD_SOURCE result=%u sourceVar=%u knownVar=%d set=%u binding=%u type=%u",
