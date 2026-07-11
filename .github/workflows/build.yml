@@ -40,6 +40,7 @@ jobs:
 
     - name: Get current date, commit hash and count
       run: |
+        echo "CommitHash=$(git rev-parse HEAD)" >> $env:GITHUB_ENV
         echo "CommitCount=$(git rev-list --count HEAD)" >> $env:GITHUB_ENV
         echo "AttemptCount=${env:GITHUB_RUN_ATTEMPT}" >> $env:GITHUB_ENV
 
@@ -111,6 +112,7 @@ jobs:
         -DSTEREO_BUILD_DEMO=OFF
         -DVKS3D_VER_PATCH=${{env.CommitCount}}
         -DVKS3D_VER_BUILD=${{env.AttemptCount}}
+        -DVKS3D_COMMIT_HASH=${{env.CommitHash}}
 
     - name: Build
       run: cmake --build "${{github.workspace}}/build" --config "${{matrix.Configuration}}"
