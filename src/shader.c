@@ -1742,6 +1742,8 @@ static const char *spv_op_name(uint32_t op)
         return "OpImageWrite";
     case SpvOpImage:
         return "OpImage";
+    case SpvOpVariable:
+        return "OpVariable";
     case SpvOpSampledImage:
         return "OpSampledImage";
     case SpvOpLoad:
@@ -1783,6 +1785,13 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 "FS_DEFINE15_RAW opcode=%u word0=0x%08x",
                 op,
                 w[i]);
+            for (uint32_t k = 0; k < wc; ++k)
+            {
+                STEREO_LOG(
+                    "FS_DEFINE15_WORD[%u]=%u",
+                    k,
+                    w[i+k]);
+            }
             for (uint32_t k = 3; k < wc; ++k)
             {
                 STEREO_LOG(
