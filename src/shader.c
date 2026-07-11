@@ -1643,6 +1643,7 @@ typedef struct {
     /* Function parameter descriptor ownership */
     uint32_t param_ids[FS_MAX_LOADS];
     uint32_t param_vars[FS_MAX_LOADS];
+    uint32_t param_functions[FS_MAX_LOADS];
     uint32_t n_param;
     /* Descriptor variable tracking */
 #define FS_MAX_VARS 128
@@ -1995,7 +1996,8 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 if (s->n_param < FS_MAX_LOADS)
                 {
                     s->param_ids[s->n_param]  = w[i+2];
-                    s->param_vars[s->n_param] = w[i+2];
+                    s->param_vars[s->n_param] = 0;
+                    s->param_functions[s->n_param] = s->current_function_id;
                     s->n_param++;
                 }
                 STEREO_LOG(
