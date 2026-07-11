@@ -13,6 +13,8 @@
 #define VKS3D_VER_PATCH     @VKS3D_VER_PATCH@
 #define VKS3D_VER_BUILD     @VKS3D_VER_BUILD@
 #define VKS3D_COMMIT_HASH   @VKS3D_COMMIT_HASH@
+#define STEREO_ARCH         @STEREO_ARCH@
+
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     VKS3D_VER_MAJOR, VKS3D_VER_MINOR, VKS3D_VER_PATCH, VKS3D_VER_BUILD
@@ -28,14 +30,13 @@ BEGIN
         BLOCK "040904b0"   /* Language: US English, Unicode */
         BEGIN
             VALUE "CompanyName",        "3DJ"
-            VALUE "FileDescription",    "Vulkan stereoscopic 3D driver"
+            VALUE "FileDescription",    "Vulkan stereoscopic 3D driver - Commit @VKS3D_COMMIT_HASH@"
             VALUE "FileVersion",        "1.0.@VKS3D_VER_PATCH@.@VKS3D_VER_BUILD@"
             VALUE "InternalName",       "VKS3D"
             VALUE "LegalCopyright",     "GPLv3 License"
-            VALUE "OriginalFilename",   "VKS3D.dll"
+            VALUE "OriginalFilename",   "VKS3D_@STEREO_ARCH@.dll"
             VALUE "ProductName",        "VKS3D"
             VALUE "ProductVersion",     "1.0.@VKS3D_VER_PATCH@.@VKS3D_VER_BUILD@"
-            VALUE "Comments",           "Commit @VKS3D_COMMIT_HASH@"
         END
     END
     BLOCK "VarFileInfo"
