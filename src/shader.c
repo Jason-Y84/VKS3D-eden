@@ -1986,6 +1986,16 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 w[i+2]);
             break;
         case SpvOpFunctionParameter:
+            if (wc >= 3)
+            {
+                STEREO_LOG(
+                    "FS_FUNCTION_PARAM_RAW function=%u index=%u type=%u id=%u imageRelated=%d",
+                    s->current_function_id,
+                    s->current_param_index,
+                    w[i+1],
+                    w[i+2],
+                    fs_is_image_related_type(s, w[i+1]));
+            }
             if (wc >= 3 &&
             s->n_load < FS_MAX_LOADS &&
             fs_is_image_related_type(s, w[i+1]))
