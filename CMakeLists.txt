@@ -17,12 +17,6 @@ endif()
 
 message(STATUS "VKS3D: version 1.0.${VKS3D_VER_PATCH}.${VKS3D_VER_BUILD}")
 
-# ── Configure RC file from template ──────────────────────────────────────────
-configure_file(
-    "${CMAKE_SOURCE_DIR}/src/VKS3D.rc.in"
-    "${CMAKE_BINARY_DIR}/VKS3D.rc"
-)
-
 # ── Policy: MSVC requires C11 via /std:c11 ─────────────────────────────────
 if(POLICY CMP0091)
     cmake_policy(SET CMP0091 NEW)
@@ -49,6 +43,12 @@ message(STATUS "VKS3D: building ${STEREO_ARCH} (${STEREO_BITS}-bit)")
 #   VKS3D_x64.dll  /  VKS3D_x86.dll   (Windows)
 #   VKS3D_x64.so   /  VKS3D_x86.so    (Linux)
 set(TARGET_NAME VKS3D_${STEREO_ARCH})
+
+# ── Configure RC file from template ──────────────────────────────────────────
+configure_file(
+    "${CMAKE_SOURCE_DIR}/src/VKS3D.rc.in"
+    "${CMAKE_BINARY_DIR}/VKS3D.rc"
+)
 
 # ── Vulkan SDK ───────────────────────────────────────────────────────────────
 find_package(Vulkan REQUIRED)

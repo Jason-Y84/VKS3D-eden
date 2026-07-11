@@ -13,8 +13,7 @@
 #define VKS3D_VER_PATCH     @VKS3D_VER_PATCH@
 #define VKS3D_VER_BUILD     @VKS3D_VER_BUILD@
 #define VKS3D_COMMIT_HASH   @VKS3D_COMMIT_HASH@
-#define STEREO_ARCH         @STEREO_ARCH@
-
+#define TARGET_NAME         @TARGET_NAME@
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     VKS3D_VER_MAJOR, VKS3D_VER_MINOR, VKS3D_VER_PATCH, VKS3D_VER_BUILD
@@ -34,7 +33,7 @@ BEGIN
             VALUE "FileVersion",        "1.0.@VKS3D_VER_PATCH@.@VKS3D_VER_BUILD@"
             VALUE "InternalName",       "VKS3D"
             VALUE "LegalCopyright",     "GPLv3 License"
-            VALUE "OriginalFilename",   "VKS3D_@STEREO_ARCH@.dll"
+            VALUE "OriginalFilename",   "@TARGET_NAME@.dll"
             VALUE "ProductName",        "VKS3D"
             VALUE "ProductVersion",     "1.0.@VKS3D_VER_PATCH@.@VKS3D_VER_BUILD@"
         END
