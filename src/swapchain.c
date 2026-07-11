@@ -1525,11 +1525,11 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
        {
         for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
         {
-            if (sd->upgraded_views[i] == pCreateInfo->image)
+            if (sd->upgraded_view_images[i] == pCreateInfo->image)
             {
                 STEREO_LOG(
-                    "WARNING view handle matches upgraded image? image=%p",
-                    (void*)(uintptr_t)pCreateInfo->image);
+                    "VIEW_IMAGE_ALREADY_UPGRADED image=%p",
+                    (void *)(uintptr_t)pCreateInfo->image);
             }
         }
         STEREO_LOG(
