@@ -1667,6 +1667,10 @@ typedef struct {
     bool     has_mv_cap;
     size_t   ep_word;
     size_t   fn_word;
+    
+    /* Current function tracking */
+    uint32_t current_function_id;
+    uint32_t current_param_index;
 } FsScan;
 
 static bool fs_id_in(const uint32_t *arr, uint32_t n, uint32_t id)
@@ -1974,6 +1978,8 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
         case SpvOpFunction:
             if (!s->fn_word) s->fn_word = i;
             in_func = true;
+            s->current_function_id = w[i+2];
+            s->current_param_index = 0;
             STEREO_LOG(
                 "FS_FUNCTION_BEGIN id=%u",
                 w[i+2]);
@@ -1985,7 +1991,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             {
                 uint32_t idx = s->n_load++;
                 s->load_ids[idx] = w[i+2];
-                s->load_vars[idx] = w[i+2];
+                s->load_vars[idx] = 0;
                 if (s->n_param < FS_MAX_LOADS)
                 {
                     s->param_ids[s->n_param]  = w[i+2];
@@ -1997,9 +2003,15 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     w[i+2],
                     w[i+1]);
                 STEREO_LOG(
+                    "FS_FUNCTION_PARAM_INDEX function=%u index=%u id=%u",
+                    s->current_function_id,
+                    s->current_param_index,
+                    w[i+2]);
+                STEREO_LOG(
                     "FS_FUNCTION_PARAM_IMAGE_DETAIL paramId=%u",
                     w[i+2]);
             }
+            s->current_param_index++;
         break;
         default:
             if (in_func) {
