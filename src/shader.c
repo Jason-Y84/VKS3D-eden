@@ -1667,10 +1667,6 @@ typedef struct {
     bool     has_mv_cap;
     size_t   ep_word;
     size_t   fn_word;
-    //Preserve function parameter ownership
-    uint32_t param_ids[FS_MAX_LOADS];
-    uint32_t param_vars[FS_MAX_LOADS];
-    uint32_t n_param;
 } FsScan;
 
 static bool fs_id_in(const uint32_t *arr, uint32_t n, uint32_t id)
