@@ -1691,8 +1691,22 @@ static bool fs_id_in(const uint32_t *arr, uint32_t n, uint32_t id)
 static int fs_var_index(const FsScan *s, uint32_t id)
 {
     for (uint32_t i = 0; i < s->n_var; i++)
+    {
         if (s->var_ids[i] == id)
+        {
+            STEREO_LOG(
+                "FS_VAR_LOOKUP id=%u index=%u set=%u binding=%u type=%u",
+                id,
+                i,
+                s->var_set[i],
+                s->var_binding[i],
+                s->var_types[i]);
             return (int)i;
+        }
+    }
+    STEREO_LOG(
+        "FS_VAR_LOOKUP_MISS id=%u",
+        id);
     return -1;
 }
 
@@ -2121,6 +2135,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             break;
                         }
                     }
+                    STEREO_LOG(
+                        "FS_LOAD_MAP load=%u owner=%u tableIndex=%u",
+                        s->load_ids[idx],
+                        s->load_vars[idx],
+                        idx);
                     int vi = fs_var_index(s, w[i+3]);
                     STEREO_LOG(
                         "FS_LOAD_SOURCE result=%u sourceVar=%u knownVar=%d set=%u binding=%u type=%u",
@@ -2160,12 +2179,13 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                              break;
                          }
                      }
-                     STEREO_LOG(
-                         "FS_OPIMAGE_DESCRIPTOR result=%u src=%u found=%d descriptorVar=%u",
-                         w[i+2],
-                         w[i+3],
-                         found,
-                         descriptor_var);
+                    STEREO_LOG(
+                        "FS_OPIMAGE_DESCRIPTOR result=%u src=%u found=%d descriptorVar=%u imageRelated=%u",
+                        w[i+2],
+                        w[i+3],
+                        found,
+                        descriptor_var,
+                        fs_is_image_related_type(s, w[i+1]));
                 }
                 /* OpCopyObject */
                 if (op == SpvOpCopyObject && wc >= 4)
@@ -2246,12 +2266,13 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             s->load_ids[idx]  = w[i+2];
                             s->load_vars[idx] = s->load_vars[k];
                             STEREO_LOG(
-                                "FS_IMAGE_PROPAGATE op=%s(%u) src=%u dst=%u var=%u",
+                                "FS_IMAGE_PROPAGATE op=%s(%u) src=%u dst=%u owner=%u srcIndex=%u",
                                 spv_op_name(op),
                                 op,
                                 src,
                                 w[i+2],
-                                s->load_vars[k]);
+                                s->load_vars[k],
+                                k);
                             propagated = 1;
                             break;
                         }
@@ -2319,6 +2340,12 @@ static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
                     descriptor_var = s->load_vars[k];
                     break;
                 }
+            }
+            if (descriptor_var == 0)
+            {
+                STEREO_LOG(
+                    "FS_FETCH_NO_DESCRIPTOR image=%u",
+                    w[i+3]);
             }
             if (fs_binding_is_stereo_attachment(
                     s,
@@ -2577,7 +2604,13 @@ bool spirv_patch_stereo_fs(
             if (wc > 5) sb_push_n(&ob, &in[i+5], wc-5); /* image operands */
             i += wc; continue;
         }
-
+        if (in_func && op == 86 && wc >= 3)
+        {
+            STEREO_LOG(
+                "FS_IMAGE imageResult=%u sampledImage=%u",
+                in[i+2],
+                in[i+3]);
+        }
         /* Extend OpImageFetch ivec2 -> ivec3(x,y,ViewIndex) */
         if (in_func && op == 95 && wc >= 5)
         {
@@ -2593,9 +2626,10 @@ bool spirv_patch_stereo_fs(
                 {
                     descriptor_var = s.load_vars[k];
                     STEREO_LOG(
-                        "FS_FETCH_MATCH image=%u loadIndex=%u var=%u",
+                        "FS_FETCH_MATCH image=%u loadIndex=%u load=%u var=%u",
                         in[i+3],
                         k,
+                        s.load_ids[k],
                         descriptor_var);
                     break;
                 }
