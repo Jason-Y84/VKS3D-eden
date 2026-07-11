@@ -2112,6 +2112,23 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             k - 4,
                             w[i+k]);
                         uint32_t arg_index = k - 4;
+                         /*
+                          * Store call arguments immediately.
+                          * Function parameters may appear later in the module.
+                          */
+                         if (s->n_call < FS_MAX_LOADS)
+                         {
+                             s->call_functions[s->n_call] = w[i+3];
+                             s->call_params[s->n_call] = arg_index;
+                             s->call_args[s->n_call] = w[i+k];
+                             s->n_call++;
+                             STEREO_LOG(
+                                 "FS_CALL_STORE function=%u argIndex=%u value=%u total=%u",
+                                 w[i+3],
+                                 arg_index,
+                                 w[i+k],
+                                 s->n_call);
+                         }
                         for (uint32_t f = 0; f < s->n_function; ++f)
                         {
                             if (s->function_ids[f] != w[i+3])
