@@ -1747,10 +1747,9 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
      *
      * SSAO/noise/material textures must remain mono.
      */
-    bool result = (binding <= 2);
+    bool result = (binding <= 3);
     STEREO_LOG(
-        "FS_BINDING_RESULT var=%u binding=%u stereo=%u",
-        var,
+        "FS_BINDING_STEREO_RESULT binding=%u stereo=%u",
         binding,
         result);
     return result;
@@ -2268,6 +2267,15 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     {
                         if (s->load_ids[k] == src)
                         {
+                            int owner_vi = fs_var_index(
+                                s,
+                                s->load_vars[k]);
+                            STEREO_LOG(
+                                "FS_IMAGE_PROPAGATE_OWNER_CHECK src=%u dst=%u owner=%u known=%u",
+                                src,
+                                w[i+2],
+                                s->load_vars[k],
+                                owner_vi >= 0);
                             uint32_t idx = s->n_load++;
                             s->load_ids[idx]  = w[i+2];
                             s->load_vars[idx] = s->load_vars[k];
