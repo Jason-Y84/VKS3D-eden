@@ -1525,7 +1525,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
        {
         for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
         {
-            if (sd->upgraded_view_images[i] == pCreateInfo->image)
+            if (sd->upgraded_images[i] == pCreateInfo->image)
             {
                 STEREO_LOG(
                     "VIEW_IMAGE_ALREADY_UPGRADED image=%p",
