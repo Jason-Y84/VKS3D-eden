@@ -2627,17 +2627,21 @@ bool spirv_patch_stereo_fs(
                     in[i+2],
                     coord_id);
             }
-            if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
-            {
-                STEREO_LOG(
-                    "FS_FETCH_SKIP_MONO sampledImage=%u descriptorVar=%u reason=binding_not_stereo",
-                    in[i+3],
-                    descriptor_var);
-            
-                sb_push_n(&ob, &in[i], wc);
-                i += wc;
-                continue;
-            }
+            /* TEMPORARY:
+             * Disable descriptor filtering completely.
+             * Patch every sampled image exactly like the original implementation.
+             */
+            //if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
+            //{
+            //    STEREO_LOG(
+            //        "FS_FETCH_SKIP_MONO sampledImage=%u descriptorVar=%u reason=binding_not_stereo",
+            //        in[i+3],
+            //        descriptor_var);
+            //
+            //    sb_push_n(&ob, &in[i], wc);
+            //    i += wc;
+            //    continue;
+            //}
 
             uint32_t id_lv = samp_nid++;
             uint32_t id_x  = samp_nid++;
