@@ -2428,6 +2428,27 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     fn,
                     s->param_ids[p],
                     s->call_args[c]);
+                /*
+                 * Now that call parameter ownership is known, rewrite any
+                 * recorded load owners that still reference parameter IDs.
+                 */
+                for (uint32_t l = 0; l < s->n_load; ++l)
+                {
+                    for (uint32_t c = 0; c < s->n_call; ++c)
+                    {
+                        if (s->load_vars[l] == s->call_params[c])
+                        {
+                            STEREO_LOG(
+                                "FS_LOAD_FINAL_RESOLVE load=%u param=%u owner=%u",
+                                s->load_ids[l],
+                                s->load_vars[l],
+                                s->call_args[c]);
+                
+                            s->load_vars[l] = s->call_args[c];
+                            break;
+                        }
+                    }
+                }
                 s->call_params[c] =
                     s->param_ids[p];
             }
