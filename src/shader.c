@@ -2004,6 +2004,22 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+2],
                         w[i+1]);
                 }
+                if (op == SpvOpFunctionCall && wc >= 4)
+                {
+                    STEREO_LOG(
+                        "FS_FUNCTION_CALL result=%u function=%u argc=%u",
+                        w[i+2],
+                        w[i+3],
+                        wc - 4);
+                
+                    for (uint32_t k = 4; k < wc; ++k)
+                    {
+                        STEREO_LOG(
+                            "FS_FUNCTION_ARG[%u]=%u",
+                            k - 4,
+                            w[i+k]);
+                    }
+                }
                 if ((op == SpvOpImageSampleImplicitLod ||
                      op == SpvOpImageSampleExplicitLod ||
                      op == SpvOpImageSampleDrefImplicitLod ||
