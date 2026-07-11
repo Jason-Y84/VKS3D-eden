@@ -2505,18 +2505,21 @@ bool spirv_patch_stereo_fs(
             wc >= 5)
         {
             uint32_t load_var = 0;
-            
-            if (fs_id_in(s.load_ids, s.n_load, in[i+3]))
+            bool image_known = false;
+            for (uint32_t k = 0; k < s.n_load; ++k)
             {
-                for (uint32_t k = 0; k < s.n_load; ++k)
+                if (s.load_ids[k] == in[i+3])
                 {
-                    if (s.load_ids[k] == in[i+3])
-                    {
-                        load_var = s.load_vars[k];
-                        break;
-                    }
+                    load_var = s.load_vars[k];
+                    image_known = true;
+                    break;
                 }
             }
+            STEREO_LOG(
+                "FS_SAMPLE_PATCH_DECISION image=%u known=%u descriptor=%u",
+                in[i+3],
+                image_known,
+                load_var);
             STEREO_LOG(
                 "FS_SAMPLE_VAR sampledImage=%u descriptorVar=%u",
                 in[i+3],
@@ -2620,11 +2623,13 @@ bool spirv_patch_stereo_fs(
                 in[i+2]);
             uint32_t coord_id = in[i+4];
             uint32_t descriptor_var = 0;
+            bool image_known = false;
             for (uint32_t k = 0; k < s.n_load; ++k)
             {
                 if (s.load_ids[k] == in[i+3])
                 {
                     descriptor_var = s.load_vars[k];
+                    image_known = true;
                     STEREO_LOG(
                         "FS_FETCH_MATCH image=%u loadIndex=%u load=%u var=%u",
                         in[i+3],
@@ -2634,6 +2639,11 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
+            STEREO_LOG(
+                "FS_FETCH_PATCH_DECISION image=%u known=%u descriptor=%u",
+                in[i+3],
+                image_known,
+                descriptor_var);
             int found = 0;
             for (uint32_t k = 0; k < s.n_load; ++k)
             {
