@@ -2019,6 +2019,31 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         "FS OpImage result=%u image=%u",
                         w[i+2],
                         w[i+3]);
+                     uint32_t descriptor_var = 0;
+                     int found = 0;
+                     for (uint32_t j = 0; j < s->n_load; ++j)
+                     {
+                         if (s->load_ids[j] == w[i+3])
+                         {
+                             descriptor_var = s->load_vars[j];
+                             found = 1;
+                             break;
+                         }
+                     }
+                     STEREO_LOG(
+                         "FS_OPIMAGE_DESCRIPTOR result=%u src=%u found=%d descriptorVar=%u",
+                         w[i+2],
+                         w[i+3],
+                         found,
+                         descriptor_var);
+                }
+                /* OpCopyObject */
+                if (op == SpvOpCopyObject && wc >= 4)
+                {
+                    STEREO_LOG(
+                        "FS_COPY_OBJECT result=%u src=%u",
+                        w[i+2],
+                        w[i+3]);
                 }
                 /* OpSampledImage */
                 if (op == SpvOpSampledImage && wc >= 5 &&
@@ -2081,6 +2106,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         op,
                         src,
                         w[i+2]);
+                    int propagated = 0;
                     for (uint32_t k = 0; k < s->n_load; ++k)
                     {
                         if (s->load_ids[k] == src)
@@ -2088,7 +2114,6 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             uint32_t idx = s->n_load++;
                             s->load_ids[idx]  = w[i+2];
                             s->load_vars[idx] = s->load_vars[k];
-                
                             STEREO_LOG(
                                 "FS_IMAGE_PROPAGATE op=%s(%u) src=%u dst=%u var=%u",
                                 spv_op_name(op),
@@ -2096,8 +2121,18 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                                 src,
                                 w[i+2],
                                 s->load_vars[k]);
+                            propagated = 1;
                             break;
                         }
+                    }
+                    if (!propagated)
+                    {
+                        STEREO_LOG(
+                            "FS_IMAGE_PROPAGATE_FAILED op=%s(%u) src=%u dst=%u",
+                            spv_op_name(op),
+                            op,
+                            src,
+                            w[i+2]);
                     }
                 }
             }
@@ -2454,6 +2489,13 @@ bool spirv_patch_stereo_fs(
                 "FS_FETCH_DESCRIPTOR image=%u descriptorVar=%u",
                 in[i+3],
                 descriptor_var);
+            if (in[i+3] == 47)
+            {
+                STEREO_LOG(
+                    "FS_TRACE_IMAGE47 result=%u coord=%u",
+                    in[i+2],
+                    coord_id);
+            }
             if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
             {
                 STEREO_LOG(
