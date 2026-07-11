@@ -1815,11 +1815,13 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             if (wc >= 9)
             {
                 STEREO_LOG(
-                    "FS image type: id=%u dim=%u depth=%u arrayed=%u sampled=%u format=%u",
+                    "FS_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
                     w[i+1],
+                    w[i+2],
                     w[i+3],
                     w[i+4],
                     w[i+5],
+                    w[i+6],
                     w[i+7],
                     w[i+8]);
                 STEREO_LOG(
@@ -1879,6 +1881,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 uint32_t idx = s->n_var++;
                 s->var_ids[idx] = w[i+2];
                 s->var_types[idx] = w[i+1];
+                STEREO_LOG(
+                    "FS_VAR_DECLARE id=%u type=%u storage=%u",
+                    w[i+2],
+                    w[i+1],
+                    w[i+3]);
                 /* Apply any cached descriptor decorations. */
                 for (uint32_t d = 0; d < s->n_dec; ++d)
                 {
