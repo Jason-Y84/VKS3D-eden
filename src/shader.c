@@ -1672,6 +1672,9 @@ typedef struct {
     /* Current function tracking */
     uint32_t current_function_id;
     uint32_t current_param_index;
+    uint32_t function_ids[FS_MAX_LOADS];
+    uint32_t function_param_start[FS_MAX_LOADS];
+    uint32_t n_function;
 } FsScan;
 
 static bool fs_id_in(const uint32_t *arr, uint32_t n, uint32_t id)
@@ -1977,14 +1980,24 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             }
             break;
         case SpvOpFunction:
-            if (!s->fn_word) s->fn_word = i;
+            if (!s->fn_word)
+                s->fn_word = i;
+        
             in_func = true;
             s->current_function_id = w[i+2];
             s->current_param_index = 0;
+        
+            if (s->n_function < FS_MAX_LOADS)
+            {
+                s->function_ids[s->n_function] = w[i+2];
+                s->function_param_start[s->n_function] = s->n_param;
+                s->n_function++;
+            }
+        
             STEREO_LOG(
                 "FS_FUNCTION_BEGIN id=%u",
-                w[i+2]);
-            break;
+                s->current_function_id);
+        break;
         case SpvOpFunctionParameter:
             if (wc >= 3 &&
                 s->n_param < FS_MAX_LOADS)
@@ -2022,10 +2035,15 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             k - 4,
                             w[i+k]);
                         uint32_t arg_index = k - 4;
-                        for (uint32_t p = 0; p < s->n_param; ++p)
+                        
+                        for (uint32_t f = 0; f < s->n_function; ++f)
                         {
-                            if (s->param_functions[p] == w[i+3] &&
-                                p == arg_index)
+                            if (s->function_ids[f] != w[i+3])
+                                continue;
+                        
+                            uint32_t p = s->function_param_start[f] + arg_index;
+                        
+                            if (p < s->n_param)
                             {
                                 STEREO_LOG(
                                     "FS_FUNCTION_ARG_MAP function=%u param=%u arg=%u",
