@@ -2359,23 +2359,6 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
         }
         i += wc;
     }
-    for (uint32_t i = 0; i < s->n_load; ++i)
-    {
-        uint32_t old = s->load_vars[i];
-        uint32_t resolved =
-            fs_resolve_parameter_owner(
-                s,
-                old);
-        if (resolved != old)
-        {
-            STEREO_LOG(
-                "FS_LOAD_FINAL_RESOLVE load=%u old=%u new=%u",
-                s->load_ids[i],
-                old,
-                resolved);
-            s->load_vars[i] = resolved;
-        }
-    }
     for (uint32_t i = 0; i < s->n_var; ++i)
     {
         STEREO_LOG(
