@@ -2170,6 +2170,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+2],
                         w[i+3],
                         s->load_vars[idx]);
+                    STEREO_LOG(
+                        "FS_LOAD_RESOLVE_RESULT load=%u source=%u owner=%u",
+                        w[i+2],
+                        w[i+3],
+                        s->load_vars[idx]);
                     /* Resolve function parameter ownership */
                     for (uint32_t p = 0; p < s->n_call; ++p)
                     {
@@ -2311,6 +2316,10 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     {
                         if (s->load_ids[k] == src)
                         {
+                            STEREO_LOG(
+                                "FS_PROPAGATE_SOURCE src=%u owner=%u",
+                                src,
+                                s->load_vars[k]);
                             int owner_vi = fs_var_index(
                                 s,
                                 s->load_vars[k]);
