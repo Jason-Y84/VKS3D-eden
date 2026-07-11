@@ -2135,6 +2135,12 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                                     s->call_args[s->n_call] =
                                         w[i+k];
                                     s->n_call++;
+                                    STEREO_LOG(
+                                        "FS_CALL_STORE function=%u argIndex=%u value=%u total=%u",
+                                        w[i+3],
+                                        arg_index,
+                                        w[i+k],
+                                        s->n_call);
                                 }
                             }
                         }
@@ -2385,6 +2391,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
      */
     for (uint32_t c = 0; c < s->n_call; ++c)
     {
+        STEREO_LOG(
+            "FS_FIXUP_SCAN index=%u function=%u arg=%u",
+            c,
+            s->call_functions[c],
+            s->call_args[c]);
         uint32_t fn = s->call_functions[c];
         uint32_t arg_index = s->call_params[c];
         for (uint32_t f = 0; f < s->n_function; ++f)
