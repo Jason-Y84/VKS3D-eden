@@ -2063,6 +2063,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 s->n_param < FS_MAX_LOADS)
             {
                 STEREO_LOG(
+                    "FS_PARAM_REGISTER function=%u param=%u type=%u",
+                    s->current_function_id,
+                    w[i+2],
+                    w[i+1]);
+                STEREO_LOG(
                     "FS_FUNCTION_PARAM function=%u index=%u id=%u type=%u",
                     s->current_function_id,
                     s->current_param_index,
@@ -2079,6 +2084,18 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             if (in_func) {
                 if (op == SpvOpFunctionCall && wc >= 4)
                 {
+                    STEREO_LOG(
+                        "FS_CALL_TRACE result=%u function=%u wc=%u",
+                        w[i+2],
+                        w[i+3],
+                        wc);
+                    for (uint32_t a = 4; a < wc; ++a)
+                    {
+                        STEREO_LOG(
+                            "FS_CALL_ARG_TRACE index=%u value=%u",
+                            a - 4,
+                            w[i+a]);
+                    }
                     STEREO_LOG(
                         "FS_FUNCTION_CALL result=%u function=%u argc=%u",
                         w[i+2],
