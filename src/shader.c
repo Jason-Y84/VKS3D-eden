@@ -1779,7 +1779,10 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 w[i+1],
                 w[i+2],
                 wc);
-        
+            STEREO_LOG(
+                "FS_DEFINE15_RAW opcode=%u word0=0x%08x",
+                op,
+                w[i]);
             for (uint32_t k = 3; k < wc; ++k)
             {
                 STEREO_LOG(
@@ -1958,8 +1961,38 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             if (!s->fn_word) s->fn_word = i;
             in_func = true;
             break;
+        case SpvOpFunctionParameter:
+        if (wc >= 3 &&
+            s->n_load < FS_MAX_LOADS &&
+            fs_is_image_related_type(s, w[i+1]))
+        {
+            uint32_t idx = s->n_load++;
+            s->load_ids[idx] = w[i+2];
+            s->load_vars[idx] = 0;
+        
+            STEREO_LOG(
+                "FS_FUNCTION_PARAM_IMAGE id=%u type=%u",
+                w[i+2],
+                w[i+1]);
+        }
+        break;
         default:
             if (in_func) {
+                /* Track image-related function parameters. */
+                if (op == SpvOpFunctionParameter &&
+                    wc >= 3 &&
+                    s->n_load < FS_MAX_LOADS &&
+                    fs_is_image_related_type(s, w[i+1]))
+                {
+                    uint32_t idx = s->n_load++;
+                    s->load_ids[idx] = w[i+2];
+                    s->load_vars[idx] = 0;
+                
+                    STEREO_LOG(
+                        "FS_FUNCTION_PARAM_IMAGE id=%u type=%u",
+                        w[i+2],
+                        w[i+1]);
+                }
                 if ((op == SpvOpImageSampleImplicitLod ||
                      op == SpvOpImageSampleExplicitLod ||
                      op == SpvOpImageSampleDrefImplicitLod ||
