@@ -1742,6 +1742,8 @@ static const char *spv_op_name(uint32_t op)
         return "OpImageWrite";
     case SpvOpImage:
         return "OpImage";
+    case SpvOpFunctionParameter:
+        return "OpFunctionParameter";
     case SpvOpVariable:
         return "OpVariable";
     case SpvOpSampledImage:
