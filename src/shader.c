@@ -2581,6 +2581,10 @@ bool spirv_patch_stereo_fs(
         /* Extend OpImageFetch ivec2 -> ivec3(x,y,ViewIndex) */
         if (in_func && op == 95 && wc >= 5)
         {
+            STEREO_LOG(
+                "FS_FETCH_PATCH_ENTER image=%u result=%u",
+                in[i+3],
+                in[i+2]);
             uint32_t coord_id = in[i+4];
             uint32_t descriptor_var = 0;
             for (uint32_t k = 0; k < s.n_load; ++k)
