@@ -2127,8 +2127,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                                 if (s->n_call < FS_MAX_LOADS)
                                 {
                                     s->call_functions[s->n_call] = w[i+3];
-                                    s->call_params[s->n_call] =
-                                        s->param_ids[p];
+                                    /*
+                                     * Parameter list may not have been scanned yet.
+                                     * Store the argument index instead.
+                                     */
+                                    s->call_params[s->n_call] = arg_index;
                                     s->call_args[s->n_call] =
                                         w[i+k];
                                     s->n_call++;
@@ -2375,6 +2378,32 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             break;
         }
         i += wc;
+    }
+    /*
+     * Resolve deferred function-call arguments after all
+     * OpFunctionParameter instructions are known.
+     */
+    for (uint32_t c = 0; c < s->n_call; ++c)
+    {
+        uint32_t fn = s->call_functions[c];
+        uint32_t arg_index = s->call_params[c];
+        for (uint32_t f = 0; f < s->n_function; ++f)
+        {
+            if (s->function_ids[f] != fn)
+                continue;
+            uint32_t p =
+                s->function_param_start[f] + arg_index;
+            if (p < s->n_param)
+            {
+                STEREO_LOG(
+                    "FS_FUNCTION_ARG_FIXUP function=%u param=%u arg=%u",
+                    fn,
+                    s->param_ids[p],
+                    s->call_args[c]);
+                s->call_params[c] =
+                    s->param_ids[p];
+            }
+        }
     }
     for (uint32_t i = 0; i < s->n_var; ++i)
     {
