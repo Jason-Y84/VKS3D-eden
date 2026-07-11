@@ -1740,14 +1740,17 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
         s->var_types[vi],
         (binding <= 2));
     /*
-     * Only framebuffer/deferred attachments become stereo arrays.
+     * Deferred framebuffer attachments become stereo arrays.
      *
      * binding 0 = position/depth
      * binding 1 = normal
+     * binding 2 = albedo
+     * binding 3 = specular
      *
-     * SSAO/noise/material textures must remain mono.
+     * Later bindings are post-processing/noise/material resources
+     * and remain mono.
      */
-    bool result = (binding <= 99999999999999999);
+    bool result = (binding <= 3);
     STEREO_LOG(
         "FS_BINDING_STEREO_RESULT binding=%u stereo=%u",
         binding,
@@ -1925,6 +1928,16 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 uint32_t idx = s->n_var++;
                 s->var_ids[idx] = w[i+2];
                 s->var_types[idx] = w[i+1];
+                s->var_set[idx] = 0xffffffffu;
+                s->var_binding[idx] = 0xffffffffu;
+                STEREO_LOG(
+                    "FS_VAR_ADD id=%u idx=%u type=%u storage=%u set=%u binding=%u",
+                    w[i+2],
+                    idx,
+                    w[i+1],
+                    w[i+3],
+                    s->var_set[idx],
+                    s->var_binding[idx]);
                 STEREO_LOG(
                     "FS_VAR_DECLARE id=%u type=%u storage=%u",
                     w[i+2],
@@ -1944,6 +1957,11 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                             w[i+2],
                             s->dec_set[d],
                             s->dec_binding[d]);
+                        STEREO_LOG(
+                            "FS_DECORATION_STATE var=%u finalSet=%u finalBinding=%u",
+                            w[i+2],
+                            s->var_set[idx],
+                            s->var_binding[idx]);
                         break;
                     }
                 }
@@ -2309,7 +2327,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
     for (uint32_t i = 0; i < s->n_var; ++i)
     {
         STEREO_LOG(
-            "FS_VAR id=%u type=%u set=%u binding=%u",
+            "FS_VAR_FINAL id=%u type=%u set=%u binding=%u",
             s->var_ids[i],
             s->var_types[i],
             s->var_set[i],
