@@ -1640,7 +1640,10 @@ typedef struct {
     uint32_t load_vars[FS_MAX_LOADS];
     uint32_t load_bindings[FS_MAX_LOADS];
     uint32_t n_load;
-
+    /* Function parameter descriptor ownership */
+    uint32_t param_ids[FS_MAX_LOADS];
+    uint32_t param_vars[FS_MAX_LOADS];
+    uint32_t n_param;
     /* Descriptor variable tracking */
 #define FS_MAX_VARS 128
     uint32_t var_ids[FS_MAX_VARS];
@@ -1987,18 +1990,19 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 uint32_t idx = s->n_load++;
                 s->load_ids[idx] = w[i+2];
                 s->load_vars[idx] = w[i+2];
-            
                 if (s->n_param < FS_MAX_LOADS)
                 {
-                    s->param_ids[s->n_param] = w[i+2];
+                    s->param_ids[s->n_param]  = w[i+2];
                     s->param_vars[s->n_param] = w[i+2];
                     s->n_param++;
                 }
-
                 STEREO_LOG(
                     "FS_FUNCTION_PARAM_IMAGE id=%u type=%u",
                     w[i+2],
                     w[i+1]);
+                STEREO_LOG(
+                    "FS_FUNCTION_PARAM_IMAGE_DETAIL paramId=%u",
+                    w[i+2]);
             }
         break;
         default:
@@ -2010,7 +2014,10 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+2],
                         w[i+3],
                         wc - 4);
-                
+                    STEREO_LOG(
+                        "FS_FUNCTION_CALL_FIRST_ARG function=%u arg0=%u",
+                        w[i+3],
+                        wc > 4 ? w[i+4] : 0);
                     for (uint32_t k = 4; k < wc; ++k)
                     {
                         STEREO_LOG(
