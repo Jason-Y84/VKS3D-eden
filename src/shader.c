@@ -2405,7 +2405,7 @@ bool spirv_patch_stereo_fs(
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == 25 && wc >= 9 &&
             fs_id_in(s.img_ids, s.n_img, in[i+1]) &&
-            in[i+6] == 0) {
+            in[i+5] == 0) {
             STEREO_LOG(
                 "FS_IMAGE_PATCH_DETAIL type=%u sampled=%u dim=%u depth=%u arrayed=%u ms=%u format=%u",
                 in[i+1],
