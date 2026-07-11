@@ -1747,7 +1747,7 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
      *
      * SSAO/noise/material textures must remain mono.
      */
-    bool result = (binding <= 10);
+    bool result = (binding <= 99999999999999999);
     STEREO_LOG(
         "FS_BINDING_STEREO_RESULT binding=%u stereo=%u",
         binding,
