@@ -1710,6 +1710,24 @@ static int fs_var_index(const FsScan *s, uint32_t id)
     return -1;
 }
 
+static uint32_t fs_resolve_parameter_owner(
+    const FsScan *s,
+    uint32_t id)
+{
+    for (uint32_t i = 0; i < s->n_call; ++i)
+    {
+        if (s->call_params[i] == id)
+        {
+            STEREO_LOG(
+                "FS_PARAM_OWNER_RESOLVE param=%u owner=%u",
+                id,
+                s->call_args[i]);
+            return s->call_args[i];
+        }
+    }
+    return id;
+}
+
 static int fs_dec_index(FsScan *s, uint32_t target)
 {
     for (uint32_t i = 0; i < s->n_dec; ++i)
@@ -2143,11 +2161,19 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 {
                     uint32_t idx = s->n_load++;
                     s->load_ids[idx] = w[i+2];
-                    s->load_vars[idx] = w[i+3];
+                    s->load_vars[idx] =
+                        fs_resolve_parameter_owner(
+                            s,
+                            w[i+3]);
+                    STEREO_LOG(
+                        "FS_LOAD_OWNER_RESOLVED load=%u source=%u owner=%u",
+                        w[i+2],
+                        w[i+3],
+                        s->load_vars[idx]);
                     /* Resolve function parameter ownership */
                     for (uint32_t p = 0; p < s->n_call; ++p)
                     {
-                        if (s->call_params[p] == w[i+3])
+                        if (s->call_params[p] == s->load_vars[idx])
                         {
                             s->load_vars[idx] =
                                 s->call_args[p];
