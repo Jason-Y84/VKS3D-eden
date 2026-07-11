@@ -1769,6 +1769,25 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
     for (size_t i = 5; i < c; ) {
         uint32_t op = w[i] & 0xffff, wc = w[i] >> 16;
         if (!wc || i + wc > c) break;
+        /* Trace the instruction that defines id 15. */
+        if (wc >= 3 && w[i+2] == 15)
+        {
+            STEREO_LOG(
+                "FS_DEFINE15 op=%s(%u) type=%u result=%u wordcount=%u",
+                spv_op_name(op),
+                op,
+                w[i+1],
+                w[i+2],
+                wc);
+        
+            for (uint32_t k = 3; k < wc; ++k)
+            {
+                STEREO_LOG(
+                    "FS_DEFINE15 operand[%u]=%u",
+                    k,
+                    w[i+k]);
+            }
+        }
         switch (op) {
         case SpvOpCapability:
             if (wc >= 2 && w[i+1] == 4439) s->has_mv_cap = true;
