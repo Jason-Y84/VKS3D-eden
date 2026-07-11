@@ -1769,30 +1769,6 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
     for (size_t i = 5; i < c; ) {
         uint32_t op = w[i] & 0xffff, wc = w[i] >> 16;
         if (!wc || i + wc > c) break;
-        if (in_func &&
-            op == SpvOpImage &&
-            wc >= 4)
-        {
-            int known = 0;
-            uint32_t descriptor_var = 0;
-            for (uint32_t k = 0; k < s->n_load; ++k)
-            {
-                if (s->load_ids[k] == w[i+3])
-                {
-                    known = 1;
-                    descriptor_var = s->load_vars[k];
-                    break;
-                }
-            }
-            STEREO_LOG(
-                "FS_CREATE op=%s(%u) result=%u src=%u known=%d var=%u",
-                spv_op_name(op),
-                op,
-                w[i+2],
-                w[i+3],
-                known,
-                descriptor_var);
-        }
         switch (op) {
         case SpvOpCapability:
             if (wc >= 2 && w[i+1] == 4439) s->has_mv_cap = true;
@@ -2007,6 +1983,15 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     uint32_t idx = s->n_load++;
                     s->load_ids[idx] = w[i+2];
                     s->load_vars[idx] = w[i+3];
+                    int vi = fs_var_index(s, w[i+3]);
+                    STEREO_LOG(
+                        "FS_LOAD_SOURCE result=%u sourceVar=%u knownVar=%d set=%u binding=%u type=%u",
+                        w[i+2],
+                        w[i+3],
+                        vi,
+                        vi >= 0 ? s->var_set[vi] : 999,
+                        vi >= 0 ? s->var_binding[vi] : 999,
+                        vi >= 0 ? s->var_types[vi] : 999);
                     STEREO_LOG(
                         "FS_LOAD_TABLE image idx=%u id=%u type=%u var=%u",
                         idx,
@@ -2102,8 +2087,9 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                  *
                  * so %198 must inherit %196's descriptor variable.
                  */
-                if ((op == SpvOpImage ||          /* OpImage */
-                     op == SpvOpCopyObject) &&    /* OpCopyObject */
+                if ((op == SpvOpImage ||
+                    (op == SpvOpCopyObject &&
+                    fs_is_image_related_type(s, w[i+1]))) &&
                     s->n_load < FS_MAX_LOADS)
                 {
                     uint32_t src = w[i+3];
