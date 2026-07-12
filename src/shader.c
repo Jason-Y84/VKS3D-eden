@@ -2448,24 +2448,31 @@ static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
 {
     uint32_t count = 0;
     bool in_func = false;
-    for (size_t i = 5; i < c; ) {
-        uint32_t op = w[i] & 0xffff, wc = w[i] >> 16;
-        if (!wc || i + wc > c) break;
 
+    for (size_t i = 5; i < c; )
+    {
+        uint32_t op = w[i] & 0xffff, wc = w[i] >> 16;
+        if (!wc || i + wc > c)
+            break;
         if (op == 54)
             in_func = true;
-
         if (in_func &&
             wc >= 5 &&
             (op == 87 || op == 88 || op == 89 || op == 90) &&
             fs_id_in(s->load_ids, s->n_load, w[i+3]))
+        {
+            STEREO_LOG(
+                "FS_PATCH_COUNTER sample image=%u result=%u coord=%u total=%u",
+                w[i+3],
+                w[i+2],
+                w[i+4],
+                count + 1);
             count++;
-
+        }
         /* OpImageFetch */
         if (in_func && op == 95 && wc >= 5)
         {
             uint32_t descriptor_var = 0;
-        
             for (uint32_t k = 0; k < s->n_load; ++k)
             {
                 if (s->load_ids[k] == w[i+3])
@@ -2484,6 +2491,12 @@ static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
                     s,
                     descriptor_var))
             {
+                STEREO_LOG(
+                    "FS_PATCH_COUNTER fetch image=%u result=%u coord=%u total=%u",
+                    w[i+3],
+                    w[i+2],
+                    w[i+4],
+                    count + 1);
                 count++;
             }
         }
@@ -2576,7 +2589,8 @@ bool spirv_patch_stereo_fs(
                 in[i+6],
                 in[i+8]);
             STEREO_LOG(
-                "FS_PATCH_IMAGE type=%u dim=%u depth=%u arrayed=%u",
+                "FS_PATCH_IMAGE word=%zu type=%u dim=%u depth=%u arrayed=%u",
+                i,
                 in[i+1],
                 in[i+3],
                 in[i+4],
@@ -2756,6 +2770,11 @@ bool spirv_patch_stereo_fs(
         if (in_func && op == 95 && wc >= 5)
         {
             STEREO_LOG(
+                "FS_FETCH opcode image=%u coord=%u result=%u",
+                in[i+3],
+                in[i+4],
+                in[i+2]);
+            STEREO_LOG(
                 "FS_FETCH_PATCH_ENTER image=%u result=%u",
                 in[i+3],
                 in[i+2]);
@@ -2816,10 +2835,9 @@ bool spirv_patch_stereo_fs(
             if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
             {
                 STEREO_LOG(
-                    "FS_FETCH_SKIP_MONO sampledImage=%u descriptorVar=%u reason=binding_not_stereo",
+                    "FS_FETCH_SKIP_MONO image=%u descriptor=%u binding_not_stereo",
                     in[i+3],
                     descriptor_var);
-            
                 sb_push_n(&ob, &in[i], wc);
                 i += wc;
                 continue;
