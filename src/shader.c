@@ -1624,9 +1624,12 @@ void spirv_patched_free(uint32_t *w) { free(w); }
  * must NOT have their sampler types changed.
  */
 
-#define FS_MAX_IMG   64
-#define FS_MAX_SI    64
-#define FS_MAX_LOADS 512
+#define FS_MAX_IMG        64
+#define FS_MAX_SI         64
+#define FS_MAX_LOADS     512
+#define FS_MAX_PARAMS    256
+#define FS_MAX_CALLS     256
+#define FS_MAX_FUNCTIONS  64
 
 typedef struct {
     uint32_t img_ids[FS_MAX_IMG];       uint32_t n_img;
@@ -1641,14 +1644,14 @@ typedef struct {
     uint32_t load_bindings[FS_MAX_LOADS];
     uint32_t n_load;
     /* Function parameter descriptor ownership */
-    uint32_t param_ids[FS_MAX_LOADS];
-    uint32_t param_vars[FS_MAX_LOADS];
-    uint32_t param_functions[FS_MAX_LOADS];
+    uint32_t param_ids[FS_MAX_PARAMS];
+    uint32_t param_vars[FS_MAX_PARAMS];
+    uint32_t param_functions[FS_MAX_PARAMS];
     uint32_t n_param;
     /* Function call argument bindings */
-    uint32_t call_functions[FS_MAX_LOADS];
-    uint32_t call_params[FS_MAX_LOADS];
-    uint32_t call_args[FS_MAX_LOADS];
+    uint32_t call_functions[FS_MAX_CALLS];
+    uint32_t call_params[FS_MAX_CALLS];
+    uint32_t call_args[FS_MAX_CALLS];
     uint32_t n_call;
     /* Descriptor variable tracking */
 #define FS_MAX_VARS 128
@@ -1677,8 +1680,8 @@ typedef struct {
     /* Current function tracking */
     uint32_t current_function_id;
     uint32_t current_param_index;
-    uint32_t function_ids[FS_MAX_LOADS];
-    uint32_t function_param_start[FS_MAX_LOADS];
+    uint32_t function_ids[FS_MAX_FUNCTIONS];
+    uint32_t function_param_start[FS_MAX_FUNCTIONS];
     uint32_t n_function;
 } FsScan;
 
@@ -2047,7 +2050,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
             s->current_function_id = w[i+2];
             s->current_param_index = 0;
         
-            if (s->n_function < FS_MAX_LOADS)
+            if (s->n_function < FS_MAX_FUNCTIONS)
             {
                 s->function_ids[s->n_function] = w[i+2];
                 s->function_param_start[s->n_function] = s->n_param;
@@ -2060,7 +2063,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
         break;
         case SpvOpFunctionParameter:
             if (wc >= 3 &&
-                s->n_param < FS_MAX_LOADS)
+                s->n_param < FS_MAX_PARAMS)
             {
                 STEREO_LOG(
                     "FS_PARAM_REGISTER function=%u param=%u type=%u",
@@ -2116,7 +2119,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                           * Store call arguments immediately.
                           * Function parameters may appear later in the module.
                           */
-                         if (s->n_call < FS_MAX_LOADS)
+                         if (s->n_call < FS_MAX_CALLS)
                          {
                              s->call_functions[s->n_call] = w[i+3];
                              s->call_params[s->n_call] = arg_index;
@@ -2128,38 +2131,6 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                                  arg_index,
                                  w[i+k],
                                  s->n_call);
-                         }
-                        for (uint32_t f = 0; f < s->n_function; ++f)
-                        {
-                            if (s->function_ids[f] != w[i+3])
-                                continue;
-                            uint32_t p = s->function_param_start[f] + arg_index;
-                            if (p < s->n_param)
-                            {
-                                STEREO_LOG(
-                                    "FS_FUNCTION_ARG_MAP function=%u param=%u arg=%u",
-                                    w[i+3],
-                                    s->param_ids[p],
-                                    w[i+k]);
-                                if (s->n_call < FS_MAX_LOADS)
-                                {
-                                    s->call_functions[s->n_call] = w[i+3];
-                                    /*
-                                     * Parameter list may not have been scanned yet.
-                                     * Store the argument index instead.
-                                     */
-                                    s->call_params[s->n_call] = arg_index;
-                                    s->call_args[s->n_call] =
-                                        w[i+k];
-                                    s->n_call++;
-                                    STEREO_LOG(
-                                        "FS_CALL_STORE function=%u argIndex=%u value=%u total=%u",
-                                        w[i+3],
-                                        arg_index,
-                                        w[i+k],
-                                        s->n_call);
-                                }
-                            }
                         }
                     }
                 }
