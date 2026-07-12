@@ -35,10 +35,15 @@ jobs:
 
     steps:
 
-    - name: Clone repo and submodules
-      run: git clone https://${{github.repository_owner}}:${{github.token}}@github.com/${{github.repository}}.git "${{github.workspace}}" --branch ${{env.Branch}}
+    - name: Clone repository
+      run: >
+        git
+        clone https://${{github.repository_owner}}:${{github.token}}@github.com/${{github.repository}}.git
+        "${{github.workspace}}"
+        --revision ${env:GITHUB_SHA}
+        --filter=blob:none
 
-    - name: Get current date, commit hash and count
+    - name: Get current commit hash and counts
       run: |
         echo "CommitHash=$(git rev-parse HEAD)" >> $env:GITHUB_ENV
         echo "CommitCount=$(git rev-list --count HEAD)" >> $env:GITHUB_ENV
@@ -137,8 +142,13 @@ jobs:
     needs: Build
     steps:
 
-      - name: Clone repo and submodules
-        run: git clone https://${{github.repository_owner}}:${{github.token}}@github.com/${{github.repository}}.git "${{github.workspace}}" --branch ${{env.Branch}}
+      - name: Clone repository
+        run: >
+          git
+          clone https://${{github.repository_owner}}:${{github.token}}@github.com/${{github.repository}}.git
+          "${{github.workspace}}"
+          --revision ${env:GITHUB_SHA}
+          --filter=blob:none
 
       - name: Get current date, commit hash and count
         run: |
