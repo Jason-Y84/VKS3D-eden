@@ -1760,7 +1760,7 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
         set,
         binding,
         s->var_types[vi]);
-    bool result = (binding <= 4);
+    bool result = (binding <= 3);
     STEREO_LOG(
         "FS_BINDING_RESULT var=%u set=%u binding=%u stereo=%u",
         var,
