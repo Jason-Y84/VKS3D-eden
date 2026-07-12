@@ -3242,6 +3242,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 }
             }
             uint32_t *patched = NULL; size_t pc2 = 0;
+            STEREO_LOG(
+                "PATCHING_FS hash=%016llx",
+                (unsigned long long)spv_hash);
             if (!spirv_patch_stereo_fs(e->spv, e->words, &patched, &pc2)) {
                 STEREO_LOG("Pipe %u: FS patch skipped (no 2D samplers — material-only?)", p);
                 continue;
