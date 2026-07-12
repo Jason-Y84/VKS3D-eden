@@ -2506,6 +2506,10 @@ static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
                     descriptor_var))
             {
                 STEREO_LOG(
+                    "FS_SAMPLE_PATCH_APPLY descriptor=%u binding=%u",
+                    descriptor_var,
+                    binding);
+                STEREO_LOG(
                     "FS_PATCH_COUNTER fetch image=%u result=%u coord=%u total=%u",
                     w[i+3],
                     w[i+2],
@@ -2689,11 +2693,28 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
+            uint32_t binding = 0xffffffffu;
+            uint32_t set     = 0xffffffffu;
+            if (descriptor_var)
+            {
+                for (uint32_t k = 0; k < s->n_vars; k++)
+                {
+                    if (s->vars[k].id == descriptor_var)
+                    {
+                        binding = s->vars[k].binding;
+                        set     = s->vars[k].set;
+                        break;
+                    }
+                }
+            }
             STEREO_LOG(
-                "FS_SAMPLE_PATCH_DECISION image=%u known=%u descriptor=%u",
-                in[i+3],
-                image_known,
-                load_var);
+                "FS_SAMPLE_OPCODE word=%zu image=%u descriptor=%u set=%u binding=%u known=%u",
+                i,
+                image,
+                descriptor_var,
+                set,
+                binding,
+                descriptor_var != 0);
             int sample_vi = fs_var_index(&s, load_var);
             STEREO_LOG(
                 "FS_SAMPLE_BINDING image=%u binding=%u",
