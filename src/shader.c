@@ -3329,7 +3329,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             uint32_t *patched = NULL; size_t pc2 = 0;
             STEREO_LOG(
                 "FS_PATCH_BEGIN hash=%016llx",
-                (unsigned long long)hash);
+                (unsigned long long)spv_hash);
             STEREO_LOG(
                 "PATCHING_FS hash=%016llx",
                 (unsigned long long)spv_hash);
