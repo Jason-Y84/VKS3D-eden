@@ -3250,7 +3250,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 continue;
             }
             if (dump) {
-                uint64_t spv_hash = hash_spv(e->spv, e->words);
                 char dp[512];
                 _snprintf(
                     dp,
