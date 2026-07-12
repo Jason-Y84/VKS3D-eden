@@ -2710,6 +2710,21 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
+            if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
+            {
+                STEREO_LOG(
+                    "FS_SAMPLE_SKIP_MONO image=%u descriptor=%u",
+                    in[i+3],
+                    descriptor_var);
+            
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
+            STEREO_LOG(
+                "FS_SAMPLE_PATCH_APPLY image=%u descriptor=%u",
+                in[i+3],
+                descriptor_var);
 
             uint32_t id_lv  = samp_nid++;
             uint32_t id_cvt = samp_nid++;
