@@ -3215,19 +3215,19 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 STEREO_LOG("Pipe %u: quad FS not cached (stageCount=%u)", p, ci->stageCount);
                 continue;
             }
+            uint64_t spv_hash = hash_spv(e->spv, e->words);
             STEREO_LOG(
                 "SHADER_MODULE stage=FS hash=%016llx words=%zu module=%p",
-                (unsigned long long)hash_spv(e->spv, e->words),
+                (unsigned long long)spv_hash,
                 e->words,
                 (void*)ci->pStages[fs_s].module);
             STEREO_LOG(
                 "PATCH hash=%016llx words=%zu module=%p vs_stage=%u",
-                (unsigned long long)hash_spv(e->spv, e->words),
+                (unsigned long long)spv_hash,
                 e->words,
                 (void*)(has_vs ? ci->pStages[vs_stage].module : VK_NULL_HANDLE),
                 vs_stage);
             if (dump) {
-                uint64_t spv_hash = hash_spv(e->spv, e->words);
                 char dp[512];
                 _snprintf(
                     dp,
