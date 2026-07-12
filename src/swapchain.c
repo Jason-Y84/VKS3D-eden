@@ -1558,13 +1558,20 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         upgraded.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
     if (upgraded.subresourceRange.layerCount < 2)
         upgraded.subresourceRange.layerCount = 2;
-    //STEREO_LOG(
-    //    "[VIEW UPGRADED] image=%p oldType=%u newType=%u oldLayers=%u newLayers=%u",
-    //    (void*)(uintptr_t)pCreateInfo->image,
-    //    pCreateInfo->viewType,
-    //    upgraded.viewType,
-    //    pCreateInfo->subresourceRange.layerCount,
-    //    upgraded.subresourceRange.layerCount);
+    STEREO_LOG(
+        "VIEW_CREATE image=%p "
+        "oldType=%u newType=%u "
+        "oldLayers=%u newLayers=%u "
+        "aspect=0x%X baseLayer=%u levelCount=%u layerCount=%u",
+        (void *)(uintptr_t)upgraded.image,
+        pCreateInfo->viewType,
+        upgraded.viewType,
+        pCreateInfo->subresourceRange.layerCount,
+        upgraded.subresourceRange.layerCount,
+        upgraded.subresourceRange.aspectMask,
+        upgraded.subresourceRange.baseArrayLayer,
+        upgraded.subresourceRange.levelCount,
+        upgraded.subresourceRange.layerCount);
     STEREO_LOG(
         "VIEW_UPGRADE image=%p fmt=%u depth_matches=%u color_matches=%u oldType=%u newType=%u oldLayers=%u newLayers=%u",
         (void*)(uintptr_t)pCreateInfo->image,
@@ -1576,6 +1583,15 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         pCreateInfo->subresourceRange.layerCount,
         upgraded.subresourceRange.layerCount);
     VkResult _r = sd->real.CreateImageView(sd->real_device, &upgraded, pAllocator, pView);
+    if (_r == VK_SUCCESS)
+    {
+        STEREO_LOG(
+            "VIEW_CREATED view=%p image=%p type=%u layers=%u",
+            (void *)(uintptr_t)*pView,
+            (void *)(uintptr_t)upgraded.image,
+            upgraded.viewType,
+            upgraded.subresourceRange.layerCount);
+    }
     //STEREO_LOG(
     //    "[VIEW TRACK CANDIDATE] view=%p image=%p",
     //    _r == VK_SUCCESS ? *pView : VK_NULL_HANDLE,
