@@ -1801,6 +1801,20 @@ static const char *spv_op_name(uint32_t op)
         return "OpImageWrite";
     case SpvOpImage:
         return "OpImage";
+    case SpvOpImageGather:
+        return "OpImageGather";
+    case SpvOpImageDrefGather:
+        return "OpImageDrefGather";
+    case SpvOpImageSparseSampleImplicitLod:
+        return "OpImageSparseSampleImplicitLod";
+    case SpvOpImageSparseSampleExplicitLod:
+        return "OpImageSparseSampleExplicitLod";
+    case SpvOpImageSparseFetch:
+        return "OpImageSparseFetch";
+    case SpvOpImageSparseRead:
+        return "OpImageSparseRead";
+    case SpvOpImageSparseTexelsResident:
+        return "OpImageSparseTexelsResident";
     case SpvOpFunctionParameter:
         return "OpFunctionParameter";
     case SpvOpVariable:
@@ -2554,6 +2568,19 @@ bool spirv_patch_stereo_fs(
     for (size_t i = 5; i < in_c; ) {
         uint32_t op = in[i] & 0xffff, wc = in[i] >> 16;
         if (!wc || i + wc > in_c) break;
+
+        if (in_func &&
+            op >= SpvOpImageSampleImplicitLod &&
+            op <= SpvOpImageSparseTexelsResident)
+        {
+            STEREO_LOG(
+                "FS_IMAGE_OPCODE op=%u (%s) wc=%u resultType=%u result=%u",
+                op,
+                spv_op_name(op),
+                wc,
+                (wc >= 2) ? in[i + 1] : 0,
+                (wc >= 3) ? in[i + 2] : 0);
+        }
 
         /* Add MultiView capability before first non-capability instruction */
         if (!mv_added && op != 17) {
