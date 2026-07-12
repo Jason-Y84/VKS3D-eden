@@ -1666,6 +1666,7 @@ typedef struct {
     uint32_t n_dec;
 
     uint32_t var_binding[FS_MAX_VARS];
+    uint32_t var_location[FS_MAX_VARS];
     uint32_t n_var;
 
     uint32_t float_id;
@@ -1971,6 +1972,7 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                 s->var_types[idx] = w[i+1];
                 s->var_set[idx] = 0xffffffffu;
                 s->var_binding[idx] = 0xffffffffu;
+                s->var_location[idx] = 0xffffffffu;
                 STEREO_LOG(
                     "FS_VAR_ADD id=%u idx=%u type=%u storage=%u set=%u binding=%u",
                     w[i+2],
@@ -2021,6 +2023,12 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                     w[i+1],
                     w[i+2],
                     w[i+3]);
+                if (w[i+2] == 30)
+                {
+                    int li = fs_var_index(s, w[i+1]);
+                    if (li >= 0)
+                        s->var_location[li] = w[i+3];
+                }
                 /* BuiltIn ViewIndex */
                 if (w[i+2] == 11 && w[i+3] == 4440)
                     s->vi_var_id = w[i+1];
@@ -2169,6 +2177,10 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
                         w[i+1],
                         w[i+2],
                         w[i+3],
+                        w[i+4]);
+                    STEREO_LOG(
+                        "FS_SAMPLE_COORD result=%u coord=%u",
+                        w[i+2],
                         w[i+4]);
                     uint32_t descriptor_var = 0;
                     for (uint32_t k = 0; k < s->n_load; ++k)
@@ -2706,7 +2718,7 @@ bool spirv_patch_stereo_fs(
             if (vi >= 0)
             {
                 STEREO_LOG(
-                    "FS_OUTPUT target=%u set=%u binding=%u type=%u value=%u",
+                    "FS_OUTPUT target=%u set=%u location=%u type=%u value=%u",
                     target,
                     s.var_set[vi],
                     s.var_binding[vi],
@@ -2746,6 +2758,11 @@ bool spirv_patch_stereo_fs(
                         descriptor_var,
                         (vi >= 0) ? s.var_set[vi] : 0xffffffffu,
                         (vi >= 0) ? s.var_binding[vi] : 0xffffffffu);
+                    STEREO_LOG(
+                         "FS_SAMPLE_BINDING_DETAIL image=%u descriptor=%u binding=%u",
+                         w[i+3],
+                         descriptor_var,
+                         vi >= 0 ? s->var_binding[vi] : 999);
                     STEREO_LOG(
                         "FS_SAMPLE_MATCH image=%u load=%u var=%u",
                         in[i+3],
