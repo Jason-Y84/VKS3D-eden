@@ -1754,6 +1754,7 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
     }
     uint32_t binding = s->var_binding[vi];
     uint32_t set     = s->var_set[vi];
+    uint32_t type    = s->var_types[vi];
     STEREO_LOG(
         "FS_BINDING_TEST var=%u vi=%d set=%u binding=%u type=%u",
         var,
@@ -1778,11 +1779,19 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
      */
     bool result = (binding <= 4);
     STEREO_LOG(
-        "FS_BINDING_RESULT var=%u set=%u binding=%u stereo=%u",
+        "FS_BINDING_CLASSIFY var=%u set=%u binding=%u type=%u stereo=%u",
         var,
         set,
         binding,
+        type,
         result);
+    STEREO_LOG(
+        "FS_BINDING_TEST var=%u vi=%d set=%u binding=%u type=%u",
+        var,
+        vi,
+        set,
+        binding,
+        type);
     return result;
 }
 
@@ -2760,9 +2769,9 @@ bool spirv_patch_stereo_fs(
                         (vi >= 0) ? s.var_binding[vi] : 0xffffffffu);
                     STEREO_LOG(
                          "FS_SAMPLE_BINDING_DETAIL image=%u descriptor=%u binding=%u",
-                         w[i+3],
+                         in[i+3],
                          descriptor_var,
-                         vi >= 0 ? s->var_binding[vi] : 999);
+                         (vi >= 0) ? s.var_binding[vi] : 0xffffffffu);
                     STEREO_LOG(
                         "FS_SAMPLE_MATCH image=%u load=%u var=%u",
                         in[i+3],
@@ -3318,6 +3327,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 }
             }
             uint32_t *patched = NULL; size_t pc2 = 0;
+            STEREO_LOG(
+                "FS_PATCH_BEGIN hash=%016llx",
+                (unsigned long long)hash);
             STEREO_LOG(
                 "PATCHING_FS hash=%016llx",
                 (unsigned long long)spv_hash);
