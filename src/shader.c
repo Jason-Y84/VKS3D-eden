@@ -1752,28 +1752,19 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
         return false;
     }
     uint32_t binding = s->var_binding[vi];
+    uint32_t set     = s->var_set[vi];
     STEREO_LOG(
-        "FS_BINDING_TEST var=%u vi=%d set=%u binding=%u type=%u stereo=%u",
+        "FS_BINDING_TEST var=%u vi=%d set=%u binding=%u type=%u",
         var,
         vi,
-        s->var_set[vi],
+        set,
         binding,
-        s->var_types[vi],
-        (binding <= 2));
-    /*
-     * Deferred framebuffer attachments become stereo arrays.
-     *
-     * binding 0 = position/depth
-     * binding 1 = normal
-     * binding 2 = albedo
-     * binding 3 = specular
-     *
-     * Later bindings are post-processing/noise/material resources
-     * and remain mono.
-     */
+        s->var_types[vi]);
     bool result = (binding <= 3);
     STEREO_LOG(
-        "FS_BINDING_STEREO_RESULT binding=%u stereo=%u",
+        "FS_BINDING_RESULT var=%u set=%u binding=%u stereo=%u",
+        var,
+        set,
         binding,
         result);
     return result;
