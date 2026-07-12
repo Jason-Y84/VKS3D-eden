@@ -2675,79 +2675,7 @@ bool spirv_patch_stereo_fs(
             sb_push_n(&ob, &in[i], wc);
             i += wc; continue;
         }
-
         if (op == 54) in_func = true;
-
-        if (in_func &&
-            (op == 87 || op == 88 || op == 89 || op == 90) &&
-            wc >= 5)
-        {
-            uint32_t load_var = 0;
-            bool image_known = false;
-            for (uint32_t k = 0; k < s.n_load; ++k)
-            {
-                if (s.load_ids[k] == in[i+3])
-                {
-                    load_var = s.load_vars[k];
-                    image_known = true;
-                    break;
-                }
-            }
-            uint32_t binding = 0xffffffffu;
-            uint32_t set     = 0xffffffffu;
-            if (descriptor_var)
-            {
-                for (uint32_t k = 0; k < s->n_vars; k++)
-                {
-                    if (s->vars[k].id == descriptor_var)
-                    {
-                        binding = s->vars[k].binding;
-                        set     = s->vars[k].set;
-                        break;
-                    }
-                }
-            }
-            STEREO_LOG(
-                "FS_SAMPLE_OPCODE word=%zu image=%u descriptor=%u set=%u binding=%u known=%u",
-                i,
-                image,
-                descriptor_var,
-                set,
-                binding,
-                descriptor_var != 0);
-            int sample_vi = fs_var_index(&s, load_var);
-            STEREO_LOG(
-                "FS_SAMPLE_BINDING image=%u binding=%u",
-                in[i+3],
-                sample_vi >= 0 ? s.var_binding[sample_vi] : 999);
-            STEREO_LOG(
-                "FS_SAMPLE_VAR sampledImage=%u descriptorVar=%u",
-                in[i+3],
-                load_var);
-            int vi = fs_var_index(&s, load_var);
-            STEREO_LOG(
-                "FS_SAMPLE op=%u wc=%u resultType=%u result=%u sampledImage=%u var=%u set=%u binding=%u coord=%u patched=%u",
-                op,
-                wc,
-                in[i+1],
-                in[i+2],
-                in[i+3],
-                load_var,
-                vi >= 0 ? s.var_set[vi] : 999,
-                vi >= 0 ? s.var_binding[vi] : 999,
-                in[i+4],
-                fs_id_in(s.load_ids, s.n_load, in[i+3]));
-            if (wc > 5)
-            {
-                for (uint32_t k = 5; k < wc; k++)
-                {
-                    STEREO_LOG(
-                        "FS_SAMPLE operand[%u]=%u",
-                        k,
-                        in[i+k]);
-                }
-            }
-        }
 
         /* Extend 2D sampling coordinate to 3D for patched loads */
         if (in_func && wc >= 5 &&
@@ -2767,6 +2695,13 @@ bool spirv_patch_stereo_fs(
                 if (s.load_ids[k] == in[i+3])
                 {
                     descriptor_var = s.load_vars[k];
+                    int vi = fs_var_index(&s, descriptor_var);
+                    STEREO_LOG(
+                        "FS_SAMPLE_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
+                        in[i+3],
+                        descriptor_var,
+                        (vi >= 0) ? s.var_set[vi] : 0xffffffffu,
+                        (vi >= 0) ? s.var_binding[vi] : 0xffffffffu);
                     STEREO_LOG(
                         "FS_SAMPLE_MATCH image=%u load=%u var=%u",
                         in[i+3],
@@ -2869,10 +2804,14 @@ bool spirv_patch_stereo_fs(
                     "FS_FETCH_UNKNOWN image=%u",
                     in[i+3]);
             }
+            int vi = fs_var_index(&s, descriptor_var);
+            
             STEREO_LOG(
-                "FS_FETCH_DESCRIPTOR image=%u descriptorVar=%u",
+                "FS_FETCH_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
                 in[i+3],
-                descriptor_var);
+                descriptor_var,
+                (vi >= 0) ? s.var_set[vi] : 0xffffffffu,
+                (vi >= 0) ? s.var_binding[vi] : 0xffffffffu);
             if (in[i+3] == 47)
             {
                 STEREO_LOG(
