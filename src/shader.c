@@ -2505,6 +2505,15 @@ static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
                     s,
                     descriptor_var))
             {
+                uint32_t binding = 0xffffffffu;
+                for (uint32_t k = 0; k < s->n_var; ++k)
+                {
+                    if (s->var_ids[k] == descriptor_var)
+                    {
+                        binding = s->var_binding[k];
+                        break;
+                    }
+                }
                 STEREO_LOG(
                     "FS_SAMPLE_PATCH_APPLY descriptor=%u binding=%u",
                     descriptor_var,
