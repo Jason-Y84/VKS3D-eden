@@ -1760,7 +1760,7 @@ static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
         set,
         binding,
         s->var_types[vi]);
-    bool result = (binding <= 3);
+    bool result = (binding <= 2);
     STEREO_LOG(
         "FS_BINDING_RESULT var=%u set=%u binding=%u stereo=%u",
         var,
@@ -2676,7 +2676,36 @@ bool spirv_patch_stereo_fs(
             i += wc; continue;
         }
         if (op == 54) in_func = true;
-
+        /*
+         * Log fragment shader output stores.
+         * OpStore operands:
+         *   word[1] = target variable
+         *   word[2] = stored value
+         *
+         * Used to identify SSAO/deferred lighting outputs.
+         */
+        if (in_func && op == 62 && wc >= 3)
+        {
+            uint32_t target = in[i+1];
+            int vi = fs_var_index(&s, target);
+            if (vi >= 0)
+            {
+                STEREO_LOG(
+                    "FS_OUTPUT target=%u set=%u binding=%u type=%u value=%u",
+                    target,
+                    s.var_set[vi],
+                    s.var_binding[vi],
+                    s.var_types[vi],
+                    in[i+2]);
+            }
+            else
+            {
+                STEREO_LOG(
+                    "FS_OUTPUT_UNKNOWN target=%u value=%u",
+                    target,
+                    in[i+2]);
+            }
+        }
         /* Extend 2D sampling coordinate to 3D for patched loads */
         if (in_func && wc >= 5 &&
             (op == 87 || op == 88 || op == 89 || op == 90) &&

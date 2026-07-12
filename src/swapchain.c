@@ -1424,8 +1424,11 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         if (!already_tracked)
         {
             STEREO_LOG(
-                "COLOR_INTERCEPT image=%p usage=0x%08X samples=%u fmt=%u",
+                "COLOR_INTERCEPT image=%p extent=%ux%u mip=%u usage=0x%08X samples=%u fmt=%u",
                 (void *)(uintptr_t)*pImage,
+                pCreateInfo->extent.width,
+                pCreateInfo->extent.height,
+                pCreateInfo->mipLevels,
                 pCreateInfo->usage,
                 pCreateInfo->samples,
                 pCreateInfo->format);
