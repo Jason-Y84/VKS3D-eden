@@ -1672,14 +1672,15 @@ spv_op_name(uint32_t op)
     }
 }
 
-static bool fs_is_image_related_type(FsScan *s, uint32_t type)
+static bool
+fs_is_image_related_type(
+const FsScan *s,
+uint32_t type)
 {
     if (fs_id_in(s->img_ids, s->n_img, type))
         return true;
-
     if (fs_id_in(s->si_ids, s->n_si, type))
         return true;
-
     return false;
 }
 
