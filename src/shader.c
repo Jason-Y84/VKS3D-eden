@@ -1617,12 +1617,26 @@ fs_binding_is_stereo_attachment(
     return stereo;
 }
 
-static const char *spv_op_name(uint32_t op)
+/*
+ * Human-readable SPIR-V opcode names used only for diagnostics.
+ * Keep this table small and focused on image/texture operations that
+ * the fragment shader patcher cares about.
+ */
+static const char *
+spv_op_name(uint32_t op)
 {
     switch (op)
     {
     case SpvOpCopyObject:
         return "OpCopyObject";
+    case SpvOpVariable:
+        return "OpVariable";
+    case SpvOpLoad:
+        return "OpLoad";
+    case SpvOpSampledImage:
+        return "OpSampledImage";
+    case SpvOpImage:
+        return "OpImage";
     case SpvOpImageSampleImplicitLod:
         return "OpImageSampleImplicitLod";
     case SpvOpImageSampleExplicitLod:
@@ -1631,18 +1645,16 @@ static const char *spv_op_name(uint32_t op)
         return "OpImageSampleDrefImplicitLod";
     case SpvOpImageSampleDrefExplicitLod:
         return "OpImageSampleDrefExplicitLod";
+    case SpvOpImageGather:
+        return "OpImageGather";
+    case SpvOpImageDrefGather:
+        return "OpImageDrefGather";
     case SpvOpImageFetch:
         return "OpImageFetch";
     case SpvOpImageRead:
         return "OpImageRead";
     case SpvOpImageWrite:
         return "OpImageWrite";
-    case SpvOpImage:
-        return "OpImage";
-    case SpvOpImageGather:
-        return "OpImageGather";
-    case SpvOpImageDrefGather:
-        return "OpImageDrefGather";
     case SpvOpImageSparseSampleImplicitLod:
         return "OpImageSparseSampleImplicitLod";
     case SpvOpImageSparseSampleExplicitLod:
@@ -1655,12 +1667,6 @@ static const char *spv_op_name(uint32_t op)
         return "OpImageSparseTexelsResident";
     case SpvOpFunctionParameter:
         return "OpFunctionParameter";
-    case SpvOpVariable:
-        return "OpVariable";
-    case SpvOpSampledImage:
-        return "OpSampledImage";
-    case SpvOpLoad:
-        return "OpLoad";
     default:
         return "Unknown";
     }
