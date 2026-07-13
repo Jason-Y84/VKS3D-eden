@@ -1428,190 +1428,193 @@ bool spirv_patch_stereo_vertex(
 void spirv_patched_free(uint32_t *w) { free(w); }
 
 /* ══════════════════════════════════════════════════════════════════════════
- * FS SPIR-V patcher — sampler2D → sampler2DArray + gl_ViewIndex layer
+ * Fragment shader analysis state
+ *
+ * Tracks descriptor ownership, sampled-image propagation and function
+ * parameter forwarding so the patcher can determine which image accesses
+ * should become array-layered. Future projection-matrix analysis will
+ * extend this structure rather than introducing another scanner.
  * ══════════════════════════════════════════════════════════════════════════
- *
- * Called for FULL-SCREEN QUAD pipelines (vertexBindingDescriptionCount == 0)
- * in multiview render passes.  All VkImage 2D attachments are upgraded to
- * arrayLayers=2 by stereo_CreateImage, so ALL sampler2D in these shaders
- * (G-buffer, shadow map, lighting output) reference 2D array images.
- * We patch ALL OpTypeImage Dim=2D Arrayed=0 → Arrayed=1 and extend the
- * sampling coordinate from vec2(u,v) to vec3(u,v,gl_ViewIndex).
- *
- * Geometry pipelines (has vertex input) use the existing VS gl_ViewIndex
- * patch instead — those shaders sample material textures (not upgraded) and
- * must NOT have their sampler types changed.
  */
 
-#define FS_MAX_IMG        64
-#define FS_MAX_SI         64
-#define FS_MAX_LOADS     512
-#define FS_MAX_PARAMS    256
-#define FS_MAX_CALLS     256
-#define FS_MAX_FUNCTIONS  64
+#define FS_MAX_IMG         64
+#define FS_MAX_SI          64
+#define FS_MAX_LOADS      512
+#define FS_MAX_PARAMS     256
+#define FS_MAX_CALLS      256
+#define FS_MAX_FUNCTIONS   64
+#define FS_MAX_VARS       128
 
-typedef struct {
-    uint32_t img_ids[FS_MAX_IMG];       uint32_t n_img;
+typedef struct
+{
+    /* OpTypeImage objects */
+    uint32_t img_ids[FS_MAX_IMG];
+    uint32_t n_img;
     uint32_t img_patchable[FS_MAX_IMG];
     uint32_t img_depth[FS_MAX_IMG];
     uint32_t img_arrayed[FS_MAX_IMG];
 
-    uint32_t si_ids[FS_MAX_SI];         uint32_t n_si;
+    /* OpTypeSampledImage objects */
+    uint32_t si_ids[FS_MAX_SI];
+    uint32_t n_si;
 
+    /* OpLoad tracking */
     uint32_t load_ids[FS_MAX_LOADS];
     uint32_t load_vars[FS_MAX_LOADS];
     uint32_t load_bindings[FS_MAX_LOADS];
     uint32_t n_load;
-    /* Function parameter descriptor ownership */
+
+    /* Function parameter ownership */
     uint32_t param_ids[FS_MAX_PARAMS];
     uint32_t param_vars[FS_MAX_PARAMS];
     uint32_t param_functions[FS_MAX_PARAMS];
     uint32_t n_param;
-    /* Function call argument bindings */
+
+    /* Function-call argument forwarding */
     uint32_t call_functions[FS_MAX_CALLS];
     uint32_t call_params[FS_MAX_CALLS];
     uint32_t call_args[FS_MAX_CALLS];
     uint32_t n_call;
-    /* Descriptor variable tracking */
-#define FS_MAX_VARS 128
+
+    /* Descriptor variables */
     uint32_t var_ids[FS_MAX_VARS];
     uint32_t var_types[FS_MAX_VARS];
     uint32_t var_set[FS_MAX_VARS];
+    uint32_t var_binding[FS_MAX_VARS];
+    uint32_t var_location[FS_MAX_VARS];
+    uint32_t n_var;
 
-    /* Decorations can legally appear before OpVariable. */
+    /* Decorations (may appear before OpVariable) */
     uint32_t dec_target[FS_MAX_VARS];
     uint32_t dec_binding[FS_MAX_VARS];
     uint32_t dec_set[FS_MAX_VARS];
     uint32_t n_dec;
 
-    uint32_t var_binding[FS_MAX_VARS];
-    uint32_t var_location[FS_MAX_VARS];
-    uint32_t n_var;
-
+    /* Cached common types */
     uint32_t float_id;
     uint32_t int_id;
     uint32_t v3float_id;
     uint32_t ptr_int_in_id;
     uint32_t vi_var_id;
-    bool     has_mv_cap;
-    size_t   ep_word;
-    size_t   fn_word;
-    
-    /* Current function tracking */
+
+    bool has_mv_cap;
+
+    size_t ep_word;
+    size_t fn_word;
+
+    /* Current function while scanning */
     uint32_t current_function_id;
     uint32_t current_param_index;
+
     uint32_t function_ids[FS_MAX_FUNCTIONS];
     uint32_t function_param_start[FS_MAX_FUNCTIONS];
     uint32_t n_function;
+
 } FsScan;
 
-static bool fs_id_in(const uint32_t *arr, uint32_t n, uint32_t id)
+static bool
+fs_id_in(
+    const uint32_t *arr,
+    uint32_t n,
+    uint32_t id)
 {
-    for (uint32_t i = 0; i < n; i++) if (arr[i] == id) return true;
+    for (uint32_t i = 0; i < n; i++)
+    {
+        if (arr[i] == id)
+            return true;
+    }
+
     return false;
 }
 
-static int fs_var_index(const FsScan *s, uint32_t id)
+static int
+fs_var_index(
+    const FsScan *s,
+    uint32_t id)
 {
     for (uint32_t i = 0; i < s->n_var; i++)
     {
         if (s->var_ids[i] == id)
-        {
-            STEREO_LOG(
-                "FS_VAR_LOOKUP id=%u index=%u set=%u binding=%u type=%u",
-                id,
-                i,
-                s->var_set[i],
-                s->var_binding[i],
-                s->var_types[i]);
             return (int)i;
-        }
     }
-    STEREO_LOG(
-        "FS_VAR_LOOKUP_MISS id=%u",
-        id);
+
     return -1;
 }
 
-static uint32_t fs_resolve_parameter_owner(
+/*
+ * Resolve the original descriptor variable backing a function parameter.
+ * Future projection-uniform tracking will reuse this ownership mechanism.
+ */
+static uint32_t
+fs_resolve_parameter_owner(
     const FsScan *s,
     uint32_t id)
 {
-    for (uint32_t i = 0; i < s->n_call; ++i)
+    for (uint32_t i = 0; i < s->n_call; i++)
     {
         if (s->call_params[i] == id)
-        {
-            STEREO_LOG(
-                "FS_PARAM_OWNER_RESOLVE param=%u owner=%u",
-                id,
-                s->call_args[i]);
             return s->call_args[i];
-        }
     }
+
     return id;
 }
 
-static int fs_dec_index(FsScan *s, uint32_t target)
+static int
+fs_dec_index(
+    FsScan *s,
+    uint32_t target)
 {
-    for (uint32_t i = 0; i < s->n_dec; ++i)
+    for (uint32_t i = 0; i < s->n_dec; i++)
     {
         if (s->dec_target[i] == target)
             return (int)i;
     }
+
     return -1;
 }
 
-static bool fs_binding_is_stereo_attachment(const FsScan *s, uint32_t var)
+/*
+ * Returns true only for descriptors backed by upgraded stereo render
+ * targets. Material textures, lookup tables and other resources remain
+ * regular sampler2D objects.
+ */
+static bool
+fs_binding_is_stereo_attachment(
+    const FsScan *s,
+    uint32_t var)
 {
     int vi = fs_var_index(s, var);
+
     if (vi < 0)
-    {
-        STEREO_LOG(
-            "FS_BINDING_TEST_MISS var=%u reason=no_var",
-            var);
         return false;
-    }
+
     uint32_t binding = s->var_binding[vi];
     uint32_t set     = s->var_set[vi];
     uint32_t type    = s->var_types[vi];
-    STEREO_LOG(
-        "FS_BINDING_TEST var=%u vi=%d set=%u binding=%u type=%u",
-        var,
-        vi,
-        set,
-        binding,
-        s->var_types[vi]);
+
     /*
-     * Deferred framebuffer attachments become stereo arrays.
+     * Deferred framebuffer attachments upgraded to arrayLayers=2.
      *
      * binding 0 = position/depth
      * binding 1 = normal
      * binding 2 = albedo
      * binding 3 = specular
+     * binding 4 = SSAO / deferred intermediate
      *
-     * Later bindings are post-processing/noise/material resources
-     * and remain mono.
-     * binding 4 = SSAO/deferred intermediate (also stereo)
-     *
-     * Later bindings may be post-processing/noise/material resources
-     * and remain mono.
+     * Higher bindings are assumed to be material textures,
+     * lookup tables, noise textures or post-processing resources.
      */
-    bool result = (binding <= 4);
+    bool stereo = (binding <= 4);
+
     STEREO_LOG(
         "FS_BINDING_CLASSIFY var=%u set=%u binding=%u type=%u stereo=%u",
         var,
         set,
         binding,
         type,
-        result);
-    STEREO_LOG(
-        "FS_BINDING_TEST var=%u vi=%d set=%u binding=%u type=%u",
-        var,
-        vi,
-        set,
-        binding,
-        type);
-    return result;
+        stereo);
+
+    return stereo;
 }
 
 static const char *spv_op_name(uint32_t op)
