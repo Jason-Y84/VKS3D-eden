@@ -621,19 +621,13 @@ add_pipeline_info(
 typedef struct {
     SpvMod  *m;
     bool     have_view;
-
     uint32_t uv4, uint_, bt;
     uint32_t cz;
     uint32_t cf0;
     uint32_t cl;
     uint32_t cr;
     uint32_t cc;
-
     uint32_t projection_mode;
-    /* diagnostics only */
-    float lo_dbg;
-    float ro_dbg;
-    int   flip_dbg;
     const StereoDebugCtx *dbg;
 } BodyCtx;
 
@@ -648,143 +642,198 @@ typedef struct StereoDebugCtx {
 
 static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
 {
-    STEREO_LOG(
-        "EMIT_STEREO stage=%u pos=%u view=%u block=%u",
-        (unsigned)c->m->exec_model,
-        c->m->pos_var,
-        c->m->view_var,
-        c->m->pos_is_block);
-    SpvMod *m=c->m;
-    STEREO_LOG(
-        "[EMIT] flip=%d lo=%f ro=%f proj=%d",
-        c->flip_dbg,
-        c->lo_dbg,
-        c->ro_dbg,
-        c->projection_mode);
-    uint32_t ch=(*nid)++, lp=(*nid)++;
+    SpvMod *m = c->m;
+    uint32_t ch = (*nid)++;
+    uint32_t lp = (*nid)++;
     uint32_t pptr;
-    if (m->pos_is_block) {
-        uint32_t mid = (m->pos_member_idx==0) ? c->cz : (*nid)++;
-        if (m->pos_member_idx!=0) {
-            uint32_t ci[]={op_(SpvOpConstant,4),m->it,mid,m->pos_member_idx};
-            sb_push_n(out,ci,4);
-        }
-        STEREO_LOG(
-            "POSITION_BLOCK posVar=%u member=%u mid=%u",
-            m->pos_var,
-            m->pos_member_idx,
-            mid);
-        uint32_t a[]={op_(SpvOpAccessChain,5),c->uv4,ch,m->pos_var,mid};
-        sb_push_n(out,a,5); pptr=ch;
-    } else { 
-        STEREO_LOG(
-            "POSITION_DIRECT posVar=%u",
-            m->pos_var);
-        pptr=m->pos_var;
-    }
-    { uint32_t w[]={op_(SpvOpLoad,4),m->v4t,lp,pptr}; sb_push_n(out,w,4); }
-    STEREO_LOG(
-        "EMIT_LOAD ptr=%u posVar=%u posBlock=%u member=%u",
-        pptr,
-        m->pos_var,
-        m->pos_is_block,
-        m->pos_member_idx);
-    /* Depth-varying stereo: add a constant to clip-space x.
-     * After perspective divide by w, this becomes offset/w — near vertices
-     * get more parallax than far vertices, giving true 3D depth perception.
-     * (The old offset*w formula produced constant NDC shift at all depths,
-     * making every surface appear at the same flat stereo depth plane.)    */
-    uint32_t lv=c->have_view?(*nid)++:0, isl=c->have_view?(*nid)++:0,
-             sel=(*nid)++,
-             px=(*nid)++, nx=(*nid)++, np=(*nid)++;
-    if (c->have_view && m->view_var && m->it && c->bt) {
-        if (hash_spv(m->words, m->count) == 0xc3c35ab856282a97ULL)
-        {
-            STEREO_LOG(
-                "DXVK_UI_EMIT have_view=%d view_var=%u projection=%d",
-                c->have_view,
-                m->view_var,
-                c->projection_mode);
-        }
-        { uint32_t w[]={op_(SpvOpLoad,4),m->it,lv,m->view_var};         sb_push_n(out,w,4); }
-        { uint32_t w[]={op_(SpvOpIEqual,5),c->bt,isl,lv,c->cz};        sb_push_n(out,w,5); }
-        STEREO_LOG(
-            "emit_body: projection=%d have_view=%d view_var=%u",
-            c->projection_mode,
-            c->have_view,
-            m->view_var);
-        { uint32_t w[]={op_(SpvOpSelect,6),m->ft,sel,isl,c->cr,c->cl}; sb_push_n(out,w,6); }
-    } else { sel=c->cl; }
-    { uint32_t w[]={op_(SpvOpCompositeExtract,5),m->ft,px,lp,0u};    sb_push_n(out,w,5); }
-    if (c->projection_mode == STEREO_PROJECTION_PARALLEL)
+    if (m->pos_is_block)
     {
-        uint32_t w[]={op_(SpvOpFAdd,5),m->ft,nx,px,sel};
-        sb_push_n(out,w,5);
+        uint32_t mid = (m->pos_member_idx == 0) ? c->cz : (*nid)++;
+        if (m->pos_member_idx != 0)
+        {
+            uint32_t ci[] = {
+                op_(SpvOpConstant, 4),
+                m->it,
+                mid,
+                m->pos_member_idx
+            };
+            sb_push_n(out, ci, 4);
+        }
+        uint32_t a[] = {
+            op_(SpvOpAccessChain, 5),
+            c->uv4,
+            ch,
+            m->pos_var,
+            mid
+        };
+        sb_push_n(out, a, 5);
+        pptr = ch;
     }
     else
     {
-        uint32_t pw      = (*nid)++;
+        pptr = m->pos_var;
+    }
+    {
+        uint32_t w[] = {
+            op_(SpvOpLoad, 4),
+            m->v4t,
+            lp,
+            pptr
+        };
+        sb_push_n(out, w, 4);
+    }
+    uint32_t lv = c->have_view ? (*nid)++ : 0;
+    uint32_t isl = c->have_view ? (*nid)++ : 0;
+    uint32_t sel = (*nid)++;
+    uint32_t px = (*nid)++;
+    uint32_t nx = (*nid)++;
+    uint32_t np = (*nid)++;
+    if (c->have_view && m->view_var && m->it && c->bt)
+    {
+        {
+            uint32_t w[] = {
+                op_(SpvOpLoad, 4),
+                m->it,
+                lv,
+                m->view_var
+            };
+            sb_push_n(out, w, 4);
+        }
+        {
+            uint32_t w[] = {
+                op_(SpvOpIEqual, 5),
+                c->bt,
+                isl,
+                lv,
+                c->cz
+            };
+            sb_push_n(out, w, 5);
+        }
+        {
+            uint32_t w[] = {
+                op_(SpvOpSelect, 6),
+                m->ft,
+                sel,
+                isl,
+                c->cr,
+                c->cl
+            };
+            sb_push_n(out, w, 6);
+        }
+    }
+    else
+    {
+        sel = c->cl;
+    }
+    {
+        uint32_t w[] = {
+            op_(SpvOpCompositeExtract, 5),
+            m->ft,
+            px,
+            lp,
+            0u
+        };
+        sb_push_n(out, w, 5);
+    }
+    if (c->projection_mode == STEREO_PROJECTION_PARALLEL)
+    {
+        uint32_t w[] = {
+            op_(SpvOpFAdd, 5),
+            m->ft,
+            nx,
+            px,
+            sel
+        };
+        sb_push_n(out, w, 5);
+    }
+    else
+    {
+        uint32_t pw = (*nid)++;
         uint32_t convmag = (*nid)++;
         uint32_t negconv = (*nid)++;
         uint32_t convsel = (*nid)++;
-        uint32_t tmp     = (*nid)++;
-
-        /* pw = clip.w */
+        uint32_t tmp = (*nid)++;
         {
-            uint32_t w[]={op_(SpvOpCompositeExtract,5),
-                          m->ft,pw,lp,3u};
-            sb_push_n(out,w,5);
+            uint32_t w[] = {
+                op_(SpvOpCompositeExtract, 5),
+                m->ft,
+                pw,
+                lp,
+                3u
+            };
+            sb_push_n(out, w, 5);
         }
-
-        /* convmag = clip.w * convergence */
         {
-            uint32_t w[]={op_(SpvOpFMul,5),
-                          m->ft,convmag,pw,c->cc};
-            sb_push_n(out,w,5);
+            uint32_t w[] = {
+                op_(SpvOpFMul, 5),
+                m->ft,
+                convmag,
+                pw,
+                c->cc
+            };
+            sb_push_n(out, w, 5);
         }
-
-        /* negconv = 0.0 - convmag */
         {
-            uint32_t w[]={op_(131,5),
-                          m->ft,negconv,c->cf0,convmag};
-            sb_push_n(out,w,5);
+            uint32_t w[] = {
+                op_(131, 5),
+                m->ft,
+                negconv,
+                c->cf0,
+                convmag
+            };
+            sb_push_n(out, w, 5);
         }
-
-        /* left eye = +convmag, right eye = -convmag */
         {
-            uint32_t w[]={op_(SpvOpSelect,6),
-                          m->ft,convsel,
-                          isl,
-                          convmag,
-                          negconv};
-            sb_push_n(out,w,6);
+            uint32_t w[] = {
+                op_(SpvOpSelect, 6),
+                m->ft,
+                convsel,
+                isl,
+                convmag,
+                negconv
+            };
+            sb_push_n(out, w, 6);
         }
-
-        /* tmp = px + eyeOffset */
         {
-            uint32_t w[]={op_(SpvOpFAdd,5),
-                          m->ft,tmp,px,sel};
-            sb_push_n(out,w,5);
+            uint32_t w[] = {
+                op_(SpvOpFAdd, 5),
+                m->ft,
+                tmp,
+                px,
+                sel
+            };
+            sb_push_n(out, w, 5);
         }
-
-        /* nx = tmp - signed convergence */
         {
-            uint32_t w[]={op_(131,5),   /* OpFSub */
-                          m->ft,nx,tmp,convsel};
-            sb_push_n(out,w,5);
+            uint32_t w[] = {
+                op_(131, 5),
+                m->ft,
+                nx,
+                tmp,
+                convsel
+            };
+            sb_push_n(out, w, 5);
         }
     }
-    { uint32_t w[]={op_(SpvOpCompositeInsert,6),m->v4t,np,nx,lp,0u}; sb_push_n(out,w,6); }
-    STEREO_LOG(
-        "POSITION_STORE ptr=%u newPos=%u block=%d",
-        pptr,
-        np,
-        m->pos_is_block);
-    { uint32_t w[]={op_(SpvOpStore,3),pptr,np};                      sb_push_n(out,w,3); }
-    STEREO_LOG(
-        "emit_body complete projection=%d view=%d",
-        c->projection_mode,
-        c->have_view);
+    {
+        uint32_t w[] = {
+            op_(SpvOpCompositeInsert, 6),
+            m->v4t,
+            np,
+            nx,
+            lp,
+            0u
+        };
+        sb_push_n(out, w, 6);
+    }
+    {
+        uint32_t w[] = {
+            op_(SpvOpStore, 3),
+            pptr,
+            np
+        };
+        sb_push_n(out, w, 3);
+    }
 }
 
 /* ── Public patcher ──────────────────────────────────────────────────────── */
