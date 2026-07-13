@@ -27,17 +27,6 @@
 #define SpvStorageInput         1
 #define SPIRV_MAGIC             0x07230203u
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Dynamic word buffer                                                       */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-typedef struct
-{
-    uint32_t *w;
-    size_t    n;
-    size_t    cap;
-} SpvBuf;
-
 /* ── Dynamic SPIR-V word buffer ─────────────────────────────────────────── */
 typedef struct {
     uint32_t *w;
