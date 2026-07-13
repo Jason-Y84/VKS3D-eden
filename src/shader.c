@@ -84,6 +84,18 @@ static inline uint8_t matrix_or2(const SpvMod *m,
     return matrix_value(m, a) | matrix_value(m, b);
 }
 
+static void free_spv_provenance(SpvMod *m)
+{
+    free(m->value_from_matrix);
+    free(m->is_matrix_type);
+    free(m->is_matrix_ptr);
+
+    m->value_from_matrix = NULL;
+    m->is_matrix_type = NULL;
+    m->is_matrix_ptr = NULL;
+    m->value_capacity = 0;
+}
+
 /* ────────────────────────────────────────────────────────────────────────── */
 /* SPIR-V module scan state                                                  */
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -839,97 +851,98 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
 /* ── Public patcher ──────────────────────────────────────────────────────── */
 bool spirv_patch_stereo_vertex(
     const StereoConfig *cfg,
-    const uint32_t *in, size_t in_c,
-    uint32_t **out, size_t *out_c,
-    float lo, float ro,
+    const uint32_t *in,
+    size_t in_c,
+    uint32_t **out,
+    size_t *out_c,
+    float lo,
+    float ro,
     float conv,
     bool inj_vi,
     const StereoDebugCtx *dbg)
 {
-    const int projection_mode = cfg->projection;
-
-    STEREO_LOG(
-        "Projection=%s lo=%f ro=%f conv=%f",
-        projection_mode == STEREO_PROJECTION_OFF_AXIS ?
-            "off-axis" : "parallel",
-        lo,
-        ro,
-        conv);
-    if (!in||in_c<5||in[0]!=SPIRV_MAGIC) return false;
-
-    SpvMod m={0};
-    m.words=in;
-    m.count=in_c;
-
-    /* We need the bound before allocating the provenance table. */
+    if (!in || in_c < 5 || in[0] != SPIRV_MAGIC)
+        return false;
+    const int projection_mode =
+        cfg ? cfg->projection : STEREO_PROJECTION_PARALLEL;
+    SpvMod m = {0};
+    m.words = in;
+    m.count = in_c;
     m.bound = m.words[3];
     m.value_capacity = m.bound + 64;
     m.value_from_matrix =
         calloc(m.value_capacity, sizeof(uint8_t));
     m.is_matrix_type =
         calloc(m.value_capacity, sizeof(uint8_t));
-    
     m.is_matrix_ptr =
         calloc(m.value_capacity, sizeof(uint8_t));
-    if (!m.value_from_matrix)
-        return false;
-
-    spv_scan(&m);
-
-    uint64_t spv_hash = hash_spv(m.words, m.count);
+    if (!m.value_from_matrix ||
+        !m.is_matrix_type ||
+        !m.is_matrix_ptr)
     {
-        static int skip_list_init = 0;
+        free_spv_provenance(&m);
+        return false;
+    }
+    spv_scan(&m);
+    /* Analyze shader structure before modification:
+     * - matrix provenance
+     * - gl_Position location
+     * - ViewIndex availability
+     * - entry point classification
+     */
+    uint64_t spv_hash = hash_spv(m.words, m.count);
+    /*
+     * Optional shader blacklist.
+     * Used for debugging shaders that should remain untouched.
+     */
+    {
+        static bool skip_list_init;
         static char skip_list[1024];
-
         if (!skip_list_init)
         {
-            const char *env = stereo_getenv("VKS3D_SKIP_SHADER_PATCHES");
+            const char *env =
+                stereo_getenv("VKS3D_SKIP_SHADER_PATCHES");
             if (env)
             {
                 strncpy(skip_list, env, sizeof(skip_list) - 1);
                 skip_list[sizeof(skip_list) - 1] = '\0';
             }
-
-            STEREO_LOG(
-                "SKIP_SHADER_LIST=\"%s\"",
-                skip_list);
-
-            skip_list_init = 1;
+            skip_list_init = true;
         }
-
         if (skip_list[0])
         {
             char hashstr[17];
-            snprintf(hashstr, sizeof(hashstr), "%016llx",
+            snprintf(
+                hashstr,
+                sizeof(hashstr),
+                "%016llx",
                 (unsigned long long)spv_hash);
-
             if (strstr(skip_list, hashstr))
             {
                 STEREO_LOG(
                     "SKIP_SHADER_PATCH hash=%s",
                     hashstr);
-                free(m.value_from_matrix);
-                free(m.is_matrix_type);
-                free(m.is_matrix_ptr);
+                free_spv_provenance(&m);
                 return false;
             }
         }
     }
-    if (cfg && cfg->mono_ui)
-    {
+    /*
+     * Reject known monoscopic screen-space shaders.
+     *
+     * These shaders usually write clip-space positions directly
+     * and have no camera transform. Applying stereo offsets here
+     * creates excessive negative parallax.
+     */
+    if (cfg && cfg->mono_ui)    {
         bool ui_candidate =
-            (
-                dbg &&
-                (
-                    dbg->is_quad ||
-                    dbg->vertex_binding_count == 0
-                )
-            ) &&
-            (m.dot_count <= 2) &&
-            (m.has_direct_position_write) &&
-            (!m.has_emit_vertex) &&
-            (m.exec_model == SpvExecVertex);
-
+            dbg &&
+            (dbg->is_quad ||
+             dbg->vertex_binding_count == 0) &&
+            m.dot_count <= 2 &&
+            m.has_direct_position_write &&
+            !m.has_emit_vertex &&
+            m.exec_model == SpvExecVertex;
         if (ui_candidate)
         {
             STEREO_LOG(
@@ -941,25 +954,19 @@ bool spirv_patch_stereo_vertex(
                 m.has_matrix_ops,
                 m.has_direct_position_write,
                 m.has_emit_vertex);
-
-            free(m.value_from_matrix);
-            free(m.is_matrix_type);
-            free(m.is_matrix_ptr);
+            free_spv_provenance(&m);
             return false;
         }
     }
+    if (dbg && !dbg->is_multiview)
+    {
+        STEREO_LOG(
+            "PATCH_SKIP non-multiview render pass");
+        free_spv_provenance(&m);
+        return false;
+    }
     STEREO_LOG(
-        "PATCH_MODULE hash=%016llx words=%zu module=%p",
-        (unsigned long long)spv_hash,
-        m.count,
-        (const void *)m.words);
-    STEREO_LOG(
-        "PATCH_BEGIN hash=%016llx words=%zu bound=%u",
-        (unsigned long long)spv_hash,
-        m.count,
-        m.bound);
-    STEREO_LOG(
-        "SCAN_CLASS hash=%016llx exec=%u patchable=%d pos=%u posBlock=%d posMember=%u view=%u emit=%u matrix=%d directPos=%d dots=%u mvbuiltin=%d",
+        "PATCH_ANALYSIS hash=%016llx exec=%u patchable=%d pos=%u block=%d member=%u view=%u matrix=%d direct=%d dots=%u emit=%u mv=%d",
         (unsigned long long)spv_hash,
         m.exec_model,
         m.is_patchable,
@@ -967,174 +974,214 @@ bool spirv_patch_stereo_vertex(
         m.pos_is_block,
         m.pos_member_idx,
         m.view_var,
-        m.emit_count,
         m.has_matrix_ops,
         m.has_direct_position_write,
         m.dot_count,
+        m.emit_count,
         m.has_viewindex_builtin);
-    if (dbg)
-    {
-        STEREO_LOG(
-            "PATCH_CTX hash=%016llx pipe=%u stage=%u rp=%p mv=%d",
-            (unsigned long long)spv_hash,
-            dbg->pipeline_index,
-            dbg->stage,
-            (void*)dbg->render_pass,
-            dbg->is_multiview);
-    }
-    STEREO_LOG(
-    "PATCHABLE hash=%016llx words=%zu exec=%u matrix=%d direct=%d dots=%u block=%d emits=%u pos=%u view=%u",
-        (unsigned long long)spv_hash,
-        m.count,
-        m.exec_model,
-        m.has_matrix_ops,
-        m.has_direct_position_write,
-        m.dot_count,
-        m.pos_is_block,
-        m.emit_count,
-        m.pos_var,
-        m.view_var);
-    if (dbg) {
-        STEREO_LOG(
-            "PATCH_CTX pipe=%u stage=%u renderPass=%p multiview=%d",
-            dbg->pipeline_index,
-            dbg->stage,
-            (void*)dbg->render_pass,
-            dbg->is_multiview);
-    
-        if (!dbg->is_multiview) {
-            STEREO_LOG(
-                "PATCH_SKIP non-multiview render pass");
-            free(m.value_from_matrix);
-            free(m.is_matrix_type);
-            free(m.is_matrix_ptr);
-            return false;
-        }
-    }
-
-    if (m.exec_model == SpvExecVertex)
-    {
-        STEREO_LOG(
-            "SPIRV classify: vertex shader matrix_ops=%d",
-            m.has_matrix_ops);
-    }
-
-    /* HUD/text/fullscreen shaders often write clip-space coordinates
-     * directly and contain no matrix math. Stereoizing them pushes
-     * them in front of the screen and causes excessive negative
-     * parallax.
-     *
-     * Examples:
-     *   gl_Position = vec4(pos.xy, 0.0, 1.0);
-     *
-     * Leave these monoscopic at screen depth.
-     */
     if (m.exec_model == SpvExecVertex)
     {
         if (!m.pos_var)
         {
-            STEREO_LOG("Skipping stereo patch: no gl_Position detected");
-            free(m.value_from_matrix);
-            free(m.is_matrix_type);
-            free(m.is_matrix_ptr);
+            STEREO_LOG(
+                "PATCH_SKIP no gl_Position");
+            free_spv_provenance(&m);
             return false;
         }
-    
-        /* Only reject truly screen-aligned fullscreen quads */
         if (m.pos_is_block && !m.has_matrix_ops)
         {
-            STEREO_LOG("Skipping stereo patch: confirmed screen-space (pos block)");
-            free(m.value_from_matrix);
-            free(m.is_matrix_type);
-            free(m.is_matrix_ptr);
+            STEREO_LOG(
+                "PATCH_SKIP screen-space position block");
+            free_spv_provenance(&m);
             return false;
         }
-    
-        /* IMPORTANT: DO NOT rely on matrix_ops for DXVK */
     }
-
     if (!m.is_patchable)
     {
-        free(m.value_from_matrix);
-        free(m.is_matrix_type);
-        free(m.is_matrix_ptr);
+        free_spv_provenance(&m);
         return false;
     }
-
-    /* Avoid stereoizing helper/fullscreen shaders that directly
-     * write clip-space positions. These are responsible for the
-     * duplicated shadow/composite artifacts seen in deferredshadows.
+    /* Allocate new SPIR-V IDs and prepare injected objects:
+     * - output position pointer
+     * - ViewIndex input
+     * - stereo constants
+     * - temporary types
+     *
+     * Future projection-matrix patching should extend this stage.
      */
-/*     if (!m.has_matrix_ops && m.exec_model != SpvExecutionModelVertex) {*/
-/*         STEREO_LOG("Skipping stereo patch: no matrix operations detected");*/
-/*         return false;*/
-/*     }*/
-
-    bool is_gs = (m.exec_model == SpvExecGeometry);
-
-    uint32_t nid=m.bound;
-    uint32_t id_ptr_v4=nid++, id_ptr_int=nid++;
-    uint32_t id_new_it=0;
-    if (!m.it && inj_vi && !m.view_var) { id_new_it=nid++; m.it=id_new_it; }
-
-    bool     will_inj_vi = inj_vi && !m.view_var && m.it;
-    uint32_t id_inj_view = will_inj_vi ? nid++ : 0;
-    bool     have_view   = (m.view_var || will_inj_vi);
-    uint32_t id_new_bt=0;
-    if (!m.bt && have_view && m.it) id_new_bt=nid++;
-
-    uint32_t id_cz=nid++,
-         id_cf0=nid++,
-         id_cl=nid++,
-         id_cr=nid++,
-         id_cc=nid++;
-    uint32_t uv4  = m.ptr_out_v4 ? m.ptr_out_v4 : id_ptr_v4;
-    uint32_t uint_= m.ptr_in_int  ? m.ptr_in_int  : id_ptr_int;
-    uint32_t bt   = m.bt          ? m.bt          : id_new_bt;
-
-    SpvBuf te;
-    if (!sb_init(&te,96))
+    bool is_gs =
+        (m.exec_model == SpvExecGeometry);
+    uint32_t nid = m.bound;
+    uint32_t id_ptr_v4 = nid++;
+    uint32_t id_ptr_int = nid++;
+    uint32_t id_new_it = 0;
+    if (!m.it && inj_vi && !m.view_var)
     {
-        free(m.value_from_matrix);
-        free(m.is_matrix_type);
-        free(m.is_matrix_ptr);
+        id_new_it = nid++;
+        m.it = id_new_it;
+    }
+    bool will_inj_vi =
+        inj_vi &&
+        !m.view_var &&
+        m.it;
+    uint32_t id_inj_view =
+        will_inj_vi ? nid++ : 0;
+    bool have_view =
+        m.view_var ||
+        will_inj_vi;
+    uint32_t id_new_bt = 0;
+    if (!m.bt && have_view && m.it)
+        id_new_bt = nid++;
+    uint32_t id_cz = nid++;
+    uint32_t id_cf0 = nid++;
+    uint32_t id_cl = nid++;
+    uint32_t id_cr = nid++;
+    uint32_t id_cc = nid++;
+    uint32_t uv4 =
+        m.ptr_out_v4 ?
+        m.ptr_out_v4 :
+        id_ptr_v4;
+    uint32_t uint_ =
+        m.ptr_in_int ?
+        m.ptr_in_int :
+        id_ptr_int;
+    uint32_t bt =
+        m.bt ?
+        m.bt :
+        id_new_bt;
+    /* Additional SPIR-V declarations inserted before the entry function:
+     * - new types
+     * - constants
+     * - ViewIndex variable
+     */
+    SpvBuf te;
+    if (!sb_init(&te, 96))
+    {
+        free_spv_provenance(&m);
         return false;
     }
-    if (id_new_it) { uint32_t w[]={op_(SpvOpTypeInt,4),id_new_it,32,1}; sb_push_n(&te,w,4); }
-    if (!m.ptr_out_v4) {
-        uint32_t w[]={op_(SpvOpTypePointer,4),id_ptr_v4,SpvStorageOutput,m.v4t};
-        sb_push_n(&te,w,4); }
-    if (m.it && !m.ptr_in_int) {
-        uint32_t w[]={op_(SpvOpTypePointer,4),id_ptr_int,SpvStorageInput,m.it};
-        sb_push_n(&te,w,4); m.ptr_in_int=id_ptr_int; uint_=id_ptr_int; }
-    if (id_new_bt) { uint32_t w[]={op_(SpvOpTypeBool,2),id_new_bt}; sb_push_n(&te,w,2); }
-    if (m.it) { uint32_t w[]={op_(SpvOpConstant,4),m.it,id_cz,0}; sb_push_n(&te,w,4); }
-    STEREO_LOG(
-        "[SPIRV] lo=%f ro=%f conv=%f projection=%d",
-        lo,
-        ro,
-        conv,
-        projection_mode);
+    if (id_new_it)
     {
-        uint32_t w[4]={op_(SpvOpConstant,4),m.ft,id_cf0,0};
-        float z=0.0f;
-        memcpy(&w[3],&z,4);
-        sb_push_n(&te,w,4);
+        uint32_t w[] =
+        {
+            op_(SpvOpTypeInt, 4),
+            id_new_it,
+            32,
+            1
+        };
+        sb_push_n(&te, w, 4);
     }
-    { uint32_t w[4]={op_(SpvOpConstant,4),m.ft,id_cl,0}; memcpy(&w[3],&lo,4); sb_push_n(&te,w,4); }
-    { uint32_t w[4]={op_(SpvOpConstant,4),m.ft,id_cr,0}; memcpy(&w[3],&ro,4); sb_push_n(&te,w,4); }
-    { uint32_t w[4]={op_(SpvOpConstant,4),m.ft,id_cc,0};
-      memcpy(&w[3],&conv,4);
-      sb_push_n(&te,w,4); }
-    if (will_inj_vi) {
-        { uint32_t d[]={op_(SpvOpDecorate,4),id_inj_view,SpvDecorationBuiltIn,SpvBuiltInViewIndex};
-          sb_push_n(&te,d,4); }
-        { uint32_t v[]={op_(SpvOpVariable,4),uint_,id_inj_view,SpvStorageInput};
-          sb_push_n(&te,v,4); }
-        m.view_var=id_inj_view;
+    if (!m.ptr_out_v4)
+    {
+        uint32_t w[] =
+        {
+            op_(SpvOpTypePointer, 4),
+            id_ptr_v4,
+            SpvStorageOutput,
+            m.v4t
+        };
+        sb_push_n(&te, w, 4);
     }
-
-    BodyCtx bc = {
+    if (m.it && !m.ptr_in_int)
+    {
+        uint32_t w[] =
+        {
+            op_(SpvOpTypePointer, 4),
+            id_ptr_int,
+            SpvStorageInput,
+            m.it
+        };
+        sb_push_n(&te, w, 4);
+        m.ptr_in_int = id_ptr_int;
+        uint_ = id_ptr_int;
+    }
+    if (id_new_bt)
+    {
+        uint32_t w[] =
+        {
+            op_(SpvOpTypeBool, 2),
+            id_new_bt
+        };
+        sb_push_n(&te, w, 2);
+    }
+    if (m.it)
+    {
+        uint32_t w[] =
+        {
+            op_(SpvOpConstant, 4),
+            m.it,
+            id_cz,
+            0
+        };
+        sb_push_n(&te, w, 4);
+    }
+    {
+        uint32_t w[4] =
+        {
+            op_(SpvOpConstant, 4),
+            m.ft,
+            id_cf0,
+            0
+        };
+        float z = 0.0f;
+        memcpy(&w[3], &z, sizeof(z));
+        sb_push_n(&te, w, 4);
+    }
+    {
+        uint32_t w[4] =
+        {
+            op_(SpvOpConstant, 4),
+            m.ft,
+            id_cl,
+            0
+        };
+        memcpy(&w[3], &lo, sizeof(lo));
+        sb_push_n(&te, w, 4);
+    }
+    {
+        uint32_t w[4] =
+        {
+            op_(SpvOpConstant, 4),
+            m.ft,
+            id_cr,
+            0
+        };
+        memcpy(&w[3], &ro, sizeof(ro));
+        sb_push_n(&te, w, 4);
+    }
+    {
+        uint32_t w[4] =
+        {
+            op_(SpvOpConstant, 4),
+            m.ft,
+            id_cc,
+            0
+        };
+        memcpy(&w[3], &conv, sizeof(conv));
+        sb_push_n(&te, w, 4);
+    }
+    if (will_inj_vi)
+    {
+        uint32_t d[] =
+        {
+            op_(SpvOpDecorate, 4),
+            id_inj_view,
+            SpvDecorationBuiltIn,
+            SpvBuiltInViewIndex
+        };
+        sb_push_n(&te, d, 4);
+        uint32_t v[] =
+        {
+            op_(SpvOpVariable, 4),
+            uint_,
+            id_inj_view,
+            SpvStorageInput
+        };
+        sb_push_n(&te, v, 4);
+        m.view_var = id_inj_view;
+    }
+    BodyCtx bc =
+    {
         &m,
         have_view,
         uv4,
@@ -1148,129 +1195,168 @@ bool spirv_patch_stereo_vertex(
         projection_mode,
         lo,
         ro,
-        cfg ? cfg->flip_eyes : 0,
         dbg
     };
-    STEREO_LOG(
-        "PATCH_BODY hash=%016llx lo=%f ro=%f conv=%f have_view=%d pos=%u",
-        (unsigned long long)spv_hash,
-        lo,
-        ro,
-        conv,
-        have_view,
-        m.pos_var);
-    STEREO_LOG(
-        "[SPIRV] build BodyCtx lo=%f ro=%f conv=%f proj=%d",
-        lo,
-        ro,
-        conv,
-        projection_mode);
-    size_t ins_t=0, ins_b=0;
-    bool in_entry_function=false;
-    for (size_t i=5;i<in_c;) {
-        uint32_t opx=in[i]&0xffff, wcx=in[i]>>16;
-        if (!wcx||i+wcx>in_c) break;
-        if (opx==SpvOpFunction) {
+    /* Vertex/TessEval shaders:
+     * inject after final position calculation.
+     *
+     * Geometry shaders:
+     * inject before EmitVertex.
+     */
+    size_t ins_t = 0;
+    size_t ins_b = 0;
+    bool in_entry_function = false;
+    for (size_t i = 5; i < in_c;)
+    {
+        uint32_t opx = in[i] & 0xffff;
+        uint32_t wcx = in[i] >> 16;
+        if (!wcx || i + wcx > in_c)
+            break;
+        if (opx == SpvOpFunction)
+        {
             in_entry_function =
                 (wcx >= 4 &&
-                 in[i+2] ==
+                 in[i + 2] ==
                  (m.position_function ?
-                     m.position_function :
-                     m.entry_function));
-            STEREO_LOG(
-                "FUNCTION_START offset=%zu result=%u entry=%d",
-                i,
-                in[i+2],
-                in_entry_function);
+                  m.position_function :
+                  m.entry_function));
             if (in_entry_function)
-                ins_t=i;
+                ins_t = i;
         }
-        /* Always inject immediately before the final OpReturn.
-         * Some shaders continue modifying gl_Position after its
-         * last apparent OpStore via helper logic or additional
-         * stores. Making the stereo adjustment the final operation
-         * guarantees it survives.
-         */
-        if (in_entry_function && opx==SpvOpReturn) {
-            STEREO_LOG(
-                "RETURN offset=%zu",
-                i);
-            ins_b=i;
+        if (in_entry_function &&
+            opx == SpvOpReturn)
+        {
+            ins_b = i;
         }
-    
         if (in_entry_function &&
             opx == SpvOpFunctionEnd)
         {
-            STEREO_LOG(
-                "FUNCTION_END offset=%zu return=%zu",
-                i,
-                ins_b);
-            /* Finished scanning the entry function. */
             break;
         }
-    
-        i+=wcx;
+        i += wcx;
     }
-    STEREO_LOG(
-        "INSERT_POINTS entry=%u position=%u function=%zu return=%zu",
-        m.entry_function,
-        m.position_function,
-        ins_t,
-        ins_b);
-    if (!ins_t) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
-    if (!is_gs && !ins_b) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
-    if (!is_gs && (!ins_b || ins_b < ins_t)) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
-
-    bool need_mv_cap = id_inj_view && !m.has_mv_cap;
-    bool mv_done=false, te_done=false, body_done=false;
-
+    if (!ins_t)
+    {
+        sb_free(&te);
+        free_spv_provenance(&m);
+        return false;
+    }
+    if (!is_gs && !ins_b)
+    {
+        sb_free(&te);
+        free_spv_provenance(&m);
+        return false;
+    }
+    bool need_mv_cap =
+        id_inj_view &&
+        !m.has_mv_cap;
+    bool mv_done = false;
+    bool te_done = false;
+    bool body_done = false;
+    /* Rebuild the SPIR-V module:
+     * - add MultiView capability if required
+     * - insert declarations
+     * - extend entry point interface
+     * - inject stereo body
+     */
     SpvBuf ob;
-    if (!sb_init(&ob, in_c + te.n + 64)) { sb_free(&te); free(m.value_from_matrix); free(m.is_matrix_type); free(m.is_matrix_ptr); return false; }
+    if (!sb_init(&ob, in_c + te.n + 64))
+    {
+        sb_free(&te);
+        free_spv_provenance(&m);
+        return false;
+    }
     sb_push_n(&ob, in, 5);
-
-    for (size_t i=5;i<in_c;) {
-        if (!mv_done && need_mv_cap) {
-            uint32_t c[]={op_(SpvOpCapability,2),SpvCapabilityMultiView};
-            sb_push_n(&ob,c,2); mv_done=true; }
-        if (!te_done && i==ins_t) { sb_push_n(&ob,te.w,te.n); te_done=true; }
-
-        uint32_t opx=in[i]&0xffff, wcx=in[i]>>16;
-        if (!wcx||i+wcx>in_c) break;
-
-        if (id_inj_view && opx==SpvOpEntryPoint && wcx>=4 &&
-            (in[i+1]==SpvExecVertex||in[i+1]==SpvExecGeometry||
-             in[i+1]==SpvExecTessEval)) {
-                bool is_target_entry =
-                    (wcx >= 3 &&
-                     in[i+2] == m.entry_function);
-                if (id_inj_view && is_target_entry)
+    for (size_t i = 5; i < in_c;)
+    {
+        if (!mv_done && need_mv_cap)
+        {
+            uint32_t c[] =
             {
-                sb_push(&ob, ((wcx+1)<<16)|SpvOpEntryPoint);
-                sb_push_n(&ob, &in[i+1], wcx-1);
-                sb_push(&ob, id_inj_view);
+                op_(SpvOpCapability, 2),
+                SpvCapabilityMultiView
+            };
+            sb_push_n(&ob, c, 2);
+            mv_done = true;
+        }
+        if (!te_done && i == ins_t)
+        {
+            sb_push_n(&ob, te.w, te.n);
+            te_done = true;
+        }
+        uint32_t opx = in[i] & 0xffff;
+        uint32_t wcx = in[i] >> 16;
+        if (!wcx || i + wcx > in_c)
+            break;
+        if (id_inj_view &&
+            opx == SpvOpEntryPoint &&
+            wcx >= 4 &&
+            (in[i + 1] == SpvExecVertex ||
+             in[i + 1] == SpvExecGeometry ||
+             in[i + 1] == SpvExecTessEval))
+        {
+            bool target_entry =
+                (wcx >= 3 &&
+                 in[i + 2] == m.entry_function);
+            if (target_entry)
+            {
+                sb_push(
+                    &ob,
+                    ((wcx + 1) << 16) |
+                    SpvOpEntryPoint);
+                sb_push_n(
+                    &ob,
+                    &in[i + 1],
+                    wcx - 1);
+                sb_push(
+                    &ob,
+                    id_inj_view);
             }
             else
             {
-                sb_push_n(&ob, &in[i], wcx);
+                sb_push_n(
+                    &ob,
+                    &in[i],
+                    wcx);
             }
-            i+=wcx; continue;
+            i += wcx;
+            continue;
         }
-
-        if (is_gs && opx==SpvOpEmitVertex) emit_body(&ob, &bc, &nid);
-        if (!is_gs && !body_done && i==ins_b) { emit_body(&ob, &bc, &nid); body_done=true; }
-
-        sb_push_n(&ob, &in[i], wcx);
-        i+=wcx;
+        if (is_gs &&
+            opx == SpvOpEmitVertex)
+        {
+            emit_body(
+                &ob,
+                &bc,
+                &nid);
+        }
+        if (!is_gs &&
+            !body_done &&
+            i == ins_b)
+        {
+            emit_body(
+                &ob,
+                &bc,
+                &nid);
+            body_done = true;
+        }
+        sb_push_n(
+            &ob,
+            &in[i],
+            wcx);
+        i += wcx;
     }
-    if (!te_done) sb_push_n(&ob,te.w,te.n);
+    if (!te_done)
+        sb_push_n(&ob, te.w, te.n);
     sb_free(&te);
-    ob.w[3]=nid;
-    *out=ob.w; *out_c=ob.n;
-    STEREO_LOG("Patched: model=%d  %zu->%zu words  bound=%u  vi=%d",
-               m.exec_model, in_c, ob.n, nid, (int)(id_inj_view!=0));
-    free(m.value_from_matrix);
-    free(m.is_matrix_type);
-    free(m.is_matrix_ptr);
+    ob.w[3] = nid;
+    *out = ob.w;
+    *out_c = ob.n;
+    /*
+     * Finalize patched SPIR-V module.
+     * Provenance tables are no longer needed after reconstruction.
+     */
+    free_spv_provenance(&m);
     return true;
 }
 
