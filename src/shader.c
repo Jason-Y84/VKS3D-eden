@@ -136,12 +136,6 @@ static void do_scan(SpvMod *m, bool p2)
     #define SETPTR(id,v)   set_matrix_ptr(m, (id), (v))
     #define TYPE(id)       matrix_type(m, (id))
     #define SETTYPE(id,v)  set_matrix_type(m, (id), (v))
-    #define CHECK_ID(id) \
-    do { \
-        if ((id) >= m->value_capacity) \
-            STEREO_LOG("PROVENANCE_OOB id=%u cap=%u", \
-                       (id), m->value_capacity); \
-    } while (0)
     for (size_t i=5;i<m->count;) {
         uint32_t op=w[i]&0xffff, wc=w[i]>>16;
         if (!wc||i+wc>m->count) break;
@@ -313,7 +307,7 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(
                         w[i + 2],
-                        matrix_or2(m, w[i + 3], w[i + 4]));
+                        matrix_or2(m, w[i + 4], w[i + 5]));
                 }
                 break;
             case SpvOpSelect:
