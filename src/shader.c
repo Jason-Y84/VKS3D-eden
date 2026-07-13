@@ -521,24 +521,21 @@ remember_bound_pipeline(
     VkPipeline pipe)
 {
     for (uint32_t i = 0; i < sd->cb_track_count; i++)
-    {
+        {
         if (sd->cb_track[i].cb == cb)
         {
             sd->cb_track[i].pipeline = pipe;
             return;
+            }
         }
-    }
-
-    if (sd->cb_track_count >= MAX_CB_TRACK)
-        return;
-
-    sd->cb_track[sd->cb_track_count].cb = cb;
-    sd->cb_track[sd->cb_track_count].pipeline = pipe;
-    sd->cb_track[sd->cb_track_count].render_pass = VK_NULL_HANDLE;
-    sd->cb_track[sd->cb_track_count].subpass = 0;
-    sd->cb_track[sd->cb_track_count].render_pass = VK_NULL_HANDLE;
-    sd->cb_track[sd->cb_track_count].framebuffer = VK_NULL_HANDLE;
-    sd->cb_track_count++;
+        if (sd->cb_track_count >= MAX_CB_TRACK)
+            return;
+        uint32_t idx = sd->cb_track_count++;
+        sd->cb_track[idx].cb = cb;
+        sd->cb_track[idx].pipeline = pipe;
+        sd->cb_track[idx].render_pass = VK_NULL_HANDLE;
+        sd->cb_track[idx].framebuffer = VK_NULL_HANDLE;
+        sd->cb_track[idx].subpass = 0;
 }
 
 void
