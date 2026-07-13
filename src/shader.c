@@ -313,7 +313,7 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(
                         w[i + 2],
-                        MAT(w[i + 3]) | MAT(w[i + 4]));
+                        matrix_or2(m, w[i + 3], w[i + 4]));
                 }
                 break;
             case SpvOpSelect:
@@ -322,7 +322,7 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(
                         w[i + 2],
-                        MAT(w[i + 4]) | MAT(w[i + 5]));
+                        matrix_or2(m, w[i + 4], w[i + 5]));
                 }
                 break;
             case SpvOpFunctionCall:
