@@ -1976,6 +1976,13 @@ static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
         {
             if (wc >= 4 && s->n_var < FS_MAX_VARS)
             {
+                if (w[i+3] == 2) /* Uniform storage */
+                {
+                    STEREO_LOG(
+                        "FS_UNIFORM_BUFFER var=%u type=%u",
+                        w[i+2],
+                        w[i+1]);
+                }
                 uint32_t idx = s->n_var++;
                 s->var_ids[idx] = w[i+2];
                 s->var_types[idx] = w[i+1];
