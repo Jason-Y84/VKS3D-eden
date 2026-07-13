@@ -465,8 +465,7 @@ uint64_t hash_spv(const uint32_t *data, size_t words)
 {
     uint64_t h = 1469598103934665603ULL; // FNV offset basis
     for (size_t i = 0; i < words; i++) {
-        uint64_t v = data[i];
-        h ^= v;
+        h ^= data[i];
         h *= 1099511628211ULL;
     }
     return h;
