@@ -39,6 +39,43 @@ typedef struct
 
 /* ── Matrix provenance helpers ───────────────────────────────────────────── */
 
+typedef struct
+{
+    const uint32_t *words;
+    size_t          count;
+    uint32_t bound;
+    bool is_patchable;
+    bool has_mv_cap;
+    /* Diagnostics */
+    bool has_emit_vertex;
+    bool has_viewindex_builtin;
+    /* Execution model */
+    int exec_model;
+    /* Builtins */
+    uint32_t pos_var;
+    uint32_t pos_member_idx;
+    uint32_t pos_ptr_type;
+    bool     pos_is_block;
+    uint32_t pos_block_type[8];
+    uint32_t pos_block_count;
+    uint32_t view_var;
+    /* Common types */
+    uint32_t ft;
+    uint32_t v4t;
+    uint32_t it;
+    uint32_t bt;
+    uint32_t ptr_out_v4;
+    uint32_t ptr_in_int;
+    /* Entry point */
+    uint32_t entry_function;
+    size_t entry_function_word;
+    size_t fn_word;
+    /* Function writing Position */
+    uint32_t position_function;
+    /* Geometry */
+    uint32_t emit_count;
+} SpvMod;
+
 static inline bool valid_id(const SpvMod *m, uint32_t id)
 {
     return id < m->value_capacity;
@@ -95,46 +132,6 @@ static void free_spv_provenance(SpvMod *m)
     m->is_matrix_ptr = NULL;
     m->value_capacity = 0;
 }
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* SPIR-V module scan state                                                  */
-/* ────────────────────────────────────────────────────────────────────────── */
-typedef struct
-{
-    const uint32_t *words;
-    size_t          count;
-    uint32_t bound;
-    bool is_patchable;
-    bool has_mv_cap;
-    /* Diagnostics */
-    bool has_emit_vertex;
-    bool has_viewindex_builtin;
-    /* Execution model */
-    int exec_model;
-    /* Builtins */
-    uint32_t pos_var;
-    uint32_t pos_member_idx;
-    uint32_t pos_ptr_type;
-    bool     pos_is_block;
-    uint32_t pos_block_type[8];
-    uint32_t pos_block_count;
-    uint32_t view_var;
-    /* Common types */
-    uint32_t ft;
-    uint32_t v4t;
-    uint32_t it;
-    uint32_t bt;
-    uint32_t ptr_out_v4;
-    uint32_t ptr_in_int;
-    /* Entry point */
-    uint32_t entry_function;
-    size_t entry_function_word;
-    size_t fn_word;
-    /* Function writing Position */
-    uint32_t position_function;
-    /* Geometry */
-    uint32_t emit_count;
-} SpvMod;
 
 static uint64_t hash_spv(const uint32_t *data, size_t words);
 
