@@ -37,49 +37,51 @@ typedef struct
     size_t    cap;
 } SpvBuf;
 
-static bool sb_init(SpvBuf *b, size_t cap)
+/* ── Matrix provenance helpers ───────────────────────────────────────────── */
+
+static inline bool valid_id(const SpvMod *m, uint32_t id)
 {
-    b->w = malloc(cap * sizeof(uint32_t));
-    b->n = 0;
-    b->cap = cap;
-    return b->w != NULL;
+    return id < m->value_capacity;
 }
 
-static void sb_free(SpvBuf *b)
+static inline uint8_t matrix_value(const SpvMod *m, uint32_t id)
 {
-    free(b->w);
-    b->w = NULL;
-    b->n = 0;
-    b->cap = 0;
+    return valid_id(m, id) ? m->value_from_matrix[id] : 0;
 }
 
-static bool sb_push(SpvBuf *b, uint32_t v)
+static inline void set_matrix_value(SpvMod *m, uint32_t id, uint8_t value)
 {
-    if (b->n >= b->cap)
-    {
-        size_t new_cap = b->cap ? b->cap * 2 : 64;
-        uint32_t *p =
-            realloc(b->w, new_cap * sizeof(uint32_t));
-        if (!p)
-            return false;
-        b->w = p;
-        b->cap = new_cap;
-    }
-    b->w[b->n++] = v;
-    return true;
+    if (valid_id(m, id))
+        m->value_from_matrix[id] = value;
 }
 
-static bool sb_push_n(SpvBuf *b, const uint32_t *src, size_t count)
+static inline uint8_t matrix_ptr(const SpvMod *m, uint32_t id)
 {
-    for (size_t i = 0; i < count; i++)
-        if (!sb_push(b, src[i]))
-            return false;
-    return true;
+    return valid_id(m, id) ? m->is_matrix_ptr[id] : 0;
 }
 
-static inline uint32_t op_(uint32_t op, uint32_t wc)
+static inline void set_matrix_ptr(SpvMod *m, uint32_t id, uint8_t value)
 {
-    return (wc << 16) | op;
+    if (valid_id(m, id))
+        m->is_matrix_ptr[id] = value;
+}
+
+static inline uint8_t matrix_type(const SpvMod *m, uint32_t id)
+{
+    return valid_id(m, id) ? m->is_matrix_type[id] : 0;
+}
+
+static inline void set_matrix_type(SpvMod *m, uint32_t id, uint8_t value)
+{
+    if (valid_id(m, id))
+        m->is_matrix_type[id] = value;
+}
+
+static inline uint8_t matrix_or2(const SpvMod *m,
+                                 uint32_t a,
+                                 uint32_t b)
+{
+    return matrix_value(m, a) | matrix_value(m, b);
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
