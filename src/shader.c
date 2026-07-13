@@ -11,6 +11,7 @@
  *           on newer drivers due to strict PerVertex block validation.
  */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,6 +75,10 @@ typedef struct
     uint32_t position_function;
     /* Geometry */
     uint32_t emit_count;
+    /* Shader analysis */
+    uint32_t dot_count;
+    bool has_matrix_ops;
+    bool has_direct_position_write;
     /* Matrix provenance tracking */
     uint32_t value_capacity;
     uint8_t *value_from_matrix;
