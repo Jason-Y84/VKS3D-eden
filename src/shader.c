@@ -638,15 +638,19 @@ add_pipeline_info(
 
 /* ── Stereo offset injection body ────────────────────────────────────────── */
 typedef struct {
-    SpvMod  *m;
-    bool     have_view;
-    uint32_t uv4, uint_, bt;
+    SpvMod *m;
+    bool have_view;
+    uint32_t uv4;
+    uint32_t uint_;
+    uint32_t bt;
     uint32_t cz;
     uint32_t cf0;
     uint32_t cl;
     uint32_t cr;
     uint32_t cc;
     uint32_t projection_mode;
+    float lo_dbg;
+    float ro_dbg;
     const StereoDebugCtx *dbg;
 } BodyCtx;
 
