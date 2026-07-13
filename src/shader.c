@@ -74,6 +74,11 @@ typedef struct
     uint32_t position_function;
     /* Geometry */
     uint32_t emit_count;
+    /* Matrix provenance tracking */
+    uint32_t value_capacity;
+    uint8_t *value_from_matrix;
+    uint8_t *is_matrix_type;
+    uint8_t *is_matrix_ptr;
 } SpvMod;
 
 static inline bool valid_id(const SpvMod *m, uint32_t id)
