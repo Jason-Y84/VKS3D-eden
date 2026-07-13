@@ -554,15 +554,14 @@ remember_begin_renderpass(
             return;
         }
     }
-
     if (sd->cb_track_count >= MAX_CB_TRACK)
-        return;
-
-    sd->cb_track[sd->cb_track_count].cb = cb;
-    sd->cb_track[sd->cb_track_count].pipeline = VK_NULL_HANDLE;
-    sd->cb_track[sd->cb_track_count].render_pass = rp;
-    sd->cb_track[sd->cb_track_count].subpass = subpass;
-    sd->cb_track_count++;
+    return;
+    uint32_t idx = sd->cb_track_count++;
+    sd->cb_track[idx].cb = cb;
+    sd->cb_track[idx].pipeline = VK_NULL_HANDLE;
+    sd->cb_track[idx].render_pass = rp;
+    sd->cb_track[idx].framebuffer = VK_NULL_HANDLE;
+    sd->cb_track[idx].subpass = subpass;
 }
 
 VkRenderPass
