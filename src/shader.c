@@ -449,17 +449,16 @@ static void do_scan(SpvMod *m, bool p2)
 
 static void spv_scan(SpvMod *m)
 {
-    uint32_t current_function = 0;
     /* First pass: discover decorations/types. */
-    do_scan(m,false);
-
-    /* Run again now that block Position info is known.
-       Some TES shaders declare OpTypePointer before
-       the OpMemberDecorate(BuiltIn Position). */
-    do_scan(m,false);
-
+    do_scan(m, false);
+    /*
+     * Run again now that block Position info is known.
+     * Some TES shaders declare OpTypePointer before
+     * OpMemberDecorate(BuiltIn Position).
+     */
+    do_scan(m, false);
     if (m->pos_is_block)
-        do_scan(m,true);
+        do_scan(m, true);
 }
 
 uint64_t hash_spv(const uint32_t *data, size_t words)
