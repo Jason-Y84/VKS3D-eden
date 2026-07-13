@@ -82,42 +82,43 @@ static inline uint32_t op_(uint32_t op, uint32_t wc)
     return (wc << 16) | op;
 }
 
-/* ── Module scanner ──────────────────────────────────────────────────────── */
-typedef struct {
-    const uint32_t *words; size_t count;
+/* ────────────────────────────────────────────────────────────────────────── */
+/* SPIR-V module scan state                                                  */
+/* ────────────────────────────────────────────────────────────────────────── */
+typedef struct
+{
+    const uint32_t *words;
+    size_t          count;
     uint32_t bound;
-    bool is_patchable, has_mv_cap;
-
+    bool is_patchable;
+    bool has_mv_cap;
     /* Diagnostics */
     bool has_emit_vertex;
     bool has_viewindex_builtin;
-
-    /* Geometry classification */
-    bool has_matrix_ops;
-    bool has_direct_position_write;
-
-    /* SSA tracking: value id -> derived from matrix multiply */
-    uint8_t *value_from_matrix;
-    /* id -> is a matrix type */
-    uint8_t *is_matrix_type;
-    /* id -> points/references a matrix */
-    uint8_t *is_matrix_ptr;
-    uint32_t value_capacity;
-    uint32_t dot_count;
-
-    int  exec_model;
-    uint32_t pos_var, pos_member_idx, pos_ptr_type;
-
-    /* TES shaders may contain both an input gl_in[] Position block
-       and an output gl_PerVertex Position block. */
+    /* Execution model */
+    int exec_model;
+    /* Builtins */
+    uint32_t pos_var;
+    uint32_t pos_member_idx;
+    uint32_t pos_ptr_type;
+    bool     pos_is_block;
     uint32_t pos_block_type[8];
     uint32_t pos_block_count;
-    bool     pos_is_block;
-    uint32_t view_var, ft, v4t, it, bt, ptr_out_v4, ptr_in_int;
-    size_t   fn_word;
+    uint32_t view_var;
+    /* Common types */
+    uint32_t ft;
+    uint32_t v4t;
+    uint32_t it;
+    uint32_t bt;
+    uint32_t ptr_out_v4;
+    uint32_t ptr_in_int;
+    /* Entry point */
     uint32_t entry_function;
-    size_t   entry_function_word;
+    size_t entry_function_word;
+    size_t fn_word;
+    /* Function writing Position */
     uint32_t position_function;
+    /* Geometry */
     uint32_t emit_count;
 } SpvMod;
 
