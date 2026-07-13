@@ -38,6 +38,71 @@ typedef struct
     size_t    cap;
 } SpvBuf;
 
+/* ── Dynamic SPIR-V word buffer ─────────────────────────────────────────── */
+typedef struct {
+    uint32_t *w;
+    size_t n;
+    size_t cap;
+} SpvBuf;
+static bool
+sb_init(
+    SpvBuf *b,
+    size_t c)
+{
+    b->w = malloc(c * sizeof(uint32_t));
+    b->n = 0;
+    b->cap = c;
+    return b->w != NULL;
+}
+static void
+sb_free(
+    SpvBuf *b)
+{
+    free(b->w);
+    b->w = NULL;
+    b->n = 0;
+    b->cap = 0;
+}
+static bool
+sb_push(
+    SpvBuf *b,
+    uint32_t v)
+{
+    if (b->n >= b->cap)
+    {
+        size_t new_cap = b->cap ? b->cap * 2 : 64;
+        uint32_t *p = realloc(
+            b->w,
+            new_cap * sizeof(uint32_t));
+        if (!p)
+            return false;
+        b->w = p;
+        b->cap = new_cap;
+    }
+    b->w[b->n++] = v;
+    return true;
+}
+static bool
+sb_push_n(
+    SpvBuf *b,
+    const uint32_t *v,
+    size_t c)
+{
+    for (size_t i = 0; i < c; i++)
+    {
+        if (!sb_push(b, v[i]))
+            return false;
+    }
+    return true;
+}
+static inline uint32_t
+op_(
+    uint32_t op,
+    uint32_t wc)
+{
+    return (wc << 16) | op;
+}
+
 /* ── Matrix provenance helpers ───────────────────────────────────────────── */
 
 typedef struct
