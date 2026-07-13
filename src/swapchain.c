@@ -1424,8 +1424,11 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         if (!already_tracked)
         {
             STEREO_LOG(
-                "COLOR_INTERCEPT image=%p usage=0x%08X samples=%u fmt=%u",
+                "COLOR_INTERCEPT image=%p extent=%ux%u mip=%u usage=0x%08X samples=%u fmt=%u",
                 (void *)(uintptr_t)*pImage,
+                pCreateInfo->extent.width,
+                pCreateInfo->extent.height,
+                pCreateInfo->mipLevels,
                 pCreateInfo->usage,
                 pCreateInfo->samples,
                 pCreateInfo->format);
@@ -1498,6 +1501,14 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             needs_upgrade = true;
         }
     }
+    for (uint32_t i = 0; i < sd->upgraded_image_count && !needs_upgrade; i++)
+    {
+        if (sd->upgraded_images[i] == pCreateInfo->image)
+        {
+            color_matches++;
+            needs_upgrade = true;
+        }
+    }
     //STEREO_LOG(
     //    "[VIEW DECISION] image=%p needs_upgrade=%d depth_matches=%u color_matches=%u",
     //    pCreateInfo->image,
@@ -1515,8 +1526,17 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     }
     if (!needs_upgrade)
        {
+        for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
+        {
+            if (sd->upgraded_images[i] == pCreateInfo->image)
+            {
+                STEREO_LOG(
+                    "VIEW_IMAGE_ALREADY_UPGRADED image=%p",
+                    (void *)(uintptr_t)pCreateInfo->image);
+            }
+        }
         STEREO_LOG(
-            "VIEW_PASSTHROUGH image=%p fmt=%u aspect=0x%X viewType=%u layers=%u depthTracked=%u colorTracked=%u",
+            "VIEW_PASSTHROUGH image=%p fmt=%u aspect=0x%X viewType=%u layers=%u depthTracked=%u colorTracked=%u usage_unknown=1",
             (void*)(uintptr_t)pCreateInfo->image,
             pCreateInfo->format,
             pCreateInfo->subresourceRange.aspectMask,
@@ -1541,13 +1561,20 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         upgraded.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
     if (upgraded.subresourceRange.layerCount < 2)
         upgraded.subresourceRange.layerCount = 2;
-    //STEREO_LOG(
-    //    "[VIEW UPGRADED] image=%p oldType=%u newType=%u oldLayers=%u newLayers=%u",
-    //    (void*)(uintptr_t)pCreateInfo->image,
-    //    pCreateInfo->viewType,
-    //    upgraded.viewType,
-    //    pCreateInfo->subresourceRange.layerCount,
-    //    upgraded.subresourceRange.layerCount);
+    STEREO_LOG(
+        "VIEW_CREATE image=%p "
+        "oldType=%u newType=%u "
+        "oldLayers=%u newLayers=%u "
+        "aspect=0x%X baseLayer=%u levelCount=%u layerCount=%u",
+        (void *)(uintptr_t)upgraded.image,
+        pCreateInfo->viewType,
+        upgraded.viewType,
+        pCreateInfo->subresourceRange.layerCount,
+        upgraded.subresourceRange.layerCount,
+        upgraded.subresourceRange.aspectMask,
+        upgraded.subresourceRange.baseArrayLayer,
+        upgraded.subresourceRange.levelCount,
+        upgraded.subresourceRange.layerCount);
     STEREO_LOG(
         "VIEW_UPGRADE image=%p fmt=%u depth_matches=%u color_matches=%u oldType=%u newType=%u oldLayers=%u newLayers=%u",
         (void*)(uintptr_t)pCreateInfo->image,
@@ -1559,6 +1586,15 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         pCreateInfo->subresourceRange.layerCount,
         upgraded.subresourceRange.layerCount);
     VkResult _r = sd->real.CreateImageView(sd->real_device, &upgraded, pAllocator, pView);
+    if (_r == VK_SUCCESS)
+    {
+        STEREO_LOG(
+            "VIEW_CREATED view=%p image=%p type=%u layers=%u",
+            (void *)(uintptr_t)*pView,
+            (void *)(uintptr_t)upgraded.image,
+            upgraded.viewType,
+            upgraded.subresourceRange.layerCount);
+    }
     //STEREO_LOG(
     //    "[VIEW TRACK CANDIDATE] view=%p image=%p",
     //    _r == VK_SUCCESS ? *pView : VK_NULL_HANDLE,
@@ -1567,6 +1603,10 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     if (_r == VK_SUCCESS &&
         sd->upgraded_view_count < MAX_UPGRADED_VIEWS)
     {
+        STEREO_LOG(
+            "UPGRADED_VIEW_TRACK image=%p view=%p",
+            (void*)(uintptr_t)pCreateInfo->image,
+            (void*)(uintptr_t)*pView);
         //STEREO_LOG(
         //    "[VIEW TRACK ADD] view=%p slot=%u",
         //    *pView,
@@ -1581,6 +1621,9 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         //    *pView,
         //    sd->upgraded_view_count);
         sd->upgraded_views[sd->upgraded_view_count++] = *pView;
+        if (sd->upgraded_image_count < MAX_UPGRADED_VIEWS)
+            sd->upgraded_images[sd->upgraded_image_count++] =
+                pCreateInfo->image;
     }
     //STEREO_LOG(
     //    "[VIEW TRACKED] view=%p count=%u",

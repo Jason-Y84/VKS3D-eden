@@ -629,6 +629,9 @@ typedef struct StereoDevice {
         VkFramebuffer framebuffer;
     } cb_track[MAX_CB_TRACK];
     uint32_t cb_track_count;
+
+    VkImage upgraded_images[MAX_UPGRADED_VIEWS];
+    uint32_t upgraded_image_count;
 } StereoDevice;
 
 /* -- Stereo UBO layout ----------------------------------------------------- */
