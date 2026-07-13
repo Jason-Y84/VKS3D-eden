@@ -130,82 +130,23 @@ static void do_scan(SpvMod *m, bool p2)
 {
     const uint32_t *w=m->words;
     uint32_t current_function = 0;
+    #define MAT(id)        matrix_value(m, (id))
+    #define SETMAT(id,v)   set_matrix_value(m, (id), (v))
+    #define PTR(id)        matrix_ptr(m, (id))
+    #define SETPTR(id,v)   set_matrix_ptr(m, (id), (v))
+    #define TYPE(id)       matrix_type(m, (id))
+    #define SETTYPE(id,v)  set_matrix_type(m, (id), (v))
+    #define CHECK_ID(id) \
+    do { \
+        if ((id) >= m->value_capacity) \
+            STEREO_LOG("PROVENANCE_OOB id=%u cap=%u", \
+                       (id), m->value_capacity); \
+    } while (0)
     for (size_t i=5;i<m->count;) {
         uint32_t op=w[i]&0xffff, wc=w[i]>>16;
         if (!wc||i+wc>m->count) break;
         if (!p2)
         {
-            /* Debug: find instructions that consume a matrix-derived value
-             * but currently do not propagate the provenance bit.
-             */
-            if (wc >= 4)
-            {
-                uint32_t dest = w[i + 2];
-                bool src_matrix = false;
-        
-                for (uint32_t k = 3; k < wc; ++k)
-                {
-                    uint32_t id = w[i + k];
-                    if (id < m->value_capacity &&
-                        m->value_from_matrix[id])
-                    {
-                        src_matrix = true;
-                        break;
-                    }
-                }
-        
-                if (src_matrix &&
-                    (dest >= m->value_capacity ||
-                     !m->value_from_matrix[dest]))
-                {
-                    STEREO_LOG(
-                        "MATRIX_FLOW_BREAK op=%u (%s) word=%zu wc=%u dest=%u",
-                        op,
-                        (op == SpvOpAccessChain) ? "AccessChain" :
-                        (op == SpvOpInBoundsAccessChain) ? "InBoundsAccessChain" :
-                        (op == SpvOpPtrAccessChain) ? "PtrAccessChain" :
-                        (op == SpvOpVectorShuffle) ? "VectorShuffle" :
-                        (op == SpvOpCompositeExtract) ? "CompositeExtract" :
-                        (op == SpvOpCompositeConstruct) ? "CompositeConstruct" :
-                        "other",
-                        i,
-                        wc,
-                        dest);
-                }
-            }
-        /* Debug: find who defines result id 162 */
-        if (wc >= 3 &&
-            (w[i+2] == 24 ||
-             w[i+2] == 129 ||
-             w[i+2] == 136 ||
-             w[i+2] == 137 ||
-             (w[i+2] >= 159 && w[i+2] <= 162)))
-              {
-            const char *name =
-                (op == SpvOpCompositeConstruct) ? "CompositeConstruct" :
-                (op == SpvOpCompositeExtract)   ? "CompositeExtract" :
-                (op == SpvOpCompositeInsert)    ? "CompositeInsert" :
-                (op == SpvOpCopyObject)         ? "CopyObject" :
-                (op == SpvOpBitcast)            ? "Bitcast" :
-                (op == SpvOpPhi)                ? "Phi" :
-                (op == SpvOpSelect)             ? "Select" :
-                (op == SpvOpVectorShuffle)      ? "VectorShuffle" :
-                (op == SpvOpFAdd)               ? "FAdd" :
-                (op == SpvOpFSub)               ? "FSub" :
-                (op == SpvOpFMul)               ? "FMul" :
-                (op == SpvOpFDiv)               ? "FDiv" :
-                (op == SpvOpFunctionCall)       ? "FunctionCall" :
-                (op == SpvOpExtInst)            ? "ExtInst" :
-                "Other";
-            STEREO_LOG(
-                "DEF%u hash=%016llx module=%p op=%u wc=%u word=%zu",
-                w[i+2],
-                (unsigned long long)hash_spv(m->words, m->count),
-                (const void *)m->words,
-                op,
-                wc,
-                i);
-        }
         switch(op) {
             case SpvOpDot:
                 m->dot_count++;
@@ -213,126 +154,59 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpAccessChain:
             case SpvOpInBoundsAccessChain:
             case SpvOpPtrAccessChain:
-            if (wc >= 4 &&
-                w[i+2] < m->value_capacity &&
-                w[i+3] < m->value_capacity)
-            {
-                m->is_matrix_ptr[w[i+2]] =
-                    m->is_matrix_ptr[w[i+3]];
-            
-                if (w[i+2] == 23)
+                if (wc >= 4 &&
+                    w[i + 2] < m->value_capacity &&
+                    w[i + 3] < m->value_capacity)
                 {
-                    STEREO_LOG(
-                        "TRACE_ACCESSCHAIN result=%u base=%u matrixptr=%u",
-                        w[i+2],
-                        w[i+3],
-                        m->is_matrix_ptr[w[i+2]]);
+                    SETPTR(w[i + 2], PTR(w[i + 3]));
                 }
-            }
-            break;
+                break;
             case SpvOpLoad:
                 if (wc >= 4 &&
-                    w[i+2] < m->value_capacity &&
-                    w[i+3] < m->value_capacity)
+                    w[i + 2] < m->value_capacity &&
+                    w[i + 3] < m->value_capacity)
                 {
-                    STEREO_LOG(
-                        "LOADDBG result=%u ptr=%u valueMatrix=%u ptrMatrix=%u",
-                        w[i+2],
-                        w[i+3],
-                        m->value_from_matrix[w[i+3]],
-                        m->is_matrix_ptr[w[i+3]]);
-                    m->value_from_matrix[w[i+2]] =
-                        m->value_from_matrix[w[i+3]] ||
-                        m->is_matrix_ptr[w[i+3]];
-                    STEREO_LOG(
-                        "LOADDBG_RESULT result=%u matrix=%u",
-                        w[i+2],
-                        m->value_from_matrix[w[i+2]]);
-                    if (w[i+2] == 24)
-                    {
-                        STEREO_LOG(
-                            "TRACE_LOAD word=%zu op=%u result=%u ptr=%u matrix=%u",
-                            i,
-                            op,
-                            w[i+2],
-                            w[i+3],
-                            m->value_from_matrix[w[i+2]]);
-                    }
+                    SETMAT(
+                        w[i + 2],
+                        MAT(w[i + 3]) || PTR(w[i + 3]));
                 }
                 break;
             case SpvOpCompositeExtract:
-            {
                 if (wc >= 5 &&
-                    w[i+2] < m->value_capacity &&
-                    w[i+3] < m->value_capacity)
+                    w[i + 2] < m->value_capacity &&
+                    w[i + 3] < m->value_capacity)
                 {
-                    m->value_from_matrix[w[i+2]] =
-                        m->value_from_matrix[w[i+3]];
-
-                    if (w[i+2] == 131)
-                    {
-                        STEREO_LOG(
-                            "TRACE_EXTRACT result=%u composite=%u matrix=%u",
-                            w[i+2],
-                            w[i+3],
-                            m->value_from_matrix[w[i+2]]);
-                    }
-                }
-            }
-            break;
-            case SpvOpVectorShuffle:
-                if (wc >= 6 &&
-                    w[i+2] < m->value_capacity &&
-                    w[i+3] < m->value_capacity)
-                {
-                    m->value_from_matrix[w[i+2]] =
-                        m->value_from_matrix[w[i+3]];
+                    SETMAT(w[i + 2], MAT(w[i + 3]));
                 }
                 break;
-            
-            case SpvOpCompositeConstruct:
-            {
-                if (wc >= 5 &&
-                    w[i+2] < m->value_capacity)
+            case SpvOpVectorShuffle:
+                if (wc >= 6 &&
+                    w[i + 2] < m->value_capacity &&
+                    w[i + 3] < m->value_capacity)
                 {
-                    if (w[i+2] == 162)
-                    {
-                        STEREO_LOG(
-                            "DEF162 CONSTRUCT %u %u %u %u",
-                            (wc > 3) ? w[i+3] : 0,
-                            (wc > 4) ? w[i+4] : 0,
-                            (wc > 5) ? w[i+5] : 0,
-                            (wc > 6) ? w[i+6] : 0);
-                    }
+                    SETMAT(w[i + 2], MAT(w[i + 3]));
+                }
+                break;
+            case SpvOpCompositeConstruct:
+                if (wc >= 5 &&
+                    w[i + 2] < m->value_capacity)
+                {
                     uint8_t matrix = 0;
-            
-                    for (uint32_t k = 3; k < wc; k++)
+                    for (uint32_t k = 3; k < wc; ++k)
                     {
-                        uint32_t id = w[i+k];
-                        if (id < m->value_capacity &&
-                            m->value_from_matrix[id])
+                        if (w[i + k] < m->value_capacity &&
+                            MAT(w[i + k]))
                         {
                             matrix = 1;
                             break;
                         }
                     }
-                    uint8_t old = m->value_from_matrix[w[i+2]];
-                    m->value_from_matrix[w[i+2]] = matrix;
-
-                    if (old && !matrix)
-                    {
-                        STEREO_LOG(
-                            "MATRIX_OVERWRITE result=%u old=%u new=%u op=%u",
-                            w[i+2],
-                            old,
-                            matrix,
-                            op);
-                    }
+                    SETMAT(w[i + 2], matrix);
                 }
-            }
-            break;
+                break;
             case SpvOpCapability:
-                if(wc>=2&&w[i+1]==SpvCapabilityMultiView) m->has_mv_cap=true; break;
+                if(wc>=2&&w[i+1]==SpvCapabilityMultiView) m->has_mv_cap=true;
+                break;
             case SpvOpEntryPoint:
                 if(wc>=3){
                     uint32_t e=w[i+1];
@@ -344,414 +218,157 @@ static void do_scan(SpvMod *m, bool p2)
                     }}
                 break;
             case SpvOpTypeFloat:
-                if(wc==3&&w[i+2]==32) m->ft=w[i+1]; break;
+                if(wc==3&&w[i+2]==32) m->ft=w[i+1];
+                break;
             case SpvOpTypeVector:
-                if(wc==4&&w[i+2]==m->ft&&w[i+3]==4) m->v4t=w[i+1]; break;
+                if(wc==4&&w[i+2]==m->ft&&w[i+3]==4) m->v4t=w[i+1];
+                break;
             case SpvOpTypeInt:
-                if(wc==4&&w[i+2]==32) m->it=w[i+1]; break;
+                if(wc==4&&w[i+2]==32) m->it=w[i+1];
+                break;
             case SpvOpTypeMatrix:
-                if (wc >= 4 &&
-                    w[i+1] < m->value_capacity)
-                {
-                    m->is_matrix_type[w[i+1]] = 1;
-                    if (w[i+1] == 6 || w[i+1] == 7 || w[i+1] == 8)
-                    {
-                        STEREO_LOG(
-                            "TRACE_MATRIXTYPE id=%u columnType=%u columns=%u",
-                            w[i+1],
-                            w[i+2],
-                            w[i+3]);
-                    }
-                    STEREO_LOG(
-                        "TRACE_MATRIXTYPE id=%u columnType=%u columns=%u",
-                        w[i+1],
-                        w[i+2],
-                        w[i+3]);
-                }
                 break;
             case SpvOpTypeStruct:
-            {
                 if (wc >= 3)
                 {
                     uint8_t matrix = 0;
-
-                    for (uint32_t k = 2; k < wc; k++)
+                    for (uint32_t k = 2; k < wc; ++k)
                     {
-                        uint32_t member = w[i+k];
-
-                        if (member < m->value_capacity &&
-                            m->is_matrix_type[member])
+                        if (w[i + k] < m->value_capacity &&
+                            TYPE(w[i + k]))
                         {
                             matrix = 1;
                             break;
                         }
                     }
-
-                    if (w[i+1] < m->value_capacity)
-                        m->is_matrix_type[w[i+1]] = matrix;
-            
-                    STEREO_LOG(
-                        "TYPESTRUCT id=%u matrix=%u members=%u",
-                        w[i+1],
-                        matrix,
-                        wc - 2);
-            
-                    if (matrix)
-                    {
-                        STEREO_LOG(
-                            "STRUCT_NOW_MATRIX id=%u",
-                            w[i+1]);
-                    }
+                    if (w[i + 1] < m->value_capacity)
+                        SETTYPE(w[i + 1], matrix);
                 }
-            }
-            break;
+                break;
             case SpvOpTypeArray:
-            if (wc >= 4)
-            {
-                STEREO_LOG(
-                    "TYPEARRAY id=%u elem=%u matrix=%u",
-                    w[i+1],
-                    w[i+2],
-                    (w[i+2] < m->value_capacity)
-                        ? m->is_matrix_type[w[i+2]]
-                        : 0);
-            }
-            break;
+                break;
             case SpvOpTypeRuntimeArray:
-            if (wc >= 3)
-            {
-                STEREO_LOG(
-                    "TYPERUNTIMEARRAY id=%u elem=%u matrix=%u",
-                    w[i+1],
-                    w[i+2],
-                    (w[i+2] < m->value_capacity)
-                        ? m->is_matrix_type[w[i+2]]
-                        : 0);
-            }
-            break;
+                break;
             case SpvOpTranspose:
                 if (wc >= 4 &&
-                    w[i+2] < m->value_capacity &&
-                    w[i+3] < m->value_capacity)
+                    w[i + 2] < m->value_capacity &&
+                    w[i + 3] < m->value_capacity)
                 {
-                    m->value_from_matrix[w[i+2]] =
-                        m->value_from_matrix[w[i+3]];
-
-                    if (w[i+2] == 129)
-                    {
-                        STEREO_LOG(
-                            "TRACE_TRANSPOSE result=%u src=%u matrix=%u",
-                            w[i+2],
-                            w[i+3],
-                            m->value_from_matrix[w[i+2]]);
-                    }
+                    SETMAT(w[i + 2], MAT(w[i + 3]));
                 }
                 break;
             case SpvOpMatrixTimesVector:
             case SpvOpMatrixTimesMatrix:
                 m->has_matrix_ops = true;
+                /* fall through */
             case SpvOpVectorTimesScalar:
             case SpvOpVectorTimesMatrix:
             case SpvOpMatrixTimesScalar:
-            {
-                uint32_t result = (wc > 2) ? w[i+2] : 0;
-
-                STEREO_LOG(
-                    "MATRIX_RESULT op=%u wc=%u result=%u cap=%u matrix=%u vector=%u",
-                    op,
-                    wc,
-                    result,
-                    m->value_capacity,
-                    (wc > 3) ? w[i+3] : 0,
-                    (wc > 4) ? w[i+4] : 0);
-
                 if (wc >= 5)
                 {
-                    if (result < m->value_capacity)
+                    if (w[i + 2] < m->value_capacity)
                     {
-                        m->value_from_matrix[result] = 1;
-
-                        STEREO_LOG(
-                            "MATRIX_MARK result=%u now=%u",
-                            result,
-                            m->value_from_matrix[result]);
+                        SETMAT(w[i + 2], 1);
+                        // STEREO_LOG("MATRIX_MARK result=%u", w[i + 2]);
                     }
+                    /*
                     else
                     {
                         STEREO_LOG(
                             "MATRIX_CAP_FAIL result=%u cap=%u",
-                            result,
+                            w[i + 2],
                             m->value_capacity);
                     }
+                    */
                 }
-            }
-            break;
-
+                break;
             case SpvOpCopyObject:
             case SpvOpBitcast:
-            if (wc >= 4 &&
-                w[i+2] < m->value_capacity &&
-                w[i+3] < m->value_capacity)
-            {
-                if (w[i+2] == 162)
+                if (wc >= 4 &&
+                    w[i + 2] < m->value_capacity &&
+                    w[i + 3] < m->value_capacity)
                 {
-                    STEREO_LOG(
-                        "DEF162 COPY src=%u matrix=%u",
-                        w[i+3],
-                        m->value_from_matrix[w[i+3]]);
+                    SETMAT(w[i + 2], MAT(w[i + 3]));
                 }
-                uint8_t old = m->value_from_matrix[w[i+2]];
-                uint8_t matrix = m->value_from_matrix[w[i+3]];
-                m->value_from_matrix[w[i+2]] = matrix;
-
-                if (old && !matrix)
-                {
-                    STEREO_LOG(
-                        "MATRIX_OVERWRITE result=%u old=%u new=%u op=%u",
-                        w[i+2],
-                        old,
-                        matrix,
-                        op);
-                }
-            }
-            break;
+                break;
             case SpvOpExtInst:
-            if (wc >= 7)
-            {
-                uint8_t matrix = 0;
-
-                for (uint32_t k = 5; k < wc; ++k)
+                if (wc >= 7 &&
+                    w[i + 2] < m->value_capacity)
                 {
-                    uint32_t id = w[i + k];
-                    if (id < m->value_capacity)
-                        matrix |= m->value_from_matrix[id];
-                }
-                if (w[i+2] >= 130 && w[i+2] <= 165)
-                {
-                    STEREO_LOG(
-                        "EXTINST result=%u inst=%u matrix=%u",
-                        w[i+2],
-                        w[i+4],
-                        matrix);
-
+                    uint8_t matrix = 0;
                     for (uint32_t k = 5; k < wc; ++k)
                     {
-                        uint32_t id = w[i+k];
-                        STEREO_LOG(
-                            "  arg id=%u matrix=%u",
-                            id,
-                            (id < m->value_capacity)
-                                ? m->value_from_matrix[id]
-                                : 0);
+                        if (w[i + k] < m->value_capacity)
+                            matrix |= MAT(w[i + k]);
                     }
+                    SETMAT(w[i + 2], matrix);
                 }
-                if (w[i+4] == 50)   /* GLSLstd450 Fma */
-                {
-                    STEREO_LOG(
-                        "FMA result=%u src0=%u(%u) src1=%u(%u) src2=%u(%u)",
-                        w[i+2],
-                        w[i+5],
-                        w[i+5] < m->value_capacity ? m->value_from_matrix[w[i+5]] : 0,
-                        w[i+6],
-                        w[i+6] < m->value_capacity ? m->value_from_matrix[w[i+6]] : 0,
-                        w[i+7],
-                        w[i+7] < m->value_capacity ? m->value_from_matrix[w[i+7]] : 0);
-                }
-            }
-            break;
+                break;
             case SpvOpFAdd:
             case SpvOpFSub:
             case SpvOpFMul:
             case SpvOpFDiv:
-            if (wc >= 5 &&
-                w[i+2] < m->value_capacity)
-            {
-                if (w[i+2] == 162)
+                if (wc >= 5 &&
+                    w[i + 2] < m->value_capacity)
                 {
-                    STEREO_LOG(
-                        "DEF162 hash=%016llx FOP op=%u src0=%u(%d) src1=%u(%d)",
-                        (unsigned long long)hash_spv(m->words, m->count),
-                        op,
-                        w[i+3],
-                        (w[i+3] < m->value_capacity)
-                            ? m->value_from_matrix[w[i+3]]
-                            : 0,
-                        w[i+4],
-                        (w[i+4] < m->value_capacity)
-                            ? m->value_from_matrix[w[i+4]]
-                            : 0);
+                    SETMAT(
+                        w[i + 2],
+                        MAT(w[i + 3]) | MAT(w[i + 4]));
                 }
-                uint8_t matrix = 0;
-                if (w[i+3] < m->value_capacity)
-                    matrix |= m->value_from_matrix[w[i+3]];
-                if (w[i+4] < m->value_capacity)
-                    matrix |= m->value_from_matrix[w[i+4]];
-                if (w[i+2] >= 130 && w[i+2] <= 165)
-                {
-                    STEREO_LOG(
-                        "FOP result=%u src0=%u(%u) src1=%u(%u) -> %u",
-                        w[i+2],
-                        w[i+3],
-                        (w[i+3] < m->value_capacity)
-                            ? m->value_from_matrix[w[i+3]]
-                            : 0,
-                        w[i+4],
-                        (w[i+4] < m->value_capacity)
-                            ? m->value_from_matrix[w[i+4]]
-                            : 0,
-                        matrix);
-                }
-                m->value_from_matrix[w[i+2]] = matrix;
-            }
-            break;
+                break;
             case SpvOpSelect:
-            if (wc >= 6 &&
-                w[i+2] < m->value_capacity)
-            {
-                uint8_t matrix = 0;
-                if (w[i+4] < m->value_capacity)
-                    matrix |= m->value_from_matrix[w[i+4]];
-                if (w[i+5] < m->value_capacity)
-                    matrix |= m->value_from_matrix[w[i+5]];
-                m->value_from_matrix[w[i+2]] = matrix;
-                if (w[i+2] == 162)
-                {
-                    STEREO_LOG(
-                        "DEF162 hash=%016llx SELECT true=%u(%d) false=%u(%d) -> %d",
-                        (unsigned long long)hash_spv(m->words, m->count),
-                        w[i+4],
-                        (w[i+4] < m->value_capacity)
-                            ? m->value_from_matrix[w[i+4]]
-                            : 0,
-                        w[i+5],
-                        (w[i+5] < m->value_capacity)
-                            ? m->value_from_matrix[w[i+5]]
-                            : 0,
-                        matrix);
-                }
-            }
-            break;
-            case SpvOpFunctionCall:
-            {
-                if (wc >= 4)
-                {
-                    STEREO_LOG(
-                        "CALL function=%u target=%u result=%u word=%zu",
-                        current_function,
-                        w[i+3],   /* function being called */
-                        w[i+2],   /* result id */
-                        i);
-                }
-            }
-            break;
-            case SpvOpCompositeInsert:
-            {
                 if (wc >= 6 &&
-                    w[i+2] < m->value_capacity)
+                    w[i + 2] < m->value_capacity)
+                {
+                    SETMAT(
+                        w[i + 2],
+                        MAT(w[i + 4]) | MAT(w[i + 5]));
+                }
+                break;
+            case SpvOpFunctionCall:
+                break;
+            case SpvOpCompositeInsert:
+                if (wc >= 6 &&
+                    w[i + 2] < m->value_capacity)
                 {
                     uint8_t matrix = 0;
-                    /* inserted object */
-                    if (w[i+3] < m->value_capacity)
-                        matrix |= m->value_from_matrix[w[i+3]];
-                    /* destination composite */
-                    if (w[i+4] < m->value_capacity)
-                        matrix |= m->value_from_matrix[w[i+4]];
-                    m->value_from_matrix[w[i+2]] = matrix;
-                    STEREO_LOG(
-                        "INSERT result=%u object=%u(%u) composite=%u(%u) -> %u",
-                        w[i+2],
-                        w[i+3],
-                        (w[i+3] < m->value_capacity)
-                            ? m->value_from_matrix[w[i+3]]
-                            : 0,
-                        w[i+4],
-                        (w[i+4] < m->value_capacity)
-                            ? m->value_from_matrix[w[i+4]]
-                            : 0,
-                        matrix);
+                    if (w[i + 3] < m->value_capacity)
+                        matrix |= MAT(w[i + 3]);
+                    if (w[i + 4] < m->value_capacity)
+                        matrix |= MAT(w[i + 4]);
+                    SETMAT(w[i + 2], matrix);
                 }
-            }
-            break;
+                break;
             case SpvOpTypePointer:
                 if (wc >= 4)
                 {
-                    STEREO_LOG(
-                        "TYPEPTR id=%u storage=%u pointee=%u pointeeMatrix=%u ptrMatrix=%u",
-                        w[i+1],
-                        w[i+2],
-                        w[i+3],
-                        (w[i+3] < m->value_capacity)
-                            ? m->is_matrix_type[w[i+3]]
-                            : 0,
-                        (w[i+1] < m->value_capacity)
-                            ? m->is_matrix_ptr[w[i+1]]
-                            : 0);
-                    STEREO_LOG(
-                        "TYPEPTR_ORDER id=%u pointee=%u matrixNow=%u",
-                        w[i+1],
-                        w[i+3],
-                        (w[i+3] < m->value_capacity)
-                            ? m->is_matrix_type[w[i+3]]
-                            : 0);
-                    if (w[i+1] < m->value_capacity &&
-                        w[i+3] < m->value_capacity &&
-                        m->is_matrix_type[w[i+3]])
-                    {
-                        m->is_matrix_ptr[w[i+1]] = 1;
-                        if (w[i+3] == 18 || w[i+3] == 19)
-                        {
-                            STEREO_LOG(
-                                "TRACE_PTR18 id=%u pointee=%u matrixType=%u ptrMatrix=%u",
-                                w[i+1],
-                                w[i+3],
-                                (w[i+3] < m->value_capacity)
-                                    ? m->is_matrix_type[w[i+3]]
-                                    : 0,
-                                (w[i+1] < m->value_capacity)
-                                    ? m->is_matrix_ptr[w[i+1]]
-                                    : 0);
-                        }
-                        if (w[i+1] == 18 || w[i+1] == 19 || w[i+1] == 20)
-                        {
-                            STEREO_LOG(
-                                "TRACE_PTR type=%u pointee=%u matrixType=%u",
-                                w[i+1],
-                                w[i+3],
-                                m->is_matrix_type[w[i+3]]);
-                        }
-                    }
-                    if (w[i+2] == SpvStorageOutput &&
-                        m->v4t &&
-                        w[i+3] == m->v4t)
-                        m->ptr_out_v4 = w[i+1];
-                    if (w[i+2] == SpvStorageInput &&
-                        m->it &&
-                        w[i+3] == m->it)
-                        m->ptr_in_int = w[i+1];
+                if (TYPE(w[i + 3]))
+                {
+                SETPTR(w[i + 1], 1);
+                }
+                if (w[i + 2] == SpvStorageOutput &&
+                m->v4t &&
+                w[i + 3] == m->v4t)
+                {
+                m->ptr_out_v4 = w[i + 1];
+                }
+                if (w[i + 2] == SpvStorageInput &&
+                m->it &&
+                w[i + 3] == m->it)
+                {
+                m->ptr_in_int = w[i + 1];
+                }
                 }
                 break;
             case SpvOpVariable:
-            if (wc >= 4)
-            {
-                if (w[i+2] == 20)
+                if (wc >= 4 &&
+                    w[i + 1] < m->value_capacity &&
+                    w[i + 2] < m->value_capacity &&
+                    PTR(w[i + 1]))
                 {
-                    STEREO_LOG(
-                        "TRACE_VAR20 result=%u type=%u storage=%u matrixptr=%u",
-                        w[i+2],
-                        w[i+1],
-                        w[i+3],
-                        (w[i+1] < m->value_capacity)
-                            ? m->is_matrix_ptr[w[i+1]]
-                            : 0);
+                SETPTR(w[i + 2], 1);
                 }
-                if (w[i+2] < m->value_capacity &&
-                    w[i+1] < m->value_capacity &&
-                    m->is_matrix_ptr[w[i+1]])
-                {
-                    m->is_matrix_ptr[w[i+2]] = 1;
-                }
-            }
-            break;
+                break;
             case SpvOpDecorate:
                 if(wc>=4&&w[i+2]==SpvDecorationBuiltIn){
                     if(w[i+3]==SpvBuiltInPosition&&!m->pos_is_block)
@@ -768,7 +385,6 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     if (m->pos_block_count < 8)
                         m->pos_block_type[m->pos_block_count++] = w[i+1];
-
                     m->pos_member_idx = w[i+2];
                     m->pos_is_block   = true;
                     m->pos_var        = 0;
@@ -788,48 +404,23 @@ static void do_scan(SpvMod *m, bool p2)
                 m->has_emit_vertex = true;
                 break;
             case SpvOpStore:
-            {
                 if (wc >= 3 &&
-                    w[i+1] == m->pos_var)
+                    w[i + 1] == m->pos_var)
                 {
                     if (current_function &&
                         !m->position_function)
                     {
                         m->position_function = current_function;
-                    
-                        STEREO_LOG(
-                            "POSITION_WRITER_FUNCTION=%u",
-                            current_function);
                     }
-                    uint32_t source = w[i+2];
-                    STEREO_LOG(
-                        "POSITION_STORE function=%u word=%zu source=%u",
-                        current_function,
-                        i,
-                        source);
-                    STEREO_LOG(
-                        "STORE_POS hash=%016llx word=%zu dst=%u source=%u matrix=%u",
-                        (unsigned long long)hash_spv(m->words, m->count),
-                        i,
-                        w[i+1],
-                        source,
-                        (source < m->value_capacity)
-                            ? m->value_from_matrix[source]
-                            : 0);
-                    if (source < m->value_capacity)
-                    {
-                        STEREO_LOG(
-                            "STORE_SOURCE id=%u matrix=%u",
-                            source,
-                            m->value_from_matrix[source]);
-                    }
+                    uint32_t source = w[i + 2];
                     if (source >= m->value_capacity ||
-                        !m->value_from_matrix[source])
+                        !MAT(source))
+                    {
                         m->has_direct_position_write = true;
+                    }
                 }
+                break;
             }
-            break;
-        }
         } else {
             if(op==SpvOpTypePointer && wc>=4 &&
                w[i+2]==SpvStorageOutput)
