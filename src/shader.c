@@ -640,7 +640,7 @@ typedef struct {
 typedef struct StereoDebugCtx {
     uint32_t pipeline_index;
     VkRenderPass render_pass;
-    int is_multiview;
+    bool is_multiview;
     uint32_t stage;
     uint32_t vertex_binding_count;
     uint32_t is_quad;
