@@ -596,30 +596,24 @@ static StereoPipelineInfo *
 add_pipeline_info(
     StereoDevice *sd)
 {
-    if (sd->pipeline_info_count == sd->pipeline_info_capacity)
+    if (sd->pipeline_info_count >= sd->pipeline_info_capacity)
     {
         uint32_t new_cap =
             sd->pipeline_info_capacity ?
             sd->pipeline_info_capacity * 2 :
             128;
-
         StereoPipelineInfo *new_array =
             realloc(
-                sd->pipeline_info,
-                sizeof(*new_array) * new_cap);
-
+            sd->pipeline_info,
+            sizeof(*new_array) * new_cap);
         if (!new_array)
             return NULL;
-
         sd->pipeline_info = new_array;
         sd->pipeline_info_capacity = new_cap;
     }
-
     StereoPipelineInfo *info =
         &sd->pipeline_info[sd->pipeline_info_count++];
-
     memset(info, 0, sizeof(*info));
-
     return info;
 }
 
