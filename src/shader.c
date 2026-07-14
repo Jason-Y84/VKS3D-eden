@@ -3356,9 +3356,24 @@ fs_dump_scan_summary(
         s->n_param,
         s->n_function,
         s->n_call);
-    for (uint32_t i = 0;
-         i < s->n_var;
-         ++i)
+    /*
+     * Image types
+     */
+    for (uint32_t i = 0; i < s->n_img; ++i)
+    {
+        const FsImageInfo *img =
+            &s->images[i];
+        STEREO_LOG(
+            "FS_IMAGE_FINAL id=%u depth=%u arrayed=%u patchable=%u",
+            img->id,
+            img->depth,
+            img->arrayed,
+            img->patchable);
+    }
+    /*
+     * Variables
+     */
+    for (uint32_t i = 0; i < s->n_var; ++i)
     {
         const FsVariableInfo *v =
             &s->vars[i];
@@ -3370,9 +3385,10 @@ fs_dump_scan_summary(
             v->binding,
             v->location);
     }
-    for (uint32_t i = 0;
-         i < s->n_dec;
-         ++i)
+    /*
+     * Decorations
+     */
+    for (uint32_t i = 0; i < s->n_dec; ++i)
     {
         const FsDecorationInfo *d =
             &s->decorations[i];
@@ -3382,9 +3398,10 @@ fs_dump_scan_summary(
             d->set,
             d->binding);
     }
-    for (uint32_t i = 0;
-         i < s->n_function;
-         ++i)
+    /*
+     * Functions
+     */
+    for (uint32_t i = 0; i < s->n_function; ++i)
     {
         const FsFunctionInfo *fn =
             &s->functions[i];
@@ -3393,9 +3410,10 @@ fs_dump_scan_summary(
             fn->id,
             fn->first_param);
     }
-    for (uint32_t i = 0;
-         i < s->n_param;
-         ++i)
+    /*
+     * Parameters
+     */
+    for (uint32_t i = 0; i < s->n_param; ++i)
     {
         const FsParameterInfo *p =
             &s->params[i];
@@ -3405,21 +3423,23 @@ fs_dump_scan_summary(
             p->function_id,
             p->index);
     }
-    for (uint32_t i = 0;
-         i < s->n_load;
-         ++i)
+    /*
+     * Loads
+     */
+    for (uint32_t i = 0; i < s->n_load; ++i)
     {
         const FsLoadInfo *load =
             &s->loads[i];
         STEREO_LOG(
-            "FS_LOAD_FINAL id=%u owner=%u source=%u",
+            "FS_LOAD_FINAL id=%u owner=%u binding=%u",
             load->id,
             load->owner_var,
-            load->source_id);
+            load->binding);
     }
-    for (uint32_t i = 0;
-         i < s->n_call;
-         ++i)
+    /*
+     * Calls
+     */
+    for (uint32_t i = 0; i < s->n_call; ++i)
     {
         const FsCallInfo *call =
             &s->calls[i];
