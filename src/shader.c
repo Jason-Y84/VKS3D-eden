@@ -1562,9 +1562,12 @@ fs_var_index(
     const FsScan *s,
     uint32_t id)
 {
-    for (uint32_t i = 0; i < s->n_var; i++)
+    if (!s)
+        return -1;
+
+    for (uint32_t i = 0; i < s->n_var; ++i)
     {
-        if (s->var_ids[i] == id)
+        if (s->vars[i].id == id)
             return (int)i;
     }
 
@@ -1692,13 +1695,24 @@ spv_op_name(uint32_t op)
 
 static bool
 fs_is_image_related_type(
-const FsScan *s,
-uint32_t type)
+    const FsScan *s,
+    uint32_t type)
 {
-    if (fs_id_in(s->img_ids, s->n_img, type))
-        return true;
-    if (fs_id_in(s->si_ids, s->n_si, type))
-        return true;
+    if (!s)
+        return false;
+
+    for (uint32_t i = 0; i < s->n_img; ++i)
+    {
+        if (s->images[i].id == type)
+            return true;
+    }
+
+    for (uint32_t i = 0; i < s->n_si; ++i)
+    {
+        if (s->si_ids[i] == type)
+            return true;
+    }
+
     return false;
 }
 
