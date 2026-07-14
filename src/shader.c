@@ -3557,14 +3557,16 @@ bool spirv_patch_stereo_fs(
     fs_prescan(&s, in, in_c);
     for (uint32_t i = 0; i < s.n_var; ++i)
     {
-        if (s.var_binding[i] != 0xffffffffu)
+        const FsVariableInfo *var = &s.vars[i];
+
+        if (var->binding != 0xffffffffu)
         {
             STEREO_LOG(
                 "FS_DESCRIPTOR_SUMMARY var=%u set=%u binding=%u type=%u",
-                s.var_ids[i],
-                s.var_set[i],
-                s.var_binding[i],
-                s.var_types[i]);
+                var->id,
+                var->set,
+                var->binding,
+                var->type);
         }
     }
     if (s.n_img == 0 || !s.float_id) return false;
@@ -3633,7 +3635,7 @@ bool spirv_patch_stereo_fs(
 
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == 25 && wc >= 9 &&
-            fs_id_in(s.img_ids, s.n_img, in[i+1]) &&
+            fs_image_index(&s, in[i+1]) >= 0 &&
             in[i+5] == 0) {
             STEREO_LOG(
                 "FS_IMAGE_PATCH_DETAIL type=%u sampled=%u dim=%u depth=%u arrayed=%u ms=%u format=%u",
@@ -3718,9 +3720,9 @@ bool spirv_patch_stereo_fs(
                 STEREO_LOG(
                     "FS_OUTPUT target=%u set=%u location=%u type=%u value=%u",
                     target,
-                    s.var_set[vi],
-                    s.var_binding[vi],
-                    s.var_types[vi],
+                    s.vars[vi].set,
+                    s.vars[vi].binding,
+                    s.vars[vi].type,
                     in[i+2]);
             }
             else
@@ -3734,7 +3736,7 @@ bool spirv_patch_stereo_fs(
         /* Extend 2D sampling coordinate to 3D for patched loads */
         if (in_func && wc >= 5 &&
             (op == 87 || op == 88 || op == 89 || op == 90) &&
-            fs_id_in(s.load_ids, s.n_load, in[i+3]))
+            fs_find_load(&s, in[i+3]) >= 0)
         {
             STEREO_LOG(
                 "FS extending sample: op=%u sampledImage=%u coord=%u result=%u",
@@ -3744,30 +3746,34 @@ bool spirv_patch_stereo_fs(
                 in[i+2]);
             uint32_t coord_id = in[i+4];
             uint32_t descriptor_var = 0;
-            for (uint32_t k = 0; k < s.n_load; ++k)
+            int load =
+                fs_find_load(
+                    &s,
+                    in[i+3]);
+            if (load >= 0)
             {
-                if (s.load_ids[k] == in[i+3])
-                {
-                    descriptor_var = s.load_vars[k];
-                    int vi = fs_var_index(&s, descriptor_var);
-                    STEREO_LOG(
-                        "FS_SAMPLE_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
-                        in[i+3],
-                        descriptor_var,
-                        (vi >= 0) ? s.var_set[vi] : 0xffffffffu,
-                        (vi >= 0) ? s.var_binding[vi] : 0xffffffffu);
-                    STEREO_LOG(
-                         "FS_SAMPLE_BINDING_DETAIL image=%u descriptor=%u binding=%u",
-                         in[i+3],
-                         descriptor_var,
-                         (vi >= 0) ? s.var_binding[vi] : 0xffffffffu);
-                    STEREO_LOG(
-                        "FS_SAMPLE_MATCH image=%u load=%u var=%u",
-                        in[i+3],
-                        k,
+                descriptor_var =
+                    s.loads[load].owner_var;
+                int vi =
+                    fs_var_index(
+                        &s,
                         descriptor_var);
-                    break;
-                }
+                STEREO_LOG(
+                    "FS_SAMPLE_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
+                    in[i+3],
+                    descriptor_var,
+                    (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
+                    (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
+                STEREO_LOG(
+                    "FS_SAMPLE_BINDING_DETAIL image=%u descriptor=%u binding=%u",
+                    in[i+3],
+                    descriptor_var,
+                    (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
+                STEREO_LOG(
+                    "FS_SAMPLE_MATCH image=%u load=%d var=%u",
+                    in[i+3],
+                    load,
+                    descriptor_var);
             }
             if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
             {
@@ -3838,54 +3844,48 @@ bool spirv_patch_stereo_fs(
             uint32_t coord_id = in[i+4];
             uint32_t descriptor_var = 0;
             bool image_known = false;
-            for (uint32_t k = 0; k < s.n_load; ++k)
+            int load =
+                fs_find_load(
+                    &s,
+                    in[i+3]);
+            if (load >= 0)
             {
-                if (s.load_ids[k] == in[i+3])
-                {
-                    descriptor_var = s.load_vars[k];
-                    image_known = true;
-                    STEREO_LOG(
-                        "FS_FETCH_MATCH image=%u loadIndex=%u load=%u var=%u",
-                        in[i+3],
-                        k,
-                        s.load_ids[k],
-                        descriptor_var);
-                    break;
-                }
+                descriptor_var =
+                    s.loads[load].owner_var;
+                image_known = true;
+                STEREO_LOG(
+                    "FS_FETCH_MATCH image=%u loadIndex=%d load=%u var=%u",
+                    in[i+3],
+                    load,
+                    s.loads[load].id,
+                    descriptor_var);
             }
             STEREO_LOG(
                 "FS_FETCH_PATCH_DECISION image=%u known=%u descriptor=%u",
                 in[i+3],
                 image_known,
                 descriptor_var);
-            int found = 0;
-            for (uint32_t k = 0; k < s.n_load; ++k)
+            if (load >= 0)
             {
-                if (s.load_ids[k] == in[i+3])
-                {
-                    STEREO_LOG(
-                        "FS_FETCH_FOUND image=%u loadIndex=%u var=%u",
-                        in[i+3],
-                        k,
-                        s.load_vars[k]);
-                    found = 1;
-                    break;
-                }
+                STEREO_LOG(
+                    "FS_FETCH_FOUND image=%u loadIndex=%d var=%u",
+                    in[i+3],
+                    load,
+                    s.loads[load].owner_var);
             }
-            if (!found)
+            else
             {
                 STEREO_LOG(
                     "FS_FETCH_UNKNOWN image=%u",
                     in[i+3]);
             }
             int vi = fs_var_index(&s, descriptor_var);
-            
             STEREO_LOG(
                 "FS_FETCH_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
                 in[i+3],
                 descriptor_var,
-                (vi >= 0) ? s.var_set[vi] : 0xffffffffu,
-                (vi >= 0) ? s.var_binding[vi] : 0xffffffffu);
+                (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
+                (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
             if (in[i+3] == 47)
             {
                 STEREO_LOG(
