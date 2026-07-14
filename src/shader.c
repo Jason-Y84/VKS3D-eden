@@ -1602,10 +1602,21 @@ fs_binding_is_stereo_attachment(
     uint32_t var)
 {
     int vi = fs_var_index(s, var);
-
     if (vi < 0)
         return false;
-
+    /*
+     * Input attachments have no descriptor set/binding.
+     * They are still stereo render targets.
+     */
+    if (s->vars[vi].storage ==
+            SpvStorageClassInput)
+    {
+        STEREO_LOG(
+            "FS_BINDING_INPUT_ATTACHMENT var=%u type=%u stereo=1",
+            var,
+            s->vars[vi].type);
+        return true;
+    }
     uint32_t binding =
         s->vars[vi].binding;
     uint32_t set =
@@ -3992,6 +4003,17 @@ bool spirv_patch_stereo_fs(
                     in[i+3]);
             }
             int vi = fs_var_index(&s, descriptor_var);
+            if (vi >= 0)
+            {
+                STEREO_LOG(
+                    "FS_FETCH_VAR_INFO image=%u var=%u storage=%u type=%u set=%u binding=%u",
+                    in[i+3],
+                    descriptor_var,
+                    s.vars[vi].storage,
+                    s.vars[vi].type,
+                    s.var_set[vi],
+                    s.var_binding[vi]);
+            }
             STEREO_LOG(
                 "FS_FETCH_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
                 in[i+3],
