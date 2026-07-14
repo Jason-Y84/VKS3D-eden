@@ -3115,6 +3115,47 @@ fs_prescan(
      */
     fs_fixup_function_parameters(
         s);
+
+    /*
+     * Now that call parameter ownership is known, rewrite any
+     * recorded load owners that still reference parameter IDs.
+     *
+     * Function parameters are placeholders until the call graph
+     * has been resolved:
+     *
+     *   OpLoad %parameter
+     *          |
+     *          v
+     *   helper(depthTexture)
+     *
+     * Resolve:
+     *
+     *   parameter ID -> caller argument variable
+     */
+    for (uint32_t l = 0; l < s->n_load; ++l)
+    {
+        FsLoadInfo *load =
+            &s->loads[l];
+
+        for (uint32_t c = 0; c < s->n_call; ++c)
+        {
+            FsCallInfo *call =
+                &s->calls[c];
+            if (load->owner_var ==
+                call->parameter_id)
+            {
+                STEREO_LOG(
+                    "FS_LOAD_FINAL_RESOLVE load=%u param=%u owner=%u",
+                    load->id,
+                    load->owner_var,
+                    call->argument_var);
+                load->owner_var =
+                    call->argument_var;
+                break;
+            }
+        }
+    }
+
     /*
      * Diagnostic output after the complete ownership graph
      * has been built.
