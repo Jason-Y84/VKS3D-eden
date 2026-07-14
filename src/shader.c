@@ -3548,6 +3548,23 @@ fs_count_patches(
     return count;
 }
 
+static int
+fs_image_index(
+    const FsScan *s,
+    uint32_t id)
+{
+    if (!s)
+        return -1;
+
+    for (uint32_t i = 0; i < s->n_img; ++i)
+    {
+        if (s->images[i].id == id)
+            return (int)i;
+    }
+
+    return -1;
+}
+
 bool spirv_patch_stereo_fs(
     const uint32_t *in, size_t in_c,
     uint32_t **out, size_t *out_c)
