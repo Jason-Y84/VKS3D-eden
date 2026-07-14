@@ -1447,17 +1447,23 @@ void spirv_patched_free(uint32_t *w) { free(w); }
 
 typedef struct
 {
-    uint32_t id;
-    uint32_t owner_var;
-    uint32_t binding;
+    uint32_t id;          /* OpLoad result id */
+    uint32_t owner_var;   /* Descriptor variable owning this image */
+    uint32_t binding;     /* Cached descriptor binding */
 } FsLoadInfo;
 
 typedef struct
 {
-    uint32_t id;
-    uint32_t owner_var;
-    uint32_t function_id;
+    uint32_t id;          /* Function parameter id */
+    uint32_t function_id; /* Owning function */
+    uint32_t index;       /* Parameter index */
 } FsParameterInfo;
+
+typedef struct
+{
+    uint32_t id;          /* OpFunction id */
+    uint32_t first_param; /* Index into FsScan.params[] */
+} FsFunctionInfo;
 
 typedef struct
 {
@@ -1484,20 +1490,20 @@ typedef struct
 
 typedef struct
 {
-    uint32_t id;
-    uint32_t first_param;
-} FsFunctionInfo;
+    uint32_t id;          /* OpTypeImage result id */
+    uint32_t depth;
+    uint32_t arrayed;
+    bool     patchable;
+} FsImageInfo;
+
 
 typedef struct
 {
     /* ---------------------------------------------------------
      * Image type declarations
      * --------------------------------------------------------- */
-    uint32_t img_ids[FS_MAX_IMG];
-    uint32_t n_img;
-    uint32_t img_patchable[FS_MAX_IMG];
-    uint32_t img_depth[FS_MAX_IMG];
-    uint32_t img_arrayed[FS_MAX_IMG];
+    FsImageInfo images[FS_MAX_IMG];
+    uint32_t    n_img;
     /* ---------------------------------------------------------
      * Sampled-image type declarations
      * --------------------------------------------------------- */
@@ -1530,7 +1536,7 @@ typedef struct
     uint32_t v3float_id;
     uint32_t ptr_int_in_id;
     uint32_t vi_var_id;
-    bool has_mv_cap;
+    bool     has_mv_cap;
     /* ---------------------------------------------------------
      * Entry point information
      * --------------------------------------------------------- */
