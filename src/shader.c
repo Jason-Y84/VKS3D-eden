@@ -1448,34 +1448,38 @@ void spirv_patched_free(uint32_t *w) { free(w); }
 typedef struct
 {
     uint32_t id;          /* OpLoad result id */
-    uint32_t owner_var;   /* Descriptor variable owning this image */
-    uint32_t binding;     /* Cached descriptor binding */
+    uint32_t source_id;   /* Original source SSA id */
+    uint32_t owner_var;   /* Descriptor variable owning this resource */
+    uint32_t binding;     /* Cached binding after fixup */
 } FsLoadInfo;
 
 typedef struct
 {
-    uint32_t id;          /* Function parameter id */
-    uint32_t function_id; /* Owning function */
-    uint32_t index;       /* Parameter index */
+    uint32_t id;
+    uint32_t type;
+    uint32_t function_id;
+    uint32_t index;
 } FsParameterInfo;
 
 typedef struct
 {
-    uint32_t id;          /* OpFunction id */
-    uint32_t first_param; /* Index into FsScan.params[] */
+    uint32_t id;
+    uint32_t first_param;
 } FsFunctionInfo;
 
 typedef struct
 {
     uint32_t function_id;
-    uint32_t parameter_id;
-    uint32_t argument_var;
+    uint32_t parameter_index; /* temporary parameter slot */
+    uint32_t parameter_id;    /* resolved parameter id */
+    uint32_t argument_var;    /* SSA id passed to the call */
 } FsCallInfo;
 
 typedef struct
 {
     uint32_t id;
     uint32_t type;
+    uint32_t storage;
     uint32_t set;
     uint32_t binding;
     uint32_t location;
@@ -1486,11 +1490,12 @@ typedef struct
     uint32_t target;
     uint32_t binding;
     uint32_t set;
+    uint32_t location;
 } FsDecorationInfo;
 
 typedef struct
 {
-    uint32_t id;          /* OpTypeImage result id */
+    uint32_t id;
     uint32_t depth;
     uint32_t arrayed;
     bool     patchable;
