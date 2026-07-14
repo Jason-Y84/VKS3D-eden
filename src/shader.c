@@ -2979,7 +2979,8 @@ fs_scan_instruction(
         case SpvOpLoad:
             fs_scan_load_instruction(
                 s,
-                ins);
+                ins,
+                wc);
             break;
         case SpvOpSampledImage:
             fs_track_sampled_image(
