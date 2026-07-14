@@ -1911,12 +1911,7 @@ fs_scan_type_instruction(
     switch (op)
     {
     case SpvOpTypeFloat:
-        /*
-         * Track 32-bit floats. This is needed later when detecting
-         * matrix/vector types used by projection/view transforms.
-         */
-        if (wc >= 3 &&
-            ins[2] == 32)
+        if (wc >= 3 && ins[2] == 32)
         {
             s->float_id = ins[1];
             STEREO_LOG(
@@ -1925,12 +1920,6 @@ fs_scan_type_instruction(
         }
         break;
     case SpvOpTypeInt:
-        /*
-         * Track 32-bit signed integers.
-         *
-         * ViewIndex is represented as an integer builtin, so this
-         * type is also required when injecting multiview plumbing.
-         */
         if (wc >= 4 &&
             ins[2] == 32 &&
             ins[3] == 1)
@@ -1942,13 +1931,6 @@ fs_scan_type_instruction(
         }
         break;
     case SpvOpTypeVector:
-        /*
-         * Cache common vector types.
-         *
-         * Vec3 float tracking is retained because later matrix
-         * analysis uses vector/matrix relationships to identify
-         * projection and view transforms.
-         */
         if (wc >= 4 &&
             s->float_id &&
             ins[2] == s->float_id &&
@@ -1961,75 +1943,64 @@ fs_scan_type_instruction(
         }
         break;
     case SpvOpTypeImage:
+    {
+        if (wc < 9)
+            break;
+        uint32_t type_id = ins[1];
+        uint32_t dim     = ins[3];
+        uint32_t depth   = ins[4];
+        uint32_t arrayed = ins[5];
+        STEREO_LOG(
+            "FS_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+            type_id,
+            ins[2],
+            dim,
+            depth,
+            arrayed,
+            ins[6],
+            ins[7],
+            ins[8]);
+        if (dim == SpvDim2D &&
+            arrayed == 0 &&
+            s->n_img < FS_MAX_IMG)
         {
-            if (wc < 9)
-                break;
-            uint32_t type_id = ins[1];
-            uint32_t dim     = ins[3];
-            uint32_t depth   = ins[4];
-            uint32_t arrayed = ins[5];
+            FsImageInfo *img =
+                &s->images[s->n_img++];
+            memset(img, 0, sizeof(*img));
+            img->id        = type_id;
+            img->depth     = depth;
+            img->arrayed   = arrayed;
+            img->patchable = true;
             STEREO_LOG(
-                "FS_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+                "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
+                img->id,
+                img->depth,
+                s->n_img - 1);
+        }
+        else
+        {
+            STEREO_LOG(
+                "FS_IMAGE_REJECT type=%u dim=%u arrayed=%u",
                 type_id,
-                ins[2],
                 dim,
-                depth,
-                arrayed,
-                ins[6],
-                ins[7],
-                ins[8]);
-            /*
-             * Only non-arrayed 2D images are candidates for
-             * framebuffer attachment upgrading.
-             *
-             * Do NOT patch here.
-             *
-             * At this stage we only classify the SPIR-V type.
-             * Descriptor ownership and binding determine whether
-             * this is:
-             *
-             *   - G-buffer attachment
-             *   - SSAO/depth buffer
-             *   - lighting intermediate
-             *   - ordinary material texture
-             *
-             * That decision happens later.
-             */
-            if (dim == SpvDim2D &&
-                arrayed == 0 &&
-                s->n_img < FS_MAX_IMG)
-            {
-                uint32_t idx = s->n_img++;
-                s->img_ids[idx]      = type_id;
-                s->img_arrayed[idx] = arrayed;
-                s->img_depth[idx]   = depth;
-                STEREO_LOG(
-                    "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
-                    type_id,
-                    depth,
-                    idx);
-            }
-            else
-            {
-                STEREO_LOG(
-                    "FS_IMAGE_REJECT type=%u dim=%u arrayed=%u",
-                    type_id,
-                    dim,
-                    arrayed);
-            }
+                arrayed);
         }
         break;
+    }
     case SpvOpTypeSampledImage:
-        /*
-         * Track combined sampled-image types built from image
-         * types we already classified above.
-         */
-        if (wc >= 3 &&
-            fs_id_in(
-                s->img_ids,
-                s->n_img,
-                ins[2]) &&
-            s->n_si < FS_MAX_SI)
+    {
+        if (wc < 3)
+            break;
+        bool found = false;
+        for (uint32_t i = 0; i < s->n_img; ++i)
+        {
+            if (s->images[i].id == ins[2])
+            {
+                found = true;
+                break;
+            }
+        }
+        if (found && s->n_si < FS_MAX_SI)
         {
             s->si_ids[s->n_si++] = ins[1];
             STEREO_LOG(
@@ -2038,12 +2009,8 @@ fs_scan_type_instruction(
                 ins[2]);
         }
         break;
+    }
     case SpvOpTypePointer:
-        /*
-         * Track Input pointer-to-int types.
-         *
-         * Used for gl_ViewIndex discovery/injection.
-         */
         if (wc >= 4 &&
             ins[2] == SpvStorageClassInput &&
             s->int_id &&
