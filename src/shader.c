@@ -4011,8 +4011,8 @@ bool spirv_patch_stereo_fs(
                     descriptor_var,
                     s.vars[vi].storage,
                     s.vars[vi].type,
-                    s.var_set[vi],
-                    s.var_binding[vi]);
+                    s.vars[vi].set,
+                    s.vars[vi].binding);
             }
             STEREO_LOG(
                 "FS_FETCH_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
