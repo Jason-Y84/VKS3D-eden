@@ -1483,6 +1483,8 @@ typedef struct
     uint32_t set;
     uint32_t binding;
     uint32_t location;
+    bool     is_image;
+    bool     is_input_attachment;
 } FsVariableInfo;
 
 typedef struct
@@ -2220,6 +2222,16 @@ fs_scan_variable_instruction(
     var->location =
         0xffffffffu;
     /*
+     * Track whether this variable represents a descriptor
+     * image/sampled image.  MSAA resolve attachments often
+     * arrive through UniformConstant and must not be treated
+     * the same as ordinary sampled textures.
+     */
+    var->is_image =
+        false;
+    var->is_input_attachment =
+        false;
+    /*
      * Decorations may legally appear before OpVariable.
      *
      * Apply cached DescriptorSet, Binding, and Location values
@@ -2229,20 +2241,54 @@ fs_scan_variable_instruction(
     {
         FsDecorationInfo *dec =
             &s->decorations[i];
+
         if (dec->target != var->id)
             continue;
+
         if (dec->set != 0xffffffffu)
             var->set = dec->set;
+
         if (dec->binding != 0xffffffffu)
             var->binding = dec->binding;
+
         if (dec->location != 0xffffffffu)
             var->location = dec->location;
+
         STEREO_LOG(
             "FS_DECORATION_APPLY var=%u set=%u binding=%u location=%u",
             var->id,
             var->set,
             var->binding,
             var->location);
+    }
+    /*
+     * Resolve image type ownership.
+     *
+     * UniformConstant variables whose pointed type eventually
+     * resolves to OpTypeImage are the descriptor variables used
+     * by OpImageFetch/OpImageSample operations.
+     */
+    if (var->storage == SpvStorageClassUniformConstant)
+    {
+        if (fs_type_is_image(s, var->type))
+        {
+            var->is_image = true;
+            /*
+             * InputAttachment is special:
+             * it represents framebuffer MSAA/depth resolve data
+             * and should not receive normal sampler-array
+             * conversion.
+             */
+            if (fs_type_is_input_attachment(s, var->type))
+                var->is_input_attachment = true;
+            STEREO_LOG(
+                "FS_IMAGE_VAR id=%u type=%u input_attachment=%u set=%u binding=%u",
+                var->id,
+                var->type,
+                var->is_input_attachment,
+                var->set,
+                var->binding);
+        }
     }
     if (var->storage == SpvStorageClassUniform ||
         var->storage == SpvStorageClassUniformConstant)
@@ -4003,6 +4049,17 @@ bool spirv_patch_stereo_fs(
                     in[i+3]);
             }
             int vi = fs_var_index(&s, descriptor_var);
+            if (vi >= 0 &&
+                s.vars[vi].is_input_attachment)
+            {
+                STEREO_LOG(
+                    "FS_FETCH_SKIP_INPUT_ATTACHMENT image=%u var=%u",
+                    in[i+3],
+                    descriptor_var);
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
             if (vi >= 0)
             {
                 STEREO_LOG(
