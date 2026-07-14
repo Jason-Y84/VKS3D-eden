@@ -1566,32 +1566,17 @@ fs_var_index(
     return -1;
 }
 
-/*
- * Resolve the original descriptor variable backing a function parameter.
- * Future projection-uniform tracking will reuse this ownership mechanism.
- */
-static uint32_t
-fs_resolve_parameter_owner(
-    const FsScan *s,
-    uint32_t id)
-{
-    for (uint32_t i = 0; i < s->n_call; i++)
-    {
-        if (s->call_params[i] == id)
-            return s->call_args[i];
-    }
-
-    return id;
-}
-
 static int
 fs_dec_index(
-    FsScan *s,
+    const FsScan *s,
     uint32_t target)
 {
-    for (uint32_t i = 0; i < s->n_dec; i++)
+    if (!s)
+        return -1;
+
+    for (uint32_t i = 0; i < s->n_dec; ++i)
     {
-        if (s->dec_target[i] == target)
+        if (s->decorations[i].target == target)
             return (int)i;
     }
 
@@ -1613,9 +1598,12 @@ fs_binding_is_stereo_attachment(
     if (vi < 0)
         return false;
 
-    uint32_t binding = s->var_binding[vi];
-    uint32_t set     = s->var_set[vi];
-    uint32_t type    = s->var_types[vi];
+    uint32_t binding =
+        s->vars[vi].binding;
+    uint32_t set =
+        s->vars[vi].set;
+    uint32_t type =
+        s->vars[vi].type;
 
     /*
      * Deferred framebuffer attachments upgraded to arrayLayers=2.
