@@ -1625,7 +1625,26 @@ fs_binding_is_stereo_attachment(
      * Higher bindings are assumed to be material textures,
      * lookup tables, noise textures or post-processing resources.
      */
-    bool stereo = (binding <= 4);
+    /*
+     * Some internal MSAA resolve/composition images do not
+     * retain DescriptorSet/Binding decorations.
+     *
+     * They are still real image resources if they arrive here
+     * through a traced OpLoad ownership chain.
+     */
+    bool stereo =
+        (binding <= 4) ||
+        (binding == 0xffffffffu &&
+         s->vars[vi].storage ==
+             SpvStorageClassUniformConstant);
+
+    STEREO_LOG(
+        "FS_BINDING_FALLBACK var=%u set=%u binding=%u storage=%u stereo=%u",
+        var,
+        set,
+        binding,
+        s->vars[vi].storage,
+        stereo);
 
     STEREO_LOG(
         "FS_BINDING_CLASSIFY var=%u set=%u binding=%u type=%u stereo=%u",
