@@ -3748,7 +3748,7 @@ bool spirv_patch_stereo_fs(
         if (op == 25 && wc >= 9 &&
             (fs_image_index(&s, in[i+1]) >= 0 ||
              fs_type_is_input_attachment(&s, in[i+1])) &&
-            in[i+5] == 0)
+            in[i+5] == 0) {
             STEREO_LOG(
                 "FS_IMAGE_PATCH_DETAIL type=%u sampled=%u dim=%u depth=%u arrayed=%u ms=%u format=%u",
                 in[i+1],
