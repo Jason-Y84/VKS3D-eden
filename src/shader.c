@@ -3648,8 +3648,8 @@ fs_type_is_input_attachment(
 
     for (uint32_t i = 0; i < s->n_var; ++i)
     {
-        if (s->var_types[i] == type &&
-            s->var_storage[i] ==
+        if (s->vars[i].type == type &&
+            s->vars[i].storage ==
                 SpvStorageClassInput)
         {
             return true;
