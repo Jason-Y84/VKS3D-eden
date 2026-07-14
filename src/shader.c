@@ -1626,17 +1626,16 @@ fs_binding_is_stereo_attachment(
      * lookup tables, noise textures or post-processing resources.
      */
     /*
-     * Some internal MSAA resolve/composition images do not
-     * retain DescriptorSet/Binding decorations.
+     * MSAA resolve/composition shaders often use
+     * input attachments instead of descriptor images.
      *
-     * They are still real image resources if they arrive here
-     * through a traced OpLoad ownership chain.
+     * Input attachments have no DescriptorSet/Binding
+     * decorations, so binding will be UINT_MAX.
      */
     bool stereo =
         (binding <= 4) ||
-        (binding == 0xffffffffu &&
-         s->vars[vi].storage ==
-             SpvStorageClassUniformConstant);
+        (s->vars[vi].storage ==
+             SpvStorageClassInput);
 
     STEREO_LOG(
         "FS_BINDING_FALLBACK var=%u set=%u binding=%u storage=%u stereo=%u",
@@ -3639,6 +3638,27 @@ fs_image_index(
     return -1;
 }
 
+static bool
+fs_type_is_input_attachment(
+    const FsScan *s,
+    uint32_t type)
+{
+    if (!s)
+        return false;
+
+    for (uint32_t i = 0; i < s->n_var; ++i)
+    {
+        if (s->var_types[i] == type &&
+            s->var_storage[i] ==
+                SpvStorageClassInput)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool spirv_patch_stereo_fs(
     const uint32_t *in, size_t in_c,
     uint32_t **out, size_t *out_c)
@@ -3726,8 +3746,9 @@ bool spirv_patch_stereo_fs(
 
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == 25 && wc >= 9 &&
-            fs_image_index(&s, in[i+1]) >= 0 &&
-            in[i+5] == 0) {
+            (fs_image_index(&s, in[i+1]) >= 0 ||
+             fs_type_is_input_attachment(&s, in[i+1])) &&
+            in[i+5] == 0)
             STEREO_LOG(
                 "FS_IMAGE_PATCH_DETAIL type=%u sampled=%u dim=%u depth=%u arrayed=%u ms=%u format=%u",
                 in[i+1],
