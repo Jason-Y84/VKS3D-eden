@@ -2892,9 +2892,22 @@ fs_scan_image_operation(
      * we can inject projection correction instead of only
      * stereoizing the original vertex transform.
      */
-    if (fs_binding_is_stereo_attachment(
+    bool stereo =
+        fs_binding_is_stereo_attachment(
             s,
-            owner))
+            owner);
+
+    STEREO_LOG(
+        "FS_IMAGE_CLASSIFY image=%u owner=%u varIndex=%d storage=%u set=%u binding=%u stereo=%u",
+        image,
+        owner,
+        var,
+        s->vars[var].storage,
+        s->vars[var].set,
+        s->vars[var].binding,
+        stereo);
+
+    if (stereo)
     {
         STEREO_LOG(
             "FS_DEPTH_RESOURCE_SAMPLE image=%u owner=%u binding=%u",
@@ -3445,9 +3458,10 @@ fs_dump_scan_summary(
         const FsVariableInfo *v =
             &s->vars[i];
         STEREO_LOG(
-            "FS_VAR_FINAL id=%u type=%u set=%u binding=%u location=%u",
+            "FS_VAR_FINAL id=%u type=%u storage=%u set=%u binding=%u location=%u",
             v->id,
             v->type,
+            v->storage,
             v->set,
             v->binding,
             v->location);
