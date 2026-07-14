@@ -1447,64 +1447,106 @@ void spirv_patched_free(uint32_t *w) { free(w); }
 
 typedef struct
 {
-    /* OpTypeImage objects */
-    uint32_t    img_ids[FS_MAX_IMG];
-    uint32_t    n_img;
-    uint32_t    img_patchable[FS_MAX_IMG];
-    uint32_t    img_depth[FS_MAX_IMG];
-    uint32_t    img_arrayed[FS_MAX_IMG];
-    /* OpTypeSampledImage objects */
-    uint32_t    si_ids[FS_MAX_SI];
-    uint32_t    n_si;
-    /* OpLoad tracking */
-    uint32_t    load_ids[FS_MAX_LOADS];
-    uint32_t    load_vars[FS_MAX_LOADS];
-    uint32_t    load_bindings[FS_MAX_LOADS];
-    uint32_t    n_load;
-    /* Function parameter ownership */
-    uint32_t    param_ids[FS_MAX_PARAMS];
-    uint32_t    param_vars[FS_MAX_PARAMS];
-    uint32_t    param_functions[FS_MAX_PARAMS];
-    uint32_t    n_param;
-    /* Function-call argument forwarding */
-    uint32_t    call_functions[FS_MAX_CALLS];
-    uint32_t    call_params[FS_MAX_CALLS];
-    uint32_t    call_args[FS_MAX_CALLS];
-    uint32_t    n_call;
-    /* Descriptor variables */
-    uint32_t    var_ids[FS_MAX_VARS];
-    uint32_t    var_types[FS_MAX_VARS];
-    uint32_t    var_set[FS_MAX_VARS];
-    uint32_t    var_binding[FS_MAX_VARS];
-    uint32_t    var_location[FS_MAX_VARS];
-    uint32_t    n_var;
-    /* Decorations (may appear before OpVariable) */
-    uint32_t    dec_target[FS_MAX_VARS];
-    uint32_t    dec_binding[FS_MAX_VARS];
-    uint32_t    dec_set[FS_MAX_VARS];
-    uint32_t    n_dec;
-    /* Cached common types */
-    uint32_t    float_id;
-    uint32_t    int_id;
-    uint32_t    v3float_id;
-    uint32_t    ptr_int_in_id;
-    uint32_t    vi_var_id;
-    bool        has_mv_cap;
-    size_t      ep_word;
-    size_t      fn_word;
-    /* Current function while scanning */
-    uint32_t    current_function_id;
-    uint32_t    current_param_index;
-    uint32_t    function_ids[FS_MAX_FUNCTIONS];
-    uint32_t    function_param_start[FS_MAX_FUNCTIONS];
-    uint32_t    n_function;
-    /* Current function tracking */
-    bool        in_function;
-    uint32_t    current_function_id;
-    uint32_t    current_param_index;
-    uint32_t    function_ids[FS_MAX_FUNCTIONS];
-    uint32_t    function_param_start[FS_MAX_FUNCTIONS];
-    uint32_t    n_function;
+    uint32_t id;
+    uint32_t owner_var;
+    uint32_t binding;
+} FsLoadInfo;
+
+typedef struct
+{
+    uint32_t id;
+    uint32_t owner_var;
+    uint32_t function_id;
+} FsParameterInfo;
+
+typedef struct
+{
+    uint32_t function_id;
+    uint32_t parameter_id;
+    uint32_t argument_var;
+} FsCallInfo;
+
+typedef struct
+{
+    uint32_t id;
+    uint32_t type;
+    uint32_t set;
+    uint32_t binding;
+    uint32_t location;
+} FsVariableInfo;
+
+typedef struct
+{
+    uint32_t target;
+    uint32_t binding;
+    uint32_t set;
+} FsDecorationInfo;
+
+typedef struct
+{
+    uint32_t id;
+    uint32_t first_param;
+} FsFunctionInfo;
+
+typedef struct
+{
+    /* ---------------------------------------------------------
+     * Image type declarations
+     * --------------------------------------------------------- */
+    uint32_t img_ids[FS_MAX_IMG];
+    uint32_t n_img;
+    uint32_t img_patchable[FS_MAX_IMG];
+    uint32_t img_depth[FS_MAX_IMG];
+    uint32_t img_arrayed[FS_MAX_IMG];
+    /* ---------------------------------------------------------
+     * Sampled-image type declarations
+     * --------------------------------------------------------- */
+    uint32_t si_ids[FS_MAX_SI];
+    uint32_t n_si;
+    /* ---------------------------------------------------------
+     * Resource ownership tables
+     * --------------------------------------------------------- */
+    FsLoadInfo loads[FS_MAX_LOADS];
+    uint32_t   n_load;
+    FsParameterInfo params[FS_MAX_PARAMS];
+    uint32_t        n_param;
+    FsCallInfo calls[FS_MAX_CALLS];
+    uint32_t   n_call;
+    /* ---------------------------------------------------------
+     * Descriptor variables
+     * --------------------------------------------------------- */
+    FsVariableInfo vars[FS_MAX_VARS];
+    uint32_t       n_var;
+    /* ---------------------------------------------------------
+     * Decorations
+     * --------------------------------------------------------- */
+    FsDecorationInfo decorations[FS_MAX_VARS];
+    uint32_t         n_dec;
+    /* ---------------------------------------------------------
+     * Cached SPIR-V types
+     * --------------------------------------------------------- */
+    uint32_t float_id;
+    uint32_t int_id;
+    uint32_t v3float_id;
+    uint32_t ptr_int_in_id;
+    uint32_t vi_var_id;
+    bool has_mv_cap;
+    /* ---------------------------------------------------------
+     * Entry point information
+     * --------------------------------------------------------- */
+    size_t ep_word;
+    size_t fn_word;
+    /* ---------------------------------------------------------
+     * Function table
+     * --------------------------------------------------------- */
+    FsFunctionInfo functions[FS_MAX_FUNCTIONS];
+    uint32_t       n_function;
+    /* ---------------------------------------------------------
+     * Current function during prescan
+     * --------------------------------------------------------- */
+    bool     in_function;
+    uint32_t current_function_id;
+    uint32_t current_param_index;
 } FsScan;
 
 static bool
