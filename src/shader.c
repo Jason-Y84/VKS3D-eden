@@ -1499,57 +1499,39 @@ typedef struct
 
 typedef struct
 {
-    /* ---------------------------------------------------------
-     * Image type declarations
-     * --------------------------------------------------------- */
+    //Image type declarations
     FsImageInfo images[FS_MAX_IMG];
     uint32_t    n_img;
-    /* ---------------------------------------------------------
-     * Sampled-image type declarations
-     * --------------------------------------------------------- */
+    //Sampled-image type declarations
     uint32_t si_ids[FS_MAX_SI];
     uint32_t n_si;
-    /* ---------------------------------------------------------
-     * Resource ownership tables
-     * --------------------------------------------------------- */
+    //Resource ownership tables
     FsLoadInfo loads[FS_MAX_LOADS];
     uint32_t   n_load;
     FsParameterInfo params[FS_MAX_PARAMS];
     uint32_t        n_param;
     FsCallInfo calls[FS_MAX_CALLS];
     uint32_t   n_call;
-    /* ---------------------------------------------------------
-     * Descriptor variables
-     * --------------------------------------------------------- */
+    //Descriptor variables
     FsVariableInfo vars[FS_MAX_VARS];
     uint32_t       n_var;
-    /* ---------------------------------------------------------
-     * Decorations
-     * --------------------------------------------------------- */
+    //Decorations
     FsDecorationInfo decorations[FS_MAX_VARS];
     uint32_t         n_dec;
-    /* ---------------------------------------------------------
-     * Cached SPIR-V types
-     * --------------------------------------------------------- */
+    //Cached SPIR-V types
     uint32_t float_id;
     uint32_t int_id;
     uint32_t v3float_id;
     uint32_t ptr_int_in_id;
     uint32_t vi_var_id;
     bool     has_mv_cap;
-    /* ---------------------------------------------------------
-     * Entry point information
-     * --------------------------------------------------------- */
+    //Entry point information
     size_t ep_word;
     size_t fn_word;
-    /* ---------------------------------------------------------
-     * Function table
-     * --------------------------------------------------------- */
+    //Function table
     FsFunctionInfo functions[FS_MAX_FUNCTIONS];
     uint32_t       n_function;
-    /* ---------------------------------------------------------
-     * Current function during prescan
-     * --------------------------------------------------------- */
+    //Current function during prescan
     bool     in_function;
     uint32_t current_function_id;
     uint32_t current_param_index;
