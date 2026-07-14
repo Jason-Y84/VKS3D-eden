@@ -3460,73 +3460,87 @@ fs_dump_scan_summary(
         "========================================");
 }
 
-static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
+static uint32_t
+fs_count_patches(
+    const FsScan *s,
+    const uint32_t *w,
+    size_t c)
 {
     uint32_t count = 0;
     bool in_func = false;
-
-    for (size_t i = 5; i < c; )
+    for (size_t i = 5; i < c;)
     {
-        uint32_t op = w[i] & 0xffff, wc = w[i] >> 16;
+        uint32_t op = w[i] & 0xffffu;
+        uint32_t wc = w[i] >> 16;
         if (!wc || i + wc > c)
             break;
-        if (op == 54)
+        if (op == SpvOpFunction)
             in_func = true;
+        /*
+         * Image sampling instructions.
+         */
         if (in_func &&
             wc >= 5 &&
-            (op == 87 || op == 88 || op == 89 || op == 90) &&
-            fs_id_in(s->load_ids, s->n_load, w[i+3]))
+            (op == SpvOpImageSampleImplicitLod ||
+             op == SpvOpImageSampleExplicitLod ||
+             op == SpvOpImageSampleDrefImplicitLod ||
+             op == SpvOpImageSampleDrefExplicitLod))
         {
-            STEREO_LOG(
-                "FS_PATCH_COUNTER sample image=%u result=%u coord=%u total=%u",
-                w[i+3],
-                w[i+2],
-                w[i+4],
-                count + 1);
-            count++;
+            if (fs_find_load(s, w[i + 3]) >= 0)
+            {
+                STEREO_LOG(
+                    "FS_PATCH_COUNTER sample image=%u result=%u coord=%u total=%u",
+                    w[i + 3],
+                    w[i + 2],
+                    w[i + 4],
+                    count + 1);
+                ++count;
+            }
         }
-        /* OpImageFetch */
-        if (in_func && op == 95 && wc >= 5)
+        /*
+         * ImageFetch
+         */
+        if (in_func &&
+            op == SpvOpImageFetch &&
+            wc >= 5)
         {
             uint32_t descriptor_var = 0;
-            for (uint32_t k = 0; k < s->n_load; ++k)
-            {
-                if (s->load_ids[k] == w[i+3])
-                {
-                    descriptor_var = s->load_vars[k];
-                    break;
-                }
-            }
+            int load =
+                fs_find_load(
+                    s,
+                    w[i + 3]);
+            if (load >= 0)
+                descriptor_var =
+                    s->loads[load].owner_var;
             if (descriptor_var == 0)
             {
                 STEREO_LOG(
                     "FS_FETCH_NO_DESCRIPTOR image=%u",
-                    w[i+3]);
+                    w[i + 3]);
             }
             if (fs_binding_is_stereo_attachment(
                     s,
                     descriptor_var))
             {
                 uint32_t binding = 0xffffffffu;
-                for (uint32_t k = 0; k < s->n_var; ++k)
-                {
-                    if (s->var_ids[k] == descriptor_var)
-                    {
-                        binding = s->var_binding[k];
-                        break;
-                    }
-                }
+                int var =
+                    fs_var_index(
+                        s,
+                        descriptor_var);
+                if (var >= 0)
+                    binding =
+                        s->vars[var].binding;
                 STEREO_LOG(
                     "FS_SAMPLE_PATCH_APPLY descriptor=%u binding=%u",
                     descriptor_var,
                     binding);
                 STEREO_LOG(
                     "FS_PATCH_COUNTER fetch image=%u result=%u coord=%u total=%u",
-                    w[i+3],
-                    w[i+2],
-                    w[i+4],
+                    w[i + 3],
+                    w[i + 2],
+                    w[i + 4],
                     count + 1);
-                count++;
+                ++count;
             }
         }
         i += wc;
