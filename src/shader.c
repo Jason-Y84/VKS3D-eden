@@ -3047,6 +3047,12 @@ fs_scan_instruction(
  *  6. Post-pass fixups resolve deferred relationships.
  */
 static void
+fs_fixup_function_parameters(
+    FsScan *s);
+static void
+fs_dump_scan_summary(
+    const FsScan *s);
+static void
 fs_prescan(
     FsScan *s,
     const uint32_t *w,
