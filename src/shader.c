@@ -1709,641 +1709,1754 @@ uint32_t type)
     return false;
 }
 
-static void fs_prescan(FsScan *s, const uint32_t *w, size_t c)
+/*═══════════════════════════════════════════════════════════════════════
+ * FsScan lookup helpers
+ *
+ * These provide a single implementation for common table lookups used
+ * throughout the fragment shader parser.
+ *═══════════════════════════════════════════════════════════════════════*/
+static int
+fs_find_function(
+    const FsScan *s,
+    uint32_t function_id)
 {
-    memset(s, 0, sizeof(*s));
-    bool in_func = false;
-    for (size_t i = 5; i < c; ) {
-        uint32_t op = w[i] & 0xffff, wc = w[i] >> 16;
-        if (!wc || i + wc > c) break;
-        /* Trace the instruction that defines id 15. */
-        if (wc >= 3 && w[i+2] == 15)
+    if (!s)
+        return -1;
+    for (uint32_t i = 0; i < s->n_function; ++i)
+    {
+        if (s->functions[i].id == function_id)
+            return (int)i;
+    }
+    return -1;
+}
+static int
+fs_find_load(
+    const FsScan *s,
+    uint32_t value_id)
+{
+    if (!s)
+        return -1;
+    for (uint32_t i = 0; i < s->n_load; ++i)
+    {
+        if (s->loads[i].id == value_id)
+            return (int)i;
+    }
+    return -1;
+}
+static int
+fs_find_parameter(
+    const FsScan *s,
+    uint32_t parameter_id)
+{
+    if (!s)
+        return -1;
+    for (uint32_t i = 0; i < s->n_param; ++i)
+    {
+        if (s->params[i].id == parameter_id)
+            return (int)i;
+    }
+    return -1;
+}
+static int
+fs_find_call_parameter(
+    const FsScan *s,
+    uint32_t parameter_id)
+{
+    if (!s)
+        return -1;
+    for (uint32_t i = 0; i < s->n_call; ++i)
+    {
+        if (s->calls[i].parameter_id == parameter_id)
+            return (int)i;
+    }
+    return -1;
+}
+/*═══════════════════════════════════════════════════════════════════════
+ * Ownership helpers
+ *═══════════════════════════════════════════════════════════════════════*/
+/*
+ * Record ownership of an SSA value that ultimately represents an image,
+ * sampled image, or image object.
+ *
+ * The mapping is:
+ *
+ *     SSA value  --->  descriptor variable
+ *
+ * If the SSA value is already known (for example after propagation through
+ * OpImage or OpCopyObject), simply update the owner instead of creating a
+ * duplicate entry.
+ */
+static void
+fs_add_load_mapping(
+    FsScan *s,
+    uint32_t value_id,
+    uint32_t owner)
+{
+    if (!s)
+        return;
+    int index =
+        fs_find_load(
+            s,
+            value_id);
+    if (index >= 0)
+    {
+        s->loads[index].owner_var = owner;
+        STEREO_LOG(
+            "FS_LOAD_UPDATE id=%u owner=%u index=%d",
+            value_id,
+            owner,
+            index);
+        return;
+    }
+    if (s->n_load >= FS_MAX_LOADS)
+    {
+        STEREO_LOG(
+            "FS_LOAD_OVERFLOW id=%u",
+            value_id);
+        return;
+    }
+    FsLoadInfo *load =
+        &s->loads[s->n_load++];
+    memset(
+        load,
+        0,
+        sizeof(*load));
+    load->id =
+        value_id;
+    load->owner_var =
+        owner;
+    load->source_id =
+        value_id;
+    load->binding =
+        0xffffffffu;
+    STEREO_LOG(
+        "FS_LOAD_ADD id=%u owner=%u index=%u",
+        value_id,
+        owner,
+        s->n_load - 1);
+}
+/*
+ * Resolve the descriptor variable that owns a given SSA image value.
+ *
+ * The load table records ownership propagation through image-producing
+ * instructions (OpLoad → OpImage → OpCopyObject → OpSampledImage, etc.).
+ *
+ * Returns true if ownership is known.
+ */
+static bool
+fs_resolve_load_owner(
+    const FsScan *s,
+    uint32_t value_id,
+    uint32_t *owner)
+{
+    if (!s)
+        return false;
+    int index =
+        fs_find_load(
+            s,
+            value_id);
+    if (index < 0)
+    {
+        STEREO_LOG(
+            "FS_OWNER_LOOKUP_MISS value=%u",
+            value_id);
+        return false;
+    }
+    if (owner)
+    {
+        *owner =
+            s->loads[index].owner_var;
+    }
+    STEREO_LOG(
+        "FS_OWNER_LOOKUP value=%u owner=%u index=%d",
+        value_id,
+        s->loads[index].owner_var,
+        index);
+    return true;
+}
+/*═══════════════════════════════════════════════════════════════════════
+ * Instruction scanners
+ *═══════════════════════════════════════════════════════════════════════*/
+/*═══════════════════════════════════════════════════════════════════════
+ * Pass 1: Scan global SPIR-V types.
+ *
+ * This pass records:
+ *
+ *   • capabilities
+ *   • entry point location
+ *   • scalar/vector types
+ *   • candidate image types
+ *   • sampled-image types
+ *   • ViewIndex input pointer type
+ *
+ * It intentionally does NOT determine whether an image will actually be
+ * patched.  Descriptor bindings are not known yet.
+ *═══════════════════════════════════════════════════════════════════════*/
+static void
+fs_scan_type_instruction(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t op,
+    uint32_t wc)
+{
+    if (!s || !ins)
+        return;
+    switch (op)
+    {
+    case SpvOpTypeFloat:
+        /*
+         * Track 32-bit floats. This is needed later when detecting
+         * matrix/vector types used by projection/view transforms.
+         */
+        if (wc >= 3 &&
+            ins[2] == 32)
         {
+            s->float_id = ins[1];
             STEREO_LOG(
-                "FS_DEFINE15 op=%s(%u) type=%u result=%u wordcount=%u",
-                spv_op_name(op),
-                op,
-                w[i+1],
-                w[i+2],
-                wc);
+                "FS_TYPE_FLOAT id=%u",
+                s->float_id);
+        }
+        break;
+    case SpvOpTypeInt:
+        /*
+         * Track 32-bit signed integers.
+         *
+         * ViewIndex is represented as an integer builtin, so this
+         * type is also required when injecting multiview plumbing.
+         */
+        if (wc >= 4 &&
+            ins[2] == 32 &&
+            ins[3] == 1)
+        {
+            s->int_id = ins[1];
             STEREO_LOG(
-                "FS_DEFINE15_RAW opcode=%u word0=0x%08x",
-                op,
-                w[i]);
-            for (uint32_t k = 0; k < wc; ++k)
+                "FS_TYPE_INT id=%u",
+                s->int_id);
+        }
+        break;
+    case SpvOpTypeVector:
+        /*
+         * Cache common vector types.
+         *
+         * Vec3 float tracking is retained because later matrix
+         * analysis uses vector/matrix relationships to identify
+         * projection and view transforms.
+         */
+        if (wc >= 4 &&
+            s->float_id &&
+            ins[2] == s->float_id &&
+            ins[3] == 3)
+        {
+            s->v3float_id = ins[1];
+            STEREO_LOG(
+                "FS_TYPE_VEC3_FLOAT id=%u",
+                s->v3float_id);
+        }
+        break;
+    case SpvOpTypeImage:
+        {
+            if (wc < 9)
+                break;
+            uint32_t type_id = ins[1];
+            uint32_t dim     = ins[3];
+            uint32_t depth   = ins[4];
+            uint32_t arrayed = ins[5];
+            STEREO_LOG(
+                "FS_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+                type_id,
+                ins[2],
+                dim,
+                depth,
+                arrayed,
+                ins[6],
+                ins[7],
+                ins[8]);
+            /*
+             * Only non-arrayed 2D images are candidates for
+             * framebuffer attachment upgrading.
+             *
+             * Do NOT patch here.
+             *
+             * At this stage we only classify the SPIR-V type.
+             * Descriptor ownership and binding determine whether
+             * this is:
+             *
+             *   - G-buffer attachment
+             *   - SSAO/depth buffer
+             *   - lighting intermediate
+             *   - ordinary material texture
+             *
+             * That decision happens later.
+             */
+            if (dim == SpvDim2D &&
+                arrayed == 0 &&
+                s->n_img < FS_MAX_IMG)
             {
+                uint32_t idx = s->n_img++;
+                s->img_ids[idx]      = type_id;
+                s->img_arrayed[idx] = arrayed;
+                s->img_depth[idx]   = depth;
                 STEREO_LOG(
-                    "FS_DEFINE15_WORD[%u]=%u",
-                    k,
-                    w[i+k]);
+                    "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
+                    type_id,
+                    depth,
+                    idx);
             }
-            for (uint32_t k = 3; k < wc; ++k)
+            else
             {
                 STEREO_LOG(
-                    "FS_DEFINE15 operand[%u]=%u",
-                    k,
-                    w[i+k]);
+                    "FS_IMAGE_REJECT type=%u dim=%u arrayed=%u",
+                    type_id,
+                    dim,
+                    arrayed);
             }
         }
-        switch (op) {
-        case SpvOpCapability:
-            if (wc >= 2 && w[i+1] == 4439) s->has_mv_cap = true;
-            break;
-        case SpvOpEntryPoint:
-            if (!s->ep_word) s->ep_word = i;
-            break;
-        case SpvOpTypeFloat:  /* OpTypeFloat 32 */
-            if (wc >= 3 && w[i+2] == 32) s->float_id = w[i+1];
-            break;
-        case SpvOpTypeInt:  /* OpTypeInt 32 */
-            if (wc >= 3 && w[i+2] == 32) s->int_id = w[i+1];
-            break;
-        case SpvOpTypeVector:  /* OpTypeVector float 3 */
-            if (wc >= 4 && s->float_id && w[i+2] == s->float_id && w[i+3] == 3)
-                s->v3float_id = w[i+1];
-            break;
-        case SpvOpTypeImage:  /* OpTypeImage */
-        {
-            if (wc >= 9)
-            {
-                STEREO_LOG(
-                    "FS_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
-                    w[i+1],
-                    w[i+2],
-                    w[i+3],
-                    w[i+4],
-                    w[i+5],
-                    w[i+6],
-                    w[i+7],
-                    w[i+8]);
-                STEREO_LOG(
-                    "FS image candidate id=%u type=%u dim=%u arrayed=%u",
-                    w[i+1],
-                    w[i+2],
-                    w[i+3],
-                    w[i+5]);
-                /* Existing path */
-                if (w[i+3] == 1 && w[i+5] == 0 && s->n_img < FS_MAX_IMG)
-                {
-                    /*
-                     * Record the image type only.
-                     *
-                     * Do NOT patch here. At this point we only know:
-                     *
-                     *   Dim=2D
-                     *   Arrayed=0
-                     *
-                     * This includes:
-                     *   - G-buffer attachments
-                     *   - SSAO depth textures
-                     *   - normal textures
-                     *   - noise textures
-                     *   - material textures
-                     *
-                     * The descriptor binding must decide later.
-                     */
-                    STEREO_LOG(
-                        "FS image candidate type=%u awaiting descriptor correlation",
-                        w[i+1]);
-                    s->img_ids[s->n_img++] = w[i+1];
-                }
-                else
-                {
-                    STEREO_LOG(
-                        "FS rejected image type %u dim=%u sampled=%u",
-                        w[i+1],
-                        w[i+3],
-                        w[i+7]);
-                }
-            }
-        }
         break;
-        case SpvOpTypeSampledImage:  /* OpTypeSampledImage: [1]=id [2]=image_type */
-            if (wc >= 3 && fs_id_in(s->img_ids, s->n_img, w[i+2]) && s->n_si < FS_MAX_SI)
-                s->si_ids[s->n_si++] = w[i+1];
-            break;
-        case SpvOpTypePointer:  /* OpTypePointer Input int → ptr_int_in */
-            if (wc >= 4 && w[i+2] == 1 && s->int_id && w[i+3] == s->int_id)
-                s->ptr_int_in_id = w[i+1];
-            break;
-        case SpvOpVariable:  /* OpVariable */
+    case SpvOpTypeSampledImage:
+        /*
+         * Track combined sampled-image types built from image
+         * types we already classified above.
+         */
+        if (wc >= 3 &&
+            fs_id_in(
+                s->img_ids,
+                s->n_img,
+                ins[2]) &&
+            s->n_si < FS_MAX_SI)
         {
-            if (wc >= 4 && s->n_var < FS_MAX_VARS)
-            {
-                if (w[i+3] == 2) /* Uniform storage */
-                {
-                    STEREO_LOG(
-                        "FS_UNIFORM_BUFFER var=%u type=%u",
-                        w[i+2],
-                        w[i+1]);
-                }
-                uint32_t idx = s->n_var++;
-                s->var_ids[idx] = w[i+2];
-                s->var_types[idx] = w[i+1];
-                s->var_set[idx] = 0xffffffffu;
-                s->var_binding[idx] = 0xffffffffu;
-                s->var_location[idx] = 0xffffffffu;
-                STEREO_LOG(
-                    "FS_VAR_ADD id=%u idx=%u type=%u storage=%u set=%u binding=%u",
-                    w[i+2],
-                    idx,
-                    w[i+1],
-                    w[i+3],
-                    s->var_set[idx],
-                    s->var_binding[idx]);
-                STEREO_LOG(
-                    "FS_VAR_DECLARE id=%u type=%u storage=%u",
-                    w[i+2],
-                    w[i+1],
-                    w[i+3]);
-                /* Apply any cached descriptor decorations. */
-                for (uint32_t d = 0; d < s->n_dec; ++d)
-                {
-                    if (s->dec_target[d] == w[i+2] &&
-                        s->dec_binding[d] != 0xffffffffu &&
-                        s->dec_set[d] != 0xffffffffu)
-                    {
-                        s->var_binding[idx] = s->dec_binding[d];
-                        s->var_set[idx]     = s->dec_set[d];
-                        STEREO_LOG(
-                            "FS_DECORATION_APPLY var=%u set=%u binding=%u",
-                            w[i+2],
-                            s->dec_set[d],
-                            s->dec_binding[d]);
-                        STEREO_LOG(
-                            "FS_DECORATION_STATE var=%u finalSet=%u finalBinding=%u",
-                            w[i+2],
-                            s->var_set[idx],
-                            s->var_binding[idx]);
-                        break;
-                    }
-                }
-                STEREO_LOG(
-                    "FS var declare id=%u type=%u storage=%u",
-                    w[i+2],
-                    w[i+1],
-                    w[i+3]);
-            }
-        }
-        break;
-        case SpvOpDecorate:
-            if (wc >= 4) {
-                STEREO_LOG(
-                    "FS_DECORATE target=%u decoration=%u literal=%u",
-                    w[i+1],
-                    w[i+2],
-                    w[i+3]);
-                if (w[i+2] == 30)
-                {
-                    int li = fs_var_index(s, w[i+1]);
-                    if (li >= 0)
-                        s->var_location[li] = w[i+3];
-                }
-                /* BuiltIn ViewIndex */
-                if (w[i+2] == 11 && w[i+3] == 4440)
-                    s->vi_var_id = w[i+1];
-                /* Descriptor binding */
-                if (w[i+2] == 33) {
-                    int di = fs_dec_index(s, w[i+1]);
-                    if (di < 0 && s->n_dec < FS_MAX_VARS)
-                    {
-                        di = s->n_dec++;
-                        s->dec_target[di]  = w[i+1];
-                        s->dec_binding[di] = 0xffffffffu;
-                        s->dec_set[di]     = 0xffffffffu;
-                    }
-                    if (di >= 0)
-                    {
-                        s->dec_binding[di] = w[i+3];
-                        STEREO_LOG(
-                            "FS_BIND_CACHE target=%u binding=%u",
-                            w[i+1],
-                            w[i+3]);
-                    }
-                }
-                /* Descriptor set */
-                if (w[i+2] == 34) {
-                    int di = fs_dec_index(s, w[i+1]);
-                
-                    if (di < 0 && s->n_dec < FS_MAX_VARS)
-                    {
-                        di = s->n_dec++;
-                        s->dec_target[di]  = w[i+1];
-                        s->dec_binding[di] = 0xffffffffu;
-                        s->dec_set[di]     = 0xffffffffu;
-                    }
-                
-                    if (di >= 0)
-                    {
-                        s->dec_set[di] = w[i+3];
-                    }
-                }
-            }
-            break;
-        case SpvOpFunction:
-            if (!s->fn_word)
-                s->fn_word = i;
-        
-            in_func = true;
-            s->current_function_id = w[i+2];
-            s->current_param_index = 0;
-        
-            if (s->n_function < FS_MAX_FUNCTIONS)
-            {
-                s->function_ids[s->n_function] = w[i+2];
-                s->function_param_start[s->n_function] = s->n_param;
-                s->n_function++;
-            }
-        
+            s->si_ids[s->n_si++] = ins[1];
             STEREO_LOG(
-                "FS_FUNCTION_BEGIN id=%u",
-                s->current_function_id);
+                "FS_SAMPLED_IMAGE_TYPE id=%u imageType=%u",
+                ins[1],
+                ins[2]);
+        }
         break;
-        case SpvOpFunctionParameter:
-            if (wc >= 3 &&
-                s->n_param < FS_MAX_PARAMS)
-            {
-                STEREO_LOG(
-                    "FS_PARAM_REGISTER function=%u param=%u type=%u",
-                    s->current_function_id,
-                    w[i+2],
-                    w[i+1]);
-                STEREO_LOG(
-                    "FS_FUNCTION_PARAM function=%u index=%u id=%u type=%u",
-                    s->current_function_id,
-                    s->current_param_index,
-                    w[i+2],
-                    w[i+1]);
-                s->param_ids[s->n_param] = w[i+2];
-                s->param_vars[s->n_param] = 0;
-                s->param_functions[s->n_param] = s->current_function_id;
-                s->n_param++;
-            }
-            s->current_param_index++;
+    case SpvOpTypePointer:
+        /*
+         * Track Input pointer-to-int types.
+         *
+         * Used for gl_ViewIndex discovery/injection.
+         */
+        if (wc >= 4 &&
+            ins[2] == SpvStorageClassInput &&
+            s->int_id &&
+            ins[3] == s->int_id)
+        {
+            s->ptr_int_in_id = ins[1];
+            STEREO_LOG(
+                "FS_PTR_INT_INPUT id=%u",
+                s->ptr_int_in_id);
+        }
         break;
+    default:
+        break;
+    }
+}
+/*
+ * Process OpDecorate instructions.
+ *
+ * Descriptor decorations may appear before the corresponding
+ * OpVariable declaration, so we cache them here and apply them
+ * later when the variable is encountered.
+ *
+ * Handles:
+ *   - Location
+ *   - BuiltIn ViewIndex
+ *   - Descriptor Binding
+ *   - Descriptor Set
+ *
+ * Keeping this separate from fs_prescan() is important because
+ * future projection-matrix handling will also need clean access
+ * to descriptor metadata without depending on scan order.
+ */
+static void
+fs_process_decoration(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t wc)
+{
+    if (!s || !ins || wc < 4)
+        return;
+    uint32_t target =
+        ins[1];
+    uint32_t decoration =
+        ins[2];
+    uint32_t value =
+        ins[3];
+    STEREO_LOG(
+        "FS_DECORATE target=%u decoration=%u literal=%u",
+        target,
+        decoration,
+        value);
+    if (decoration == SpvDecorationBuiltIn &&
+        value == SpvBuiltInViewIndex)
+    {
+        s->vi_var_id =
+            target;
+        STEREO_LOG(
+            "FS_VIEWINDEX_FOUND id=%u",
+            target);
+        return;
+    }
+    if (decoration == SpvDecorationLocation)
+    {
+        int index =
+            fs_var_index(
+                s,
+                target);
+        if (index >= 0)
+        {
+            s->vars[index].location =
+                value;
+            STEREO_LOG(
+                "FS_LOCATION_APPLY var=%u location=%u",
+                target,
+                value);
+        }
+        return;
+    }
+    if (decoration != SpvDecorationBinding &&
+        decoration != SpvDecorationDescriptorSet)
+    {
+        return;
+    }
+    int index = -1;
+    for (uint32_t i = 0; i < s->n_dec; ++i)
+    {
+        if (s->decorations[i].target == target)
+        {
+            index = (int)i;
+            break;
+        }
+    }
+    if (index < 0)
+    {
+        if (s->n_dec >= FS_MAX_VARS)
+        {
+            STEREO_LOG(
+                "FS_DECORATION_OVERFLOW target=%u",
+                target);
+            return;
+        }
+        index =
+            (int)s->n_dec++;
+        FsDecorationInfo *dec =
+            &s->decorations[index];
+        memset(
+            dec,
+            0,
+            sizeof(*dec));
+        dec->target =
+            target;
+        dec->set =
+            0xffffffffu;
+        dec->binding =
+            0xffffffffu;
+        dec->location =
+            0xffffffffu;
+    }
+    FsDecorationInfo *dec =
+        &s->decorations[index];
+    if (decoration == SpvDecorationBinding)
+    {
+        dec->binding =
+            value;
+        STEREO_LOG(
+            "FS_BIND_CACHE target=%u binding=%u",
+            target,
+            value);
+    }
+    else
+    {
+        dec->set =
+            value;
+        STEREO_LOG(
+            "FS_SET_CACHE target=%u set=%u",
+            target,
+            value);
+    }
+}
+/*═══════════════════════════════════════════════════════════════════════
+ * Pass 2: Descriptor variables and decorations.
+ *
+ * Decorations (Binding, DescriptorSet, BuiltIn, Location) may legally
+ * appear either before or after OpVariable, so this pass maintains a
+ * temporary decoration cache which is applied whenever the matching
+ * variable declaration is encountered.
+ *
+ * This pass does NOT determine whether a descriptor is stereo.
+ * That decision happens later after image ownership is known.
+ *═══════════════════════════════════════════════════════════════════════*/
+static void
+fs_scan_variable_instruction(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t wc)
+{
+    if (!s || !ins || wc < 4)
+        return;
+    if (s->n_var >= FS_MAX_VARS)
+    {
+        STEREO_LOG(
+            "FS_VAR_OVERFLOW id=%u",
+            ins[2]);
+        return;
+    }
+    FsVariableInfo *var =
+        &s->vars[s->n_var++];
+    var->id =
+        ins[2];
+    var->type =
+        ins[1];
+    var->storage =
+        ins[3];
+    var->set =
+        0xffffffffu;
+    var->binding =
+        0xffffffffu;
+    var->location =
+        0xffffffffu;
+    /*
+     * Decorations may legally appear before OpVariable.
+     *
+     * Apply cached DescriptorSet, Binding, and Location values
+     * now that the variable exists.
+     */
+    for (uint32_t i = 0; i < s->n_dec; ++i)
+    {
+        FsDecorationInfo *dec =
+            &s->decorations[i];
+        if (dec->target != var->id)
+            continue;
+        if (dec->set != 0xffffffffu)
+            var->set = dec->set;
+        if (dec->binding != 0xffffffffu)
+            var->binding = dec->binding;
+        if (dec->location != 0xffffffffu)
+            var->location = dec->location;
+        STEREO_LOG(
+            "FS_DECORATION_APPLY var=%u set=%u binding=%u location=%u",
+            var->id,
+            var->set,
+            var->binding,
+            var->location);
+    }
+    if (var->storage == SpvStorageClassUniform ||
+        var->storage == SpvStorageClassUniformConstant)
+    {
+        STEREO_LOG(
+            "FS_DESCRIPTOR_VAR id=%u type=%u storage=%u set=%u binding=%u",
+            var->id,
+            var->type,
+            var->storage,
+            var->set,
+            var->binding);
+    }
+    else
+    {
+        STEREO_LOG(
+            "FS_VAR_ADD id=%u type=%u storage=%u",
+            var->id,
+            var->type,
+            var->storage);
+    }
+    STEREO_LOG(
+        "FS_VAR_FINALIZE id=%u type=%u storage=%u set=%u binding=%u location=%u",
+        var->id,
+        var->type,
+        var->storage,
+        var->set,
+        var->binding,
+        var->location);
+}
+/*
+ * Register an OpVariable instruction.
+ *
+ * Variables are the bridge between:
+ *
+ *     sampled image objects
+ *             |
+ *             v
+ *     descriptor variables
+ *             |
+ *             v
+ *     descriptor set / binding
+ *
+ * Decorations may legally appear before OpVariable, so after
+ * registering the variable we apply any cached metadata from
+ * the decoration table.
+ *
+ * This function intentionally does NOT classify stereo resources.
+ * Classification belongs later, after image provenance has been
+ * resolved.
+ */
+static void
+fs_scan_function_parameter(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t wc)
+{
+    if (wc < 3)
+        return;
+    if (!s->in_function)
+    {
+        STEREO_LOG(
+            "FS_PARAM_OUTSIDE_FUNCTION id=%u",
+            ins[2]);
+        return;
+    }
+    if (s->n_param >= FS_MAX_PARAMS)
+    {
+        STEREO_LOG(
+            "FS_PARAM_OVERFLOW id=%u",
+            ins[2]);
+        return;
+    }
+    uint32_t idx =
+        s->n_param++;
+    s->params[idx].id =
+        ins[2];
+    s->params[idx].type =
+        ins[1];
+    s->params[idx].function_id =
+        s->current_function_id;
+    s->params[idx].index =
+        s->current_param_index;
+    STEREO_LOG(
+        "FS_PARAM_ADD function=%u index=%u id=%u type=%u",
+        s->current_function_id,
+        s->current_param_index,
+        ins[2],
+        ins[1]);
+    /*
+     * Parameters do not own descriptors directly.
+     *
+     * Example:
+     *
+     *   OpFunctionParameter %image %param
+     *
+     * The actual descriptor ownership is resolved later through:
+     *
+     *   OpFunctionCall arguments
+     *          |
+     *          v
+     *   parameter id
+     *          |
+     *          v
+     *   originating descriptor variable
+     *
+     * This deferred resolution is required for deferred renderers
+     * where image sampling happens inside helper functions.
+     */
+    s->current_param_index++;
+}
+/*
+ * Scan function structure.
+ *
+ * Responsibilities:
+ *  - track current function
+ *  - remember first function offset
+ *  - record every function parameter
+ *  - build lookup tables used later to resolve descriptor ownership
+ *
+ * This performs no image analysis; it only records function metadata.
+ */
+static void
+fs_scan_function(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t wc)
+{
+    if (!s || !ins || wc < 3)
+        return;
+    uint32_t function_id =
+        ins[2];
+    /*
+     * Track current function context while scanning.
+     *
+     * SPIR-V functions can contain parameters that appear before
+     * the actual image operations using them.  We therefore record
+     * function ownership first, then resolve argument forwarding
+     * later in fs_fixup_function_parameters().
+     */
+    s->in_function = true;
+    s->current_function_id = function_id;
+    s->current_param_index = 0;
+    if (s->n_function >= FS_MAX_FUNCTIONS)
+    {
+        STEREO_LOG(
+            "FS_FUNCTION_OVERFLOW id=%u",
+            function_id);
+        return;
+    }
+    FsFunctionInfo *fn =
+        &s->functions[s->n_function++];
+    fn->id =
+        function_id;
+    fn->first_param =
+        s->n_param;
+    STEREO_LOG(
+        "FS_FUNCTION_REGISTER id=%u index=%u firstParam=%u",
+        function_id,
+        s->n_function - 1,
+        fn->first_param);
+    STEREO_LOG(
+        "FS_FUNCTION_BEGIN id=%u",
+        function_id);
+}
+/*
+ * Track OpLoad instructions that produce image-related objects.
+ *
+ * SPIR-V image usage commonly looks like:
+ *
+ *     OpLoad          %image   %descriptor
+ *     OpSampledImage  %sampled %image %sampler
+ *     OpImageSample   ...
+ *
+ * We cannot classify the image immediately because:
+ *
+ *   - descriptor decorations may appear later
+ *   - function parameters may hide the originating variable
+ *   - image objects can be copied through intermediate IDs
+ *
+ * Therefore this function only records provenance.
+ *
+ * Later passes resolve:
+ *   image ID -> descriptor variable -> set/binding
+ */
+static void
+fs_scan_load_instruction(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t wc)
+{
+    if (wc < 4)
+        return;
+    uint32_t result_type =
+        ins[1];
+    uint32_t result_id =
+        ins[2];
+    uint32_t source_id =
+        ins[3];
+    /*
+     * Only track loads that produce image-related objects.
+     *
+     * We intentionally avoid tracking every OpLoad because
+     * large deferred shaders contain hundreds of unrelated
+     * loads (UBOs, push constants, storage buffers, etc.).
+     *
+     * Projection correction later needs to answer:
+     *
+     *   "Which descriptor produced this sampled image?"
+     *
+     * so resource ownership is the only information needed here.
+     */
+    if (!fs_is_image_related_type(
+            s,
+            result_type))
+    {
+        return;
+    }
+    uint32_t owner = 0;
+    /*
+     * Direct descriptor variable load:
+     *
+     *   %img = OpLoad %image_type %descriptor
+     *
+     * Resolve immediately if possible.
+     */
+    if (!fs_resolve_load_owner(
+            s,
+            source_id,
+            &owner))
+    {
+        /*
+         * The source may be a function parameter.
+         *
+         * It will be fixed later by
+         *
+         * fs_fixup_function_parameters()
+         *
+         * after all calls and parameters are known.
+         */
+        owner = source_id;
+        STEREO_LOG(
+            "FS_LOAD_DEFERRED result=%u source=%u",
+            result_id,
+            source_id);
+    }
+    fs_add_load_mapping(
+        s,
+        result_id,
+        owner);
+    int var =
+        fs_var_index(
+            s,
+            source_id);
+    if (var >= 0)
+    {
+        STEREO_LOG(
+            "FS_LOAD_SOURCE result=%u sourceVar=%u set=%u binding=%u type=%u",
+            result_id,
+            source_id,
+            s->vars[var].set,
+            s->vars[var].binding,
+            s->vars[var].type);
+    }
+    else
+    {
+        STEREO_LOG(
+            "FS_LOAD_SOURCE_UNKNOWN result=%u source=%u",
+            result_id,
+            source_id);
+    }
+    STEREO_LOG(
+        "FS_LOAD_REGISTER result=%u owner=%u type=%u",
+        result_id,
+        owner,
+        result_type);
+}
+/*
+ * Track OpFunctionCall relationships.
+ *
+ * SPIR-V functions make descriptor ownership difficult because
+ * a sampled image may flow through parameters:
+ *
+ *   main()
+ *      |
+ *      | OpFunctionCall
+ *      v
+ *   helper(image)
+ *      |
+ *      | OpFunctionParameter
+ *      v
+ *   OpLoad
+ *
+ * During the first scan we do not yet know every parameter owner.
+ *
+ * Therefore this function records:
+ *
+ *   function ID
+ *   argument index
+ *   argument value
+ *
+ * Later fs_fixup_function_parameters() resolves:
+ *
+ *   parameter ID -> original descriptor variable
+ *
+ * This separation keeps resource classification independent
+ * from SPIR-V function ordering.
+ */
+static void
+fs_scan_function_call(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t wc)
+{
+    if (!s || !ins || wc < 4)
+        return;
+    uint32_t result_id =
+        ins[2];
+    uint32_t function_id =
+        ins[3];
+    uint32_t argument_count =
+        wc - 4;
+    STEREO_LOG(
+        "FS_FUNCTION_CALL result=%u function=%u argc=%u",
+        result_id,
+        function_id,
+        argument_count);
+    for (uint32_t arg = 0;
+         arg < argument_count;
+         ++arg)
+    {
+        uint32_t value =
+            ins[4 + arg];
+        STEREO_LOG(
+            "FS_FUNCTION_ARG index=%u value=%u",
+            arg,
+            value);
+        if (s->n_call >= FS_MAX_CALLS)
+        {
+            STEREO_LOG(
+                "FS_CALL_OVERFLOW function=%u arg=%u",
+                function_id,
+                arg);
+            continue;
+        }
+        FsCallInfo *call =
+            &s->calls[s->n_call++];
+        memset(
+            call,
+            0,
+            sizeof(*call));
+        call->function_id =
+            function_id;
+        /*
+         * During the first scan this is the argument position.
+         * fs_fixup_function_parameters() converts it into the
+         * real parameter ID after the function table is known.
+         */
+        call->parameter_index =
+            arg;
+        call->argument_var =
+            value;
+        call->parameter_id =
+            0;
+        STEREO_LOG(
+            "FS_CALL_STORE function=%u argIndex=%u value=%u total=%u",
+            function_id,
+            arg,
+            value,
+            s->n_call);
+    }
+}
+/*
+ * Ownership propagation
+ */
+/*
+ * Propagate descriptor ownership through image-producing instructions.
+ *
+ * Many deferred renderers perform chains such as:
+ *
+ *      OpLoad
+ *          ↓
+ *      OpImage
+ *          ↓
+ *      OpCopyObject
+ *          ↓
+ *      OpImageSample*
+ *
+ * Each intermediate SSA value must retain the descriptor ownership of the
+ * original OpLoad so later sampling instructions can still recover the
+ * descriptor binding.
+ */
+static void
+fs_track_image_propagation(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t op,
+    uint32_t wc)
+{
+    if (wc < 4)
+        return;
+    /*
+     * Only image-producing instructions can preserve
+     * descriptor ownership.
+     *
+     * Example:
+     *
+     *   %img0 = OpLoad %image %depthTexture
+     *   %img1 = OpImage %image %img0
+     *
+     * %img1 still refers to the same descriptor.
+     */
+    bool propagate =
+        (op == SpvOpImage) ||
+        (op == SpvOpCopyObject &&
+         fs_is_image_related_type(
+             s,
+             ins[1]));
+    if (!propagate)
+        return;
+    uint32_t source =
+        ins[3];
+    uint32_t result =
+        ins[2];
+    uint32_t owner = 0;
+    STEREO_LOG(
+        "FS_PROPAGATE_TRY op=%s(%u) src=%u dst=%u",
+        spv_op_name(op),
+        op,
+        source,
+        result);
+    if (!fs_resolve_load_owner(
+            s,
+            source,
+            &owner))
+    {
+        /*
+         * Keep unresolved IDs alive.
+         *
+         * They may refer to function parameters that are
+         * repaired later by fs_fixup_function_parameters().
+         */
+        owner = source;
+        STEREO_LOG(
+            "FS_PROPAGATE_DEFERRED src=%u dst=%u",
+            source,
+            result);
+    }
+    fs_add_load_mapping(
+        s,
+        result,
+        owner);
+    STEREO_LOG(
+        "FS_IMAGE_PROPAGATE op=%s src=%u dst=%u owner=%u",
+        spv_op_name(op),
+        source,
+        result,
+        owner);
+}
+/*
+ * Track OpSampledImage ownership.
+ *
+ * OpSampledImage combines:
+ *
+ *      image object
+ *          +
+ *      sampler object
+ *
+ * into a sampled-image object consumed by OpImageSample*.
+ *
+ * We only care about preserving the descriptor ownership of the image
+ * object so later texture sampling instructions can still recover the
+ * originating descriptor binding.
+ */
+static void
+fs_track_sampled_image(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t wc)
+{
+    if (wc < 5)
+        return;
+    /*
+     * OpSampledImage layout:
+     *
+     *   ins[1] = result type
+     *   ins[2] = result id
+     *   ins[3] = image id
+     *   ins[4] = sampler id
+     *
+     * The resulting sampled-image object must retain
+     * ownership of the original image descriptor.
+     */
+    if (!fs_id_in(
+            s->si_ids,
+            s->n_si,
+            ins[1]))
+    {
+        return;
+    }
+    uint32_t result =
+        ins[2];
+    uint32_t image =
+        ins[3];
+    uint32_t sampler =
+        ins[4];
+    STEREO_LOG(
+        "FS_SAMPLED_IMAGE result=%u image=%u sampler=%u",
+        result,
+        image,
+        sampler);
+    uint32_t owner = 0;
+    /*
+     * The image operand normally comes from a previous
+     * OpLoad or propagated image operation.
+     */
+    if (!fs_resolve_load_owner(
+            s,
+            image,
+            &owner))
+    {
+        /*
+         * Preserve the unresolved source ID.
+         *
+         * Function parameter forwarding may resolve it later.
+         */
+        owner = image;
+        STEREO_LOG(
+            "FS_SAMPLED_IMAGE_OWNER_DEFERRED image=%u",
+            image);
+    }
+    fs_add_load_mapping(
+        s,
+        result,
+        owner);
+    STEREO_LOG(
+        "FS_SAMPLED_IMAGE_OWNER result=%u owner=%u",
+        result,
+        owner);
+}
+/*
+ * Scan image sampling/fetch/read/write instructions.
+ *
+ * At this point we do not modify these instructions. The goal is to:
+ *
+ *   • determine which descriptor is being sampled
+ *   • log the descriptor binding
+ *   • verify ownership propagation worked correctly
+ *
+ * The actual SPIR-V rewriting happens later in the patch pass.
+ */
+static void
+fs_scan_image_operation(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t op,
+    uint32_t wc)
+{
+    if (wc < 5)
+        return;
+    switch (op)
+    {
+        case SpvOpImageSampleImplicitLod:
+        case SpvOpImageSampleExplicitLod:
+        case SpvOpImageSampleDrefImplicitLod:
+        case SpvOpImageSampleDrefExplicitLod:
+        case SpvOpImageFetch:
+        case SpvOpImageRead:
+        case SpvOpImageWrite:
+            break;
         default:
-            if (in_func) {
-                if (op == SpvOpFunctionCall && wc >= 4)
-                {
-                    STEREO_LOG(
-                        "FS_CALL_TRACE result=%u function=%u wc=%u",
-                        w[i+2],
-                        w[i+3],
-                        wc);
-                    for (uint32_t a = 4; a < wc; ++a)
-                    {
-                        STEREO_LOG(
-                            "FS_CALL_ARG_TRACE index=%u value=%u",
-                            a - 4,
-                            w[i+a]);
-                    }
-                    STEREO_LOG(
-                        "FS_FUNCTION_CALL result=%u function=%u argc=%u",
-                        w[i+2],
-                        w[i+3],
-                        wc - 4);
-                    STEREO_LOG(
-                        "FS_FUNCTION_CALL_FIRST_ARG function=%u arg0=%u",
-                        w[i+3],
-                        wc > 4 ? w[i+4] : 0);
-                    for (uint32_t k = 4; k < wc; ++k)
-                    {
-                        STEREO_LOG(
-                            "FS_FUNCTION_ARG[%u]=%u",
-                            k - 4,
-                            w[i+k]);
-                        uint32_t arg_index = k - 4;
-                         /*
-                          * Store call arguments immediately.
-                          * Function parameters may appear later in the module.
-                          */
-                         if (s->n_call < FS_MAX_CALLS)
-                         {
-                             s->call_functions[s->n_call] = w[i+3];
-                             s->call_params[s->n_call] = arg_index;
-                             s->call_args[s->n_call] = w[i+k];
-                             s->n_call++;
-                             STEREO_LOG(
-                                 "FS_CALL_STORE function=%u argIndex=%u value=%u total=%u",
-                                 w[i+3],
-                                 arg_index,
-                                 w[i+k],
-                                 s->n_call);
-                        }
-                    }
-                }
-                if ((op == SpvOpImageSampleImplicitLod ||
-                     op == SpvOpImageSampleExplicitLod ||
-                     op == SpvOpImageSampleDrefImplicitLod ||
-                     op == SpvOpImageSampleDrefExplicitLod ||
-                     op == SpvOpImageFetch ||
-                     op == SpvOpImageRead ||
-                     op == SpvOpImageWrite) && wc >= 5)
-                {
-                    STEREO_LOG(
-                        "FS_IMAGE_OP op=%s(%u) type=%u result=%u image=%u coord=%u",
-                        spv_op_name(op),
-                        op,
-                        w[i+1],
-                        w[i+2],
-                        w[i+3],
-                        w[i+4]);
-                    STEREO_LOG(
-                        "FS_SAMPLE_COORD result=%u coord=%u",
-                        w[i+2],
-                        w[i+4]);
-                    uint32_t descriptor_var = 0;
-                    for (uint32_t k = 0; k < s->n_load; ++k)
-                    {
-                        if (s->load_ids[k] == w[i+3])
-                        {
-                            descriptor_var = s->load_vars[k];
-                            break;
-                        }
-                    }
-                    int vi = fs_var_index(s, descriptor_var);
-                    STEREO_LOG(
-                        "FS_IMAGE_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
-                        w[i+3],
-                        descriptor_var,
-                        vi >= 0 ? s->var_set[vi] : 999,
-                        vi >= 0 ? s->var_binding[vi] : 999);
-                }
-                /* OpLoad of sampled/image/sampled-image objects */
-                if (op == SpvOpLoad &&
-                    wc >= 4 &&
-                    s->n_load < FS_MAX_LOADS &&
-                    fs_is_image_related_type(s, w[i+1]))
-                {
-                    uint32_t idx = s->n_load++;
-                    s->load_ids[idx] = w[i+2];
-                    s->load_vars[idx] =
-                        fs_resolve_parameter_owner(
-                            s,
-                            w[i+3]);
-                    STEREO_LOG(
-                        "FS_LOAD_OWNER_RESOLVED load=%u source=%u owner=%u",
-                        w[i+2],
-                        w[i+3],
-                        s->load_vars[idx]);
-                    STEREO_LOG(
-                        "FS_LOAD_RESOLVE_RESULT load=%u source=%u owner=%u",
-                        w[i+2],
-                        w[i+3],
-                        s->load_vars[idx]);
-                    /* Resolve function parameter ownership */
-                    for (uint32_t p = 0; p < s->n_call; ++p)
-                    {
-                        if (s->call_params[p] == s->load_vars[idx])
-                        {
-                            s->load_vars[idx] =
-                                s->call_args[p];
-                            STEREO_LOG(
-                                "FS_PARAM_RESOLVE param=%u descriptor=%u",
-                                w[i+3],
-                                s->call_args[p]);
-                            break;
-                        }
-                    }
-                    STEREO_LOG(
-                        "FS_LOAD_MAP load=%u owner=%u tableIndex=%u",
-                        s->load_ids[idx],
-                        s->load_vars[idx],
-                        idx);
-                    int vi = fs_var_index(s, w[i+3]);
-                    STEREO_LOG(
-                        "FS_LOAD_SOURCE result=%u sourceVar=%u knownVar=%d set=%u binding=%u type=%u",
-                        w[i+2],
-                        w[i+3],
-                        vi,
-                        vi >= 0 ? s->var_set[vi] : 999,
-                        vi >= 0 ? s->var_binding[vi] : 999,
-                        vi >= 0 ? s->var_types[vi] : 999);
-                    STEREO_LOG(
-                        "FS_LOAD_TABLE image idx=%u id=%u type=%u var=%u",
-                        idx,
-                        s->load_ids[idx],
-                        w[i+1],
-                        s->load_vars[idx]);
-                    STEREO_LOG(
-                        "FS OpLoad IMAGE_TYPE: type=%u result=%u var=%u",
-                        w[i+1],
-                        w[i+2],
-                        w[i+3]);
-                }
-                /* OpImage */
-                if (op == SpvOpImage && wc >= 4)
-                {
-                    STEREO_LOG(
-                        "FS OpImage result=%u image=%u",
-                        w[i+2],
-                        w[i+3]);
-                     uint32_t descriptor_var = 0;
-                     int found = 0;
-                     for (uint32_t j = 0; j < s->n_load; ++j)
-                     {
-                         if (s->load_ids[j] == w[i+3])
-                         {
-                             descriptor_var = s->load_vars[j];
-                             found = 1;
-                             break;
-                         }
-                     }
-                    STEREO_LOG(
-                        "FS_OPIMAGE_DESCRIPTOR result=%u src=%u found=%d descriptorVar=%u imageRelated=%u",
-                        w[i+2],
-                        w[i+3],
-                        found,
-                        descriptor_var,
-                        fs_is_image_related_type(s, w[i+1]));
-                }
-                /* OpCopyObject */
-                if (op == SpvOpCopyObject && wc >= 4)
-                {
-                    STEREO_LOG(
-                        "FS_COPY_OBJECT result=%u src=%u",
-                        w[i+2],
-                        w[i+3]);
-                }
-                /* OpSampledImage */
-                if (op == SpvOpSampledImage && wc >= 5 &&
-                    fs_id_in(s->si_ids, s->n_si, w[i+1]) &&
-                    s->n_load < FS_MAX_LOADS)
-                {
-                    uint32_t idx = s->n_load++;
-                    s->load_ids[idx] = w[i+2];
-                    /* Preserve the originating descriptor variable so later
-                     * OpImageSample* logging can recover the binding.
-                     */
-                    s->load_vars[idx] = 0;
-                    for (uint32_t j = 0; j < idx; ++j)
-                    {
-                        if (s->load_ids[j] == w[i+3])
-                        {
-                            s->load_vars[idx] = s->load_vars[j];
-                            STEREO_LOG(
-                                "FS_LOAD_PROPAGATE sampledImage=%u descriptorVar=%u",
-                                w[i+3],
-                                s->load_vars[j]);
-                            break;
-                        }
-                    }
-                    if (s->load_vars[idx] == 0)
-                    {
-                        STEREO_LOG(
-                            "FS_LOAD_PROPAGATE FAILED sampledImage=%u",
-                            w[i+3]);
-                    }
-                    STEREO_LOG(
-                        "FS OpSampledImage type=%u result=%u image=%u sampler=%u imagePatched=%u samplerPatched=%u",
-                        w[i+1],
-                        w[i+2],
-                        w[i+3],
-                        w[i+4],
-                        fs_id_in(s->load_ids, s->n_load, w[i+3]),
-                        fs_id_in(s->load_ids, s->n_load, w[i+4]));
-                }
-                /*
-                 * Propagate descriptor ownership through image-producing
-                 * instructions.
-                 *
-                 * Deferred renderers commonly do:
-                 *
-                 *   OpLoad          %196
-                 *   OpImage         %198 %196
-                 *   OpImageFetch    ...  %198
-                 *
-                 * so %198 must inherit %196's descriptor variable.
-                 */
-                if ((op == SpvOpImage ||
-                    (op == SpvOpCopyObject &&
-                    fs_is_image_related_type(s, w[i+1]))) &&
-                    s->n_load < FS_MAX_LOADS)
-                {
-                    uint32_t src = w[i+3];
-                    STEREO_LOG(
-                        "FS_PROPAGATE_TRY op=%s(%u) src=%u dst=%u",
-                        spv_op_name(op),
-                        op,
-                        src,
-                        w[i+2]);
-                    int propagated = 0;
-                    for (uint32_t k = 0; k < s->n_load; ++k)
-                    {
-                        if (s->load_ids[k] == src)
-                        {
-                            STEREO_LOG(
-                                "FS_PROPAGATE_SOURCE src=%u owner=%u",
-                                src,
-                                s->load_vars[k]);
-                            int owner_vi = fs_var_index(
-                                s,
-                                s->load_vars[k]);
-                            STEREO_LOG(
-                                "FS_IMAGE_PROPAGATE_OWNER_CHECK src=%u dst=%u owner=%u known=%u",
-                                src,
-                                w[i+2],
-                                s->load_vars[k],
-                                owner_vi >= 0);
-                            uint32_t idx = s->n_load++;
-                            s->load_ids[idx]  = w[i+2];
-                            s->load_vars[idx] = s->load_vars[k];
-                            STEREO_LOG(
-                                "FS_IMAGE_PROPAGATE op=%s(%u) src=%u dst=%u owner=%u srcIndex=%u",
-                                spv_op_name(op),
-                                op,
-                                src,
-                                w[i+2],
-                                s->load_vars[k],
-                                k);
-                            propagated = 1;
-                            break;
-                        }
-                    }
-                    if (!propagated)
-                    {
-                        STEREO_LOG(
-                            "FS_IMAGE_PROPAGATE_FAILED op=%s(%u) src=%u dst=%u",
-                            spv_op_name(op),
-                            op,
-                            src,
-                            w[i+2]);
-                    }
-                }
-            }
+            return;
+    }
+    /*
+     * Image sampling instructions:
+     *
+     *   ins[1] = result type
+     *   ins[2] = result id
+     *   ins[3] = sampled image/image operand
+     *   ins[4] = coordinate
+     *
+     * At this stage we are not modifying shaders.
+     *
+     * We are building the resource map required later to
+     * detect:
+     *
+     *   depth texture sampling
+     *          |
+     *          v
+     *   view-space reconstruction
+     *          |
+     *          v
+     *   projection matrix usage
+     *
+     * which is needed for correct stereo SSAO/deferred effects.
+     */
+    uint32_t result =
+        ins[2];
+    uint32_t image =
+        ins[3];
+    uint32_t coord =
+        ins[4];
+    STEREO_LOG(
+        "FS_IMAGE_OP op=%s(%u) result=%u image=%u coord=%u",
+        spv_op_name(op),
+        op,
+        result,
+        image,
+        coord);
+    uint32_t owner = 0;
+    if (!fs_resolve_load_owner(
+            s,
+            image,
+            &owner))
+    {
+        /*
+         * The image may still be unresolved because it came
+         * through a helper function parameter.
+         *
+         * fs_fixup_function_parameters() will repair these
+         * after the complete module scan.
+         */
+        owner = image;
+        STEREO_LOG(
+            "FS_IMAGE_OWNER_DEFERRED image=%u",
+            image);
+    }
+    int var =
+        fs_var_index(
+            s,
+            owner);
+    if (var < 0)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_OWNER_UNKNOWN image=%u owner=%u",
+            image,
+            owner);
+        return;
+    }
+    STEREO_LOG(
+        "FS_IMAGE_DESCRIPTOR image=%u owner=%u set=%u binding=%u type=%u",
+        image,
+        owner,
+        s->vars[var].set,
+        s->vars[var].binding,
+        s->vars[var].type);
+    /*
+     * Important future hook:
+     *
+     * This is where projection/depth analysis will attach.
+     *
+     * Once we know:
+     *
+     *   binding -> depth attachment
+     *   image sampling -> depth value
+     *   math chain -> reconstruction
+     *
+     * we can inject projection correction instead of only
+     * stereoizing the original vertex transform.
+     */
+    if (fs_binding_is_stereo_attachment(
+            s,
+            owner))
+    {
+        STEREO_LOG(
+            "FS_DEPTH_RESOURCE_SAMPLE image=%u owner=%u binding=%u",
+            image,
+            owner,
+            s->vars[var].binding);
+    }
+}
+/*
+ * Instruction dispatchers
+ * ----------------------
+ * Module traversal lives here. The individual semantic handlers above should
+ * never walk the SPIR-V stream themselves.
+ */
+/*
+ * Scan one SPIR-V instruction.
+ *
+ * This dispatcher performs the semantic analysis pass used by the
+ * fullscreen-fragment patcher. Each instruction category is handled by a
+ * dedicated helper so fs_prescan() only performs module traversal.
+ *
+ * No SPIR-V is modified here; this pass only records metadata needed by the
+ * later patching phase.
+ */
+static void
+fs_scan_instruction(
+    FsScan *s,
+    const uint32_t *ins,
+    uint32_t op,
+    uint32_t wc)
+{
+    if (!s || !ins)
+        return;
+    switch (op)
+    {
+        /*
+         * Type declarations.
+         *
+         * These must be scanned before variables because
+         * later resource classification depends on knowing
+         * image/sampled-image relationships.
+         */
+        case SpvOpTypeFloat:
+        case SpvOpTypeInt:
+        case SpvOpTypeVector:
+        case SpvOpTypeImage:
+        case SpvOpTypeSampledImage:
+        case SpvOpTypePointer:
+            fs_scan_type_instruction(
+                s,
+                ins,
+                op,
+                wc);
+            break;
+        /*
+         * Decorations may appear before OpVariable.
+         *
+         * Cache them first and apply them when the variable
+         * is encountered.
+         */
+        case SpvOpDecorate:
+            fs_process_decoration(
+                s,
+                ins,
+                wc);
+            break;
+        /*
+         * Descriptor/resource declarations.
+         */
+        case SpvOpVariable:
+            fs_scan_variable_instruction(
+                s,
+                ins,
+                wc);
+            break;
+        /*
+         * Function metadata.
+         */
+        case SpvOpFunction:
+            fs_scan_function(
+                s,
+                ins,
+                wc);
+            break;
+        case SpvOpFunctionParameter:
+            fs_scan_function_parameter(
+                s,
+                ins,
+                wc);
+            break;
+        case SpvOpFunctionEnd:
+            s->in_function = false;
+            s->current_function_id = 0;
+            s->current_param_index = 0;
+            STEREO_LOG(
+                "FS_FUNCTION_END");
+            break;
+        /*
+         * Resource ownership tracking.
+         */
+        case SpvOpLoad:
+            fs_scan_load_instruction(
+                s,
+                ins);
+            break;
+        case SpvOpSampledImage:
+            fs_track_sampled_image(
+                s,
+                ins,
+                wc);
+            break;
+        case SpvOpImage:
+        case SpvOpCopyObject:
+            fs_track_image_propagation(
+                s,
+                ins,
+                op,
+                wc);
+            break;
+        /*
+         * Final image consumers.
+         *
+         * This is where depth/normal attachment analysis
+         * will eventually feed projection correction.
+         */
+        case SpvOpImageSampleImplicitLod:
+        case SpvOpImageSampleExplicitLod:
+        case SpvOpImageSampleDrefImplicitLod:
+        case SpvOpImageSampleDrefExplicitLod:
+        case SpvOpImageFetch:
+        case SpvOpImageRead:
+        case SpvOpImageWrite:
+            fs_scan_image_operation(
+                s,
+                ins,
+                op,
+                wc);
+            break;
+        default:
+            break;
+    }
+}
+/*
+ * fs_prescan()
+ *
+ * High-level SPIR-V prescan dispatcher.
+ *
+ * The old implementation mixed:
+ *
+ *   - type discovery
+ *   - descriptor tracking
+ *   - function analysis
+ *   - image ownership propagation
+ *   - debug tracing
+ *
+ * in one large loop.
+ *
+ * This wrapper keeps the scan order explicit while allowing each
+ * analysis stage to remain independently debuggable.
+ *
+ * Scan order matters:
+ *
+ *  1. Types must be known before variables can be classified.
+ *  2. Decorations may appear before OpVariable, so they are cached.
+ *  3. Variables establish descriptor ownership.
+ *  4. Function parameters/calls are collected.
+ *  5. Loads and image operations propagate ownership.
+ *  6. Post-pass fixups resolve deferred relationships.
+ */
+static void
+fs_prescan(
+    FsScan *s,
+    const uint32_t *w,
+    size_t c)
+{
+    if (!s || !w || c < 5)
+        return;
+    memset(
+        s,
+        0,
+        sizeof(*s));
+    /*
+     * SPIR-V module layout:
+     *
+     *   [0] Magic
+     *   [1] Version
+     *   [2] Generator
+     *   [3] Bound
+     *   [4] Schema
+     *
+     * Instructions begin at word 5.
+     */
+    for (size_t i = 5; i < c;)
+    {
+        uint32_t word =
+            w[i];
+        uint32_t op =
+            word & 0xffffu;
+        uint32_t wc =
+            word >> 16;
+        /*
+         * Invalid instruction protection.
+         *
+         * Avoid reading beyond the module if a corrupted
+         * shader or partially generated SPIR-V reaches here.
+         */
+        if (wc == 0 ||
+            i + wc > c)
+        {
+            STEREO_LOG(
+                "FS_INVALID_INSTRUCTION offset=%zu wc=%u size=%zu",
+                i,
+                wc,
+                c);
             break;
         }
+        fs_scan_instruction(
+            s,
+            &w[i],
+            op,
+            wc);
         i += wc;
     }
     /*
-     * Resolve deferred function-call arguments after all
-     * OpFunctionParameter instructions are known.
+     * Function parameters cannot always be resolved while
+     * scanning because calls may appear before all function
+     * metadata is known.
+     *
+     * Resolve deferred ownership now.
      */
-    for (uint32_t c = 0; c < s->n_call; ++c)
+    fs_fixup_function_parameters(
+        s);
+    /*
+     * Diagnostic output after the complete ownership graph
+     * has been built.
+     */
+    fs_dump_scan_summary(
+        s);
+}
+/*
+ * fs_prescan_module()
+ *
+ * Entry point for fragment shader analysis.
+ *
+ * Responsibilities:
+ *
+ *   - initialize FsScan state
+ *   - perform the SPIR-V instruction scan
+ *   - resolve deferred relationships
+ *   - emit final diagnostics
+ *
+ * Keeping this wrapper separate from fs_prescan() allows future
+ * multi-pass analysis:
+ *
+ *   Pass 1:
+ *       structural discovery
+ *
+ *   Pass 2:
+ *       descriptor/image provenance
+ *
+ *   Pass 3:
+ *       projection/depth-space classification
+ *
+ * The future projection-matrix system will use this separation to
+ * determine whether a shader samples:
+ *
+ *   - camera-space data
+ *   - screen-space buffers
+ *   - depth reconstructed positions
+ *   - lighting/deferred intermediates
+ */
+static bool
+fs_prescan_module(
+    FsScan *s,
+    const uint32_t *w,
+    size_t c)
+{
+    if (!s || !w || c < 5)
     {
         STEREO_LOG(
-            "FS_FIXUP_SCAN index=%u function=%u arg=%u",
-            c,
-            s->call_functions[c],
-            s->call_args[c]);
-        uint32_t fn = s->call_functions[c];
-        uint32_t arg_index = s->call_params[c];
-        for (uint32_t f = 0; f < s->n_function; ++f)
+            "FS_PRESCAN_INVALID_MODULE");
+        return false;
+    }
+    fs_prescan(
+        s,
+        w,
+        c);
+    if (s->n_var == 0 &&
+        s->n_img == 0 &&
+        s->n_load == 0)
+    {
+        STEREO_LOG(
+            "FS_PRESCAN_EMPTY_MODULE");
+    }
+    STEREO_LOG(
+        "FS_PRESCAN_COMPLETE vars=%u images=%u loads=%u functions=%u calls=%u",
+        s->n_var,
+        s->n_img,
+        s->n_load,
+        s->n_function,
+        s->n_call);
+    return true;
+}
+/*
+ * Post-processing
+ */
+/*
+ * Resolve descriptor ownership across function calls.
+ *
+ * During the initial scan we only know:
+ *
+ *     caller argument #0  ---> descriptor variable
+ *
+ * Later, after every function has been scanned, we know:
+ *
+ *     function parameter ID corresponding to argument #0
+ *
+ * This pass joins those two pieces of information so image loads
+ * performed inside helper functions still resolve back to the
+ * original descriptor variable.
+ *
+ * Before:
+ *
+ *      load_vars[] --> parameter ID
+ *
+ * After:
+ *
+ *      load_vars[] --> descriptor variable
+ *
+ * This is required because many deferred renderers wrap depth,
+ * normal and SSAO sampling inside helper functions.
+ */
+static void
+fs_fixup_function_parameters(
+    FsScan *s)
+{
+    if (!s)
+        return;
+    /*
+     * Resolve deferred function-call arguments.
+     *
+     * During the first scan we only know:
+     *
+     *   OpFunctionCall
+     *       |
+     *       +-- argument value
+     *
+     * but not always:
+     *
+     *   function parameter ID
+     *
+     * because SPIR-V functions can appear in any order.
+     */
+    for (uint32_t i = 0; i < s->n_call; ++i)
+    {
+        FsCallInfo *call =
+            &s->calls[i];
+        int fn_index =
+            fs_find_function(
+                s,
+                call->function_id);
+        if (fn_index < 0)
         {
-            if (s->function_ids[f] != fn)
-                continue;
-            uint32_t p =
-                s->function_param_start[f] + arg_index;
-            if (p < s->n_param)
+            STEREO_LOG(
+                "FS_FIXUP_FUNCTION_MISS function=%u",
+                call->function_id);
+            continue;
+        }
+        FsFunctionInfo *fn =
+            &s->functions[fn_index];
+        uint32_t parameter_index =
+            fn->first_param +
+            call->parameter_index;
+        if (parameter_index >= s->n_param)
+        {
+            STEREO_LOG(
+                "FS_FIXUP_PARAMETER_RANGE function=%u index=%u",
+                call->function_id,
+                parameter_index);
+            continue;
+        }
+        call->parameter_id =
+            s->params[parameter_index].id;
+        STEREO_LOG(
+            "FS_CALL_PARAMETER_RESOLVE function=%u parameter=%u arg=%u",
+            call->function_id,
+            call->parameter_id,
+            call->argument_var);
+    }
+    /*
+     * Resolve loads that originated from function parameters.
+     *
+     * Example:
+     *
+     * main()
+     *   |
+     *   v
+     * helper(depthTexture)
+     *   |
+     *   v
+     * OpLoad %param
+     *
+     * The first pass cannot know that %param maps back to the
+     * original descriptor variable.
+     */
+    for (uint32_t load = 0;
+         load < s->n_load;
+         ++load)
+    {
+        FsLoadInfo *entry =
+            &s->loads[load];
+        if (entry->owner_var != 0)
+            continue;
+        for (uint32_t call = 0;
+             call < s->n_call;
+             ++call)
+        {
+            FsCallInfo *c =
+                &s->calls[call];
+            if (c->parameter_id !=
+                entry->source_id)
             {
-                STEREO_LOG(
-                    "FS_FUNCTION_ARG_FIXUP function=%u param=%u arg=%u",
-                    fn,
-                    s->param_ids[p],
-                    s->call_args[c]);
-                /*
-                 * Now that call parameter ownership is known, rewrite any
-                 * recorded load owners that still reference parameter IDs.
-                 */
-                for (uint32_t l = 0; l < s->n_load; ++l)
-                {
-                    for (uint32_t c = 0; c < s->n_call; ++c)
-                    {
-                        if (s->load_vars[l] == s->call_params[c])
-                        {
-                            STEREO_LOG(
-                                "FS_LOAD_FINAL_RESOLVE load=%u param=%u owner=%u",
-                                s->load_ids[l],
-                                s->load_vars[l],
-                                s->call_args[c]);
-                
-                            s->load_vars[l] = s->call_args[c];
-                            break;
-                        }
-                    }
-                }
-                s->call_params[c] =
-                    s->param_ids[p];
+                continue;
             }
+            entry->owner_var =
+                c->argument_var;
+            STEREO_LOG(
+                "FS_LOAD_PARAMETER_FIXUP load=%u owner=%u",
+                entry->id,
+                entry->owner_var);
+            break;
         }
     }
-    for (uint32_t i = 0; i < s->n_var; ++i)
+    /*
+     * Final unresolved count.
+     *
+     * Unresolved entries are not fatal. Some shaders contain
+     * dead code or resources that never reach a sample.
+     */
+    uint32_t unresolved = 0;
+    for (uint32_t i = 0;
+         i < s->n_load;
+         ++i)
     {
-        STEREO_LOG(
-            "FS_VAR_FINAL id=%u type=%u set=%u binding=%u",
-            s->var_ids[i],
-            s->var_types[i],
-            s->var_set[i],
-            s->var_binding[i]);
+        if (s->loads[i].owner_var == 0)
+            ++unresolved;
     }
-    for (uint32_t i = 0; i < s->n_dec; ++i)
+    STEREO_LOG(
+        "FS_FIXUP_COMPLETE loads=%u unresolved=%u",
+        s->n_load,
+        unresolved);
+}
+/*
+ * Dump the final prescan state.
+ *
+ * This is called after all instruction scanning and ownership
+ * fixups have completed. At this point every descriptor,
+ * function parameter and image load should have been resolved
+ * to its originating descriptor variable.
+ *
+ * These logs are invaluable when diagnosing why a sampled image
+ * was (or was not) classified as a stereo attachment.
+ */
+static void
+fs_dump_scan_summary(
+    const FsScan *s)
+{
+    if (!s)
+        return;
+    STEREO_LOG(
+        "========== FS PRESCAN SUMMARY ==========");
+    STEREO_LOG(
+        "Images=%u SampledImages=%u Variables=%u Loads=%u Params=%u Functions=%u Calls=%u",
+        s->n_img,
+        s->n_si,
+        s->n_var,
+        s->n_load,
+        s->n_param,
+        s->n_function,
+        s->n_call);
+    for (uint32_t i = 0;
+         i < s->n_var;
+         ++i)
     {
+        const FsVariableInfo *v =
+            &s->vars[i];
+        STEREO_LOG(
+            "FS_VAR_FINAL id=%u type=%u set=%u binding=%u location=%u",
+            v->id,
+            v->type,
+            v->set,
+            v->binding,
+            v->location);
+    }
+    for (uint32_t i = 0;
+         i < s->n_dec;
+         ++i)
+    {
+        const FsDecorationInfo *d =
+            &s->decorations[i];
         STEREO_LOG(
             "FS_DEC target=%u set=%u binding=%u",
-            s->dec_target[i],
-            s->dec_set[i],
-            s->dec_binding[i]);
+            d->target,
+            d->set,
+            d->binding);
     }
+    for (uint32_t i = 0;
+         i < s->n_function;
+         ++i)
+    {
+        const FsFunctionInfo *fn =
+            &s->functions[i];
+        STEREO_LOG(
+            "FS_FUNCTION id=%u firstParam=%u",
+            fn->id,
+            fn->first_param);
+    }
+    for (uint32_t i = 0;
+         i < s->n_param;
+         ++i)
+    {
+        const FsParameterInfo *p =
+            &s->params[i];
+        STEREO_LOG(
+            "FS_PARAM id=%u function=%u index=%u",
+            p->id,
+            p->function_id,
+            p->index);
+    }
+    for (uint32_t i = 0;
+         i < s->n_load;
+         ++i)
+    {
+        const FsLoadInfo *load =
+            &s->loads[i];
+        STEREO_LOG(
+            "FS_LOAD_FINAL id=%u owner=%u source=%u",
+            load->id,
+            load->owner_var,
+            load->source_id);
+    }
+    for (uint32_t i = 0;
+         i < s->n_call;
+         ++i)
+    {
+        const FsCallInfo *call =
+            &s->calls[i];
+        STEREO_LOG(
+            "FS_CALL_FINAL function=%u parameter=%u argument=%u",
+            call->function_id,
+            call->parameter_id,
+            call->argument_var);
+    }
+    STEREO_LOG(
+        "========================================");
 }
 
 static uint32_t fs_count_patches(const FsScan *s, const uint32_t *w, size_t c)
