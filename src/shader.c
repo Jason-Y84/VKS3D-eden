@@ -2974,6 +2974,33 @@ fs_scan_instruction(
 {
     if (!s || !ins)
         return;
+
+    /*
+     * Diagnostic: log every image operation encountered during
+     * the prescan so we know exactly which SPIR-V instructions
+     * this shader uses for MSAA resolve/final composition.
+     */
+    switch (op)
+    {
+    case SpvOpImageSampleImplicitLod:
+    case SpvOpImageSampleExplicitLod:
+    case SpvOpImageSampleDrefImplicitLod:
+    case SpvOpImageSampleDrefExplicitLod:
+    case SpvOpImageFetch:
+    case SpvOpImageRead:
+    case SpvOpImageWrite:
+        STEREO_LOG(
+            "FS_IMAGE_OP opcode=%u wc=%u result=%u image=%u",
+            op,
+            wc,
+            (wc >= 3) ? ins[2] : 0,
+            (wc >= 4) ? ins[3] : 0);
+        break;
+
+    default:
+        break;
+    }
+
     switch (op)
     {
         /*
@@ -4072,6 +4099,12 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
+            STEREO_LOG(
+                "FS_FETCH_OPCODE opcode=%u image=%u coord=%u result=%u",
+                op,
+                in[i+3],
+                in[i+4],
+                in[i+2]);
             STEREO_LOG(
                 "FS_FETCH_STEREO_PATCH image=%u descriptorVar=%u coord=%u",
                 in[i+3],
