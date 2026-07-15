@@ -3181,9 +3181,6 @@ fs_prescan(
             word >> 16;
         /*
          * Invalid instruction protection.
-         *
-         * Avoid reading beyond the module if a corrupted
-         * shader or partially generated SPIR-V reaches here.
          */
         if (wc == 0 ||
             i + wc > c)
@@ -3203,40 +3200,22 @@ fs_prescan(
         i += wc;
     }
     /*
-     * Function parameters cannot always be resolved while
-     * scanning because calls may appear before all function
-     * metadata is known.
-     *
-     * Resolve deferred ownership now.
+     * Resolve deferred parameter ownership.
      */
     fs_fixup_function_parameters(
         s);
-
     /*
-     * Now that call parameter ownership is known, rewrite any
-     * recorded load owners that still reference parameter IDs.
-     *
-     * Function parameters are placeholders until the call graph
-     * has been resolved:
-     *
-     *   OpLoad %parameter
-     *          |
-     *          v
-     *   helper(depthTexture)
-     *
-     * Resolve:
-     *
-     *   parameter ID -> caller argument variable
+     * Rewrite loads that still reference function parameter IDs
+     * to the caller's descriptor variable.
      */
     for (uint32_t l = 0; l < s->n_load; ++l)
     {
         FsLoadInfo *load =
             &s->loads[l];
-
-        for (uint32_t c = 0; c < s->n_call; ++c)
+        for (uint32_t cidx = 0; cidx < s->n_call; ++cidx)
         {
             FsCallInfo *call =
-                &s->calls[c];
+                &s->calls[cidx];
             if (load->owner_var ==
                 call->parameter_id)
             {
@@ -3251,10 +3230,8 @@ fs_prescan(
             }
         }
     }
-
     /*
-     * Diagnostic output after the complete ownership graph
-     * has been built.
+     * Dump the final ownership graph after fixups.
      */
     fs_dump_scan_summary(
         s);
