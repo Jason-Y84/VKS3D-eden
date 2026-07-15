@@ -2205,6 +2205,38 @@ fs_process_decoration(
             target,
             value);
     }
+    /*
+     * OpDecorate may appear after OpVariable.
+     *
+     * Update the already-created variable immediately.
+     */
+    int var_index =
+        fs_var_index(
+            s,
+            target);
+    if (var_index >= 0)
+    {
+        FsVariableInfo *var =
+            &s->vars[var_index];
+        if (decoration == SpvDecorationBinding)
+        {
+            var->binding =
+                value;
+            STEREO_LOG(
+                "FS_BIND_APPLY_EXISTING var=%u binding=%u",
+                var->id,
+                var->binding);
+        }
+        else
+        {
+            var->set =
+                value;
+            STEREO_LOG(
+                "FS_SET_APPLY_EXISTING var=%u set=%u",
+                var->id,
+                var->set);
+        }
+    }   
 }
 /*═══════════════════════════════════════════════════════════════════════
  * Pass 2: Descriptor variables and decorations.
