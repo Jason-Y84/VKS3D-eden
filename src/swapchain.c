@@ -279,6 +279,28 @@ static void tracked_destroy_image(
         NULL);
 }
 
+bool stereo_image_is_upgraded(StereoDevice *sd, VkImage image)
+{
+    if (!sd || image == VK_NULL_HANDLE)
+        return false;
+    for (uint32_t i = 0; i < sd->upgraded_image_count; i++)
+    {
+        if (sd->upgraded_images[i] == image)
+            return true;
+    }
+    for (uint32_t i = 0; i < sd->intercepted_depth_count; i++)
+    {
+        if (sd->intercepted_depth[i] == image)
+            return true;
+    }
+    for (uint32_t i = 0; i < sd->intercepted_color_count; i++)
+    {
+        if (sd->intercepted_color[i] == image)
+            return true;
+    }
+    return false;
+}
+
 /* ── vkCreateSwapchainKHR ──────────────────────────────────────────────── */
 VKAPI_ATTR VkResult VKAPI_CALL
 stereo_CreateSwapchainKHR(VkDevice device,

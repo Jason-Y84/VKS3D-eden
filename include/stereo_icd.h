@@ -767,7 +767,7 @@ VKAPI_ATTR void     VKAPI_CALL stereo_CmdDraw(VkCommandBuffer, uint32_t, uint32_
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndexed(VkCommandBuffer, uint32_t, uint32_t, uint32_t, int32_t, uint32_t);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndirect(VkCommandBuffer, VkBuffer, VkDeviceSize, uint32_t, uint32_t);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndexedIndirect(VkCommandBuffer, VkBuffer, VkDeviceSize, uint32_t, uint32_t);
-
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageCopy *pRegions);
 
 /* shader.c */
 StereoPipelineInfo *
@@ -796,6 +796,10 @@ bool spirv_patch_stereo_vertex(
     bool inj_vi,
     const StereoDebugCtx *dbg);
 void spirv_patched_free(uint32_t *w);
+
+bool stereo_image_is_upgraded(
+    StereoDevice *sd,
+    VkImage image);
 
 StereoPipelineInfo *
 find_pipeline_info(
