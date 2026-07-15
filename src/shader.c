@@ -3293,9 +3293,9 @@ fs_prescan(
     for (uint32_t p = 0; p < s->n_param; ++p)
     {
         STEREO_LOG(
-            "FS_PARAM id=%u owner=%u",
+            "FS_PARAM id=%u index=%u",
             s->params[p].id,
-            s->params[p].owner);
+            p);
     }
     for (uint32_t cidx = 0; cidx < s->n_call; ++cidx)
     {
