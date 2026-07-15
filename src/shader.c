@@ -1503,13 +1503,6 @@ typedef struct
     bool     patchable;
 } FsImageInfo;
 
-typedef struct
-{
-    uint32_t id;
-    uint32_t opcode;        /* SpvOpTypeImage, SpvOpTypePointer, etc. */
-    uint32_t element_type;  /* Pointer -> pointee type */
-    uint32_t dim;           /* OpTypeImage Dim operand */
-} FsTypeInfo;
 
 typedef struct
 {
@@ -1549,9 +1542,6 @@ typedef struct
     bool     in_function;
     uint32_t current_function_id;
     uint32_t current_param_index;
-
-    FsTypeInfo types[FS_MAX_TYPES];
-    uint32_t n_type;
 } FsScan;
 
 static bool
@@ -1949,48 +1939,6 @@ fs_scan_type_instruction(
 {
     if (!s || !ins)
         return;
-    /*
-     * Record all type declarations for later ownership
-     * resolution.
-     *
-     * This is needed for chains such as:
-     *
-     *   OpVariable
-     *       |
-     *   OpTypePointer UniformConstant
-     *       |
-     *   OpTypeImage Dim=SubpassData
-     *
-     * which are used by MSAA input attachments.
-     */
-    if (s->n_type < FS_MAX_TYPES)
-    {
-        FsTypeInfo *t =
-            &s->types[s->n_type++];
-        memset(t, 0, sizeof(*t));
-        t->id =
-            ins[1];
-        t->opcode =
-            op;
-        if (op == SpvOpTypePointer &&
-            wc >= 4)
-        {
-            t->element_type =
-                ins[3];
-        }
-        if (op == SpvOpTypeImage &&
-            wc >= 4)
-        {
-            t->dim =
-                ins[3];
-        }
-        STEREO_LOG(
-            "FS_TYPE id=%u opcode=%u element=%u dim=%u",
-            t->id,
-            t->opcode,
-            t->element_type,
-            t->dim);
-    }
     switch (op)
     {
     case SpvOpTypeFloat:
@@ -2050,14 +1998,10 @@ fs_scan_type_instruction(
             FsImageInfo *img =
                 &s->images[s->n_img++];
             memset(img, 0, sizeof(*img));
-            img->id =
-                type_id;
-            img->depth =
-                depth;
-            img->arrayed =
-                arrayed;
-            img->patchable =
-                true;
+            img->id        = type_id;
+            img->depth     = depth;
+            img->arrayed   = arrayed;
+            img->patchable = true;
             STEREO_LOG(
                 "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
                 img->id,
@@ -2089,8 +2033,7 @@ fs_scan_type_instruction(
         }
         if (found && s->n_si < FS_MAX_SI)
         {
-            s->si_ids[s->n_si++] =
-                ins[1];
+            s->si_ids[s->n_si++] = ins[1];
             STEREO_LOG(
                 "FS_SAMPLED_IMAGE_TYPE id=%u imageType=%u",
                 ins[1],
@@ -2104,8 +2047,7 @@ fs_scan_type_instruction(
             s->int_id &&
             ins[3] == s->int_id)
         {
-            s->ptr_int_in_id =
-                ins[1];
+            s->ptr_int_in_id = ins[1];
             STEREO_LOG(
                 "FS_PTR_INT_INPUT id=%u",
                 s->ptr_int_in_id);
@@ -2239,45 +2181,6 @@ fs_process_decoration(
             value);
     }
 }
-
-static bool
-fs_type_is_image(
-    const FsScan *s,
-    uint32_t type)
-{
-    if (!s)
-        return false;
-    for (uint32_t i = 0; i < s->n_type; ++i)
-    {
-        FsTypeInfo *t =
-            &s->types[i];
-        if (t->id != type)
-            continue;
-        if (t->opcode == SpvOpTypePointer)
-        {
-            type = t->element_type;
-            i = 0;
-            continue;
-        }
-        if (t->opcode == SpvOpTypeImage ||
-            t->opcode == SpvOpTypeSampledImage)
-        {
-            return true;
-        }
-        break;
-    }
-    return false;
-}
-
-static bool
-fs_type_is_input_attachment(
-    const FsScan *s,
-    uint32_t type);
- static void
- fs_scan_variable_instruction(
-     FsScan *s,
-     const uint32_t *ins,
-     uint32_t wc)
 /*═══════════════════════════════════════════════════════════════════════
  * Pass 2: Descriptor variables and decorations.
  *
@@ -3799,35 +3702,17 @@ fs_type_is_input_attachment(
 {
     if (!s)
         return false;
-    /*
-     * Walk pointer types until we reach the image type.
-     *
-     * Input attachments are normally declared:
-     *
-     * OpTypePointer UniformConstant %imageType
-     *
-     * OpTypeImage:
-     *     Dim = SubpassData
-     */
-    for (uint32_t i = 0; i < s->n_type; ++i)
+
+    for (uint32_t i = 0; i < s->n_var; ++i)
     {
-        FsTypeInfo *t =
-            &s->types[i];
-        if (t->id != type)
-            continue;
-        if (t->opcode == SpvOpTypePointer)
+        if (s->vars[i].type == type &&
+            s->vars[i].storage ==
+                SpvStorageClassInput)
         {
-            type = t->element_type;
-            i = 0;
-            continue;
+            return true;
         }
-        if (t->opcode == SpvOpTypeImage)
-        {
-            return t->dim ==
-                SpvDimSubpassData;
-        }
-        break;
     }
+
     return false;
 }
 
