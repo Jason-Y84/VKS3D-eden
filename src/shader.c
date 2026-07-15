@@ -2106,6 +2106,13 @@ fs_process_decoration(
         ins[2];
     uint32_t value =
         ins[3];
+    if (target == 15)
+    {
+        STEREO_LOG(
+            "FS_DECORATION_VAR15 decoration=%u value=%u",
+            decoration,
+            value);
+    }
     STEREO_LOG(
         "FS_DECORATE target=%u decoration=%u literal=%u",
         target,
@@ -2231,13 +2238,6 @@ fs_scan_variable_instruction(
         ins[2];
     var->type =
         ins[1];
-    STEREO_LOG(
-        "FS_VAR_TYPE var=%u type=%u storage=%u set=%u binding=%u",
-        var->id,
-        var->type,
-        var->storage,
-        var->set,
-        var->binding);
     var->storage =
         ins[3];
     var->set =
@@ -2246,6 +2246,13 @@ fs_scan_variable_instruction(
         0xffffffffu;
     var->location =
         0xffffffffu;
+    STEREO_LOG(
+        "FS_VAR_TYPE var=%u type=%u storage=%u set=%u binding=%u",
+        var->id,
+        var->type,
+        var->storage,
+        var->set,
+        var->binding);
     /*
      * Decorations may legally appear before OpVariable.
      *
@@ -2259,14 +2266,30 @@ fs_scan_variable_instruction(
         if (dec->target != var->id)
             continue;
         if (dec->set != 0xffffffffu)
-            var->set = dec->set;
+            var->set =
+                dec->set;
         if (dec->binding != 0xffffffffu)
-            var->binding = dec->binding;
+            var->binding =
+                dec->binding;
         if (dec->location != 0xffffffffu)
-            var->location = dec->location;
+            var->location =
+                dec->location;
         STEREO_LOG(
             "FS_DECORATION_APPLY var=%u set=%u binding=%u location=%u",
             var->id,
+            var->set,
+            var->binding,
+            var->location);
+    }
+    /*
+     * Targeted debug for unresolved MSAA resource.
+     */
+    if (var->id == 15)
+    {
+        STEREO_LOG(
+            "FS_DEBUG_VAR15 type=%u storage=%u set=%u binding=%u location=%u",
+            var->type,
+            var->storage,
             var->set,
             var->binding,
             var->location);
