@@ -3128,6 +3128,18 @@ fs_scan_instruction(
             STEREO_LOG(
                 "FS_FUNCTION_END");
             break;
+        case SpvOpFunctionCall:
+            STEREO_LOG(
+                "FS_FUNCTION_CALL wc=%u resultType=%u result=%u function=%u",
+                wc,
+                wc > 1 ? ins[1] : 0,
+                wc > 2 ? ins[2] : 0,
+                wc > 3 ? ins[3] : 0);
+            fs_scan_function_call(
+                s,
+                ins,
+                wc);
+            break;
         /*
          * Resource ownership tracking.
          */
@@ -3273,6 +3285,25 @@ fs_prescan(
      */
     fs_fixup_function_parameters(
         s);
+    STEREO_LOG(
+        "FS_PARAM_STATE params=%u calls=%u",
+        s->n_param,
+        s->n_call);
+    
+    for (uint32_t p = 0; p < s->n_param; ++p)
+    {
+        STEREO_LOG(
+            "FS_PARAM id=%u owner=%u",
+            s->params[p].id,
+            s->params[p].owner);
+    }
+    for (uint32_t cidx = 0; cidx < s->n_call; ++cidx)
+    {
+        STEREO_LOG(
+            "FS_CALL param=%u arg=%u",
+            s->calls[cidx].parameter_id,
+            s->calls[cidx].argument_var);
+    }
     STEREO_LOG(
         "FS_PRESCAN_AFTER_FIXUP loads=%u calls=%u params=%u",
         s->n_load,
