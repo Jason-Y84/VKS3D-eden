@@ -2234,6 +2234,10 @@ fs_scan_variable_instruction(
     }
     FsVariableInfo *var =
         &s->vars[s->n_var++];
+    memset(
+        var,
+        0,
+        sizeof(*var));
     var->id =
         ins[2];
     var->type =
