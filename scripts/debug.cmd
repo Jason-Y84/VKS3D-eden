@@ -24,8 +24,12 @@ For %%A in (%*) do (
             Explorer "%~dp0%%~nxA"
             )
         ) else (
-        If not exist "%~dp0%%~nxA/*.spv" (
-            rmdir /s /q "%~dp0%%~nxA"
+        If not exist "%~dp0%%~nxA/*.log" (
+            If not exist "%~dp0%%~nxA/*.spv" (
+                If not exist "%~dp0%%~nxA/*.asm" (
+                    rmdir /s /q "%~dp0%%~nxA"
+                    )
+                )
             )
         )
     )
