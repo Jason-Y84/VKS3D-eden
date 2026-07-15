@@ -3154,6 +3154,7 @@ fs_prescan(
     const uint32_t *w,
     size_t c)
 {
+    STEREO_LOG("FS_PRESCAN_ENTER");
     if (!s || !w || c < 5)
         return;
     memset(
