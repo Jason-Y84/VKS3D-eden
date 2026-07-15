@@ -3156,7 +3156,14 @@ fs_prescan(
 {
     STEREO_LOG("FS_PRESCAN_ENTER");
     if (!s || !w || c < 5)
+    {
+        STEREO_LOG(
+            "FS_PRESCAN_ABORT s=%p w=%p size=%zu",
+            s,
+            w,
+            c);
         return;
+    }
     memset(
         s,
         0,
@@ -3180,9 +3187,6 @@ fs_prescan(
             word & 0xffffu;
         uint32_t wc =
             word >> 16;
-        /*
-         * Invalid instruction protection.
-         */
         if (wc == 0 ||
             i + wc > c)
         {
@@ -3200,11 +3204,21 @@ fs_prescan(
             wc);
         i += wc;
     }
+    STEREO_LOG(
+        "FS_PRESCAN_SCAN_DONE loads=%u calls=%u params=%u",
+        s->n_load,
+        s->n_call,
+        s->n_param);
     /*
      * Resolve deferred parameter ownership.
      */
     fs_fixup_function_parameters(
         s);
+    STEREO_LOG(
+        "FS_PRESCAN_AFTER_FIXUP loads=%u calls=%u params=%u",
+        s->n_load,
+        s->n_call,
+        s->n_param);
     /*
      * Rewrite loads that still reference function parameter IDs
      * to the caller's descriptor variable.
@@ -3213,10 +3227,20 @@ fs_prescan(
     {
         FsLoadInfo *load =
             &s->loads[l];
-        for (uint32_t cidx = 0; cidx < s->n_call; ++cidx)
+        STEREO_LOG(
+            "FS_LOAD_CHECK load=%u owner=%u",
+            load->id,
+            load->owner_var);
+        for (uint32_t cidx = 0;
+             cidx < s->n_call;
+             ++cidx)
         {
             FsCallInfo *call =
                 &s->calls[cidx];
+            STEREO_LOG(
+                "FS_CALL_CHECK param=%u arg=%u",
+                call->parameter_id,
+                call->argument_var);
             if (load->owner_var ==
                 call->parameter_id)
             {
@@ -3236,6 +3260,8 @@ fs_prescan(
      */
     fs_dump_scan_summary(
         s);
+    STEREO_LOG(
+        "FS_PRESCAN_EXIT");
 }
 /*
  * fs_prescan_module()
