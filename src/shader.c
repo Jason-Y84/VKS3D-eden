@@ -3319,6 +3319,18 @@ fs_prescan(
      */
     fs_dump_scan_summary(
         s);
+    for (uint32_t v = 0; v < s->n_var; ++v)
+    {
+        if (s->vars[v].id == 15)
+        {
+            STEREO_LOG(
+                "FS_VAR15_FINAL type=%u storage=%u set=%u binding=%u",
+                s->vars[v].type,
+                s->vars[v].storage,
+                s->vars[v].set,
+                s->vars[v].binding);
+        }
+    }
     STEREO_LOG(
         "FS_PRESCAN_EXIT");
 }
