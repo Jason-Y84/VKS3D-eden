@@ -294,6 +294,11 @@ static void do_scan(SpvMod *m, bool p2)
                 if(wc==4&&w[i+2]==32) m->it=w[i+1];
                 break;
             case SpvOpTypeMatrix:
+                if (wc >= 4)
+                {
+                    if (w[i + 1] < m->value_capacity)
+                        SETTYPE(w[i + 1], 1);
+                }
                 break;
             case SpvOpTypeStruct:
                 if (wc >= 3)
