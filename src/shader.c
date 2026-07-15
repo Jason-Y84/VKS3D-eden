@@ -1947,36 +1947,27 @@ fs_scan_type_instruction(
     switch (op)
     {
     case SpvOpTypeFloat:
-        //if (wc >= 3 && ins[2] == 32)
-        //{
-        //    s->float_id = ins[1];
-        //    STEREO_LOG(
-        //        "FS_TYPE_FLOAT id=%u",
-        //        s->float_id);
-        //}
+        if (wc >= 3 && ins[2] == 32)
+        {
+            s->float_id = ins[1];
+        }
         break;
     case SpvOpTypeInt:
-        //if (wc >= 4 &&
-        //    ins[2] == 32 &&
-        //    ins[3] == 1)
-        //{
-        //    s->int_id = ins[1];
-        //    STEREO_LOG(
-        //        "FS_TYPE_INT id=%u",
-        //        s->int_id);
-        //}
+        if (wc >= 4 &&
+            ins[2] == 32 &&
+            ins[3] == 1)
+        {
+            s->int_id = ins[1];
+        }
         break;
     case SpvOpTypeVector:
-        //if (wc >= 4 &&
-        //    s->float_id &&
-        //    ins[2] == s->float_id &&
-        //    ins[3] == 3)
-        //{
-        //    s->v3float_id = ins[1];
-        //    STEREO_LOG(
-        //        "FS_TYPE_VEC3_FLOAT id=%u",
-        //        s->v3float_id);
-        //}
+        if (wc >= 4 &&
+            s->float_id &&
+            ins[2] == s->float_id &&
+            ins[3] == 3)
+        {
+            s->v3float_id = ins[1];
+        }
         break;
     case SpvOpTypeImage:
     {
