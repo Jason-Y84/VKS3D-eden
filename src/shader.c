@@ -2211,6 +2211,13 @@ fs_scan_variable_instruction(
         ins[2];
     var->type =
         ins[1];
+    STEREO_LOG(
+        "FS_VAR_TYPE var=%u type=%u storage=%u set=%u binding=%u",
+        var->id,
+        var->type,
+        var->storage,
+        var->set,
+        var->binding);
     var->storage =
         ins[3];
     var->set =
@@ -3769,6 +3776,18 @@ bool spirv_patch_stereo_fs(
                 in[i+5],
                 in[i+6],
                 in[i+8]);
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].type == in[i+1])
+                {
+                    STEREO_LOG(
+                        "FS_IMAGE_PATCH_USER var=%u storage=%u set=%u binding=%u",
+                        s.vars[v].id,
+                        s.vars[v].storage,
+                        s.vars[v].set,
+                        s.vars[v].binding);
+                }
+            }
             STEREO_LOG(
                 "FS_PATCH_IMAGE word=%zu type=%u dim=%u depth=%u arrayed=%u",
                 i,
