@@ -225,7 +225,69 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 2] < m->value_capacity &&
                     w[i + 3] < m->value_capacity)
                 {
-                    SETPTR(w[i + 2], PTR(w[i + 3]));
+                    uint8_t ptr = PTR(w[i + 3]);
+                    uint8_t mat = MAT(w[i + 3]);
+
+                    /*
+                     * Access chains preserve both pointer provenance
+                     * and matrix provenance.
+                     *
+                     * This is required for:
+                     *
+                     *   uniform -> struct -> mat4
+                     *   storage -> struct -> mat4
+                     *   array -> mat4
+                     */
+                    SETPTR(w[i + 2], ptr);
+                    SETMAT(w[i + 2], mat);
+
+                    /*
+                     * If the base pointer points to a matrix type,
+                     * the derived pointer must also be considered
+                     * matrix-derived.
+                     */
+                    if (!mat && ptr)
+                    {
+                        uint32_t baseType = 0;
+
+                        /*
+                         * Walk backwards looking for the pointer type
+                         * declaration of the base id.
+                         */
+                        for (size_t j = 5; j < i; )
+                        {
+                            uint32_t op2 = w[j] & 0xffff;
+                            uint32_t wc2 = w[j] >> 16;
+
+                            if (!wc2)
+                                break;
+
+                            if (op2 == SpvOpVariable &&
+                                wc2 >= 4 &&
+                                w[j + 2] == w[i + 3])
+                            {
+                                baseType = w[j + 1];
+                                break;
+                            }
+
+                            j += wc2;
+                        }
+
+                        if (baseType &&
+                            baseType < m->value_capacity &&
+                            TYPE(baseType))
+                        {
+                            SETMAT(w[i + 2], 1);
+                        }
+                    }
+
+                    if (MAT(w[i + 2]))
+                    {
+                        STEREO_LOG(
+                            "ACCESSCHAIN_MATRIX base=%u result=%u",
+                            w[i + 3],
+                            w[i + 2]);
+                    }
                 }
                 break;
             case SpvOpLoad:
