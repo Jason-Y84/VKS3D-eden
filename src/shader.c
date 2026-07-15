@@ -1937,6 +1937,13 @@ fs_scan_type_instruction(
 {
     if (!s || !ins)
         return;
+    if (wc >= 2)
+    {
+        STEREO_LOG(
+            "FS_TYPE_DECL id=%u opcode=%u",
+            ins[1],
+            op);
+    }
     switch (op)
     {
     case SpvOpTypeFloat:
@@ -2018,6 +2025,10 @@ fs_scan_type_instruction(
     }
     case SpvOpTypeSampledImage:
     {
+        STEREO_LOG(
+            "FS_TYPE_SAMPLED_IMAGE id=%u imageType=%u",
+            ins[1],
+            (wc >= 3) ? ins[2] : 0);
         if (wc < 3)
             break;
         bool found = false;
@@ -2040,6 +2051,11 @@ fs_scan_type_instruction(
         break;
     }
     case SpvOpTypePointer:
+        STEREO_LOG(
+            "FS_TYPE_POINTER id=%u storage=%u target=%u",
+            (wc >= 2) ? ins[1] : 0,
+            (wc >= 3) ? ins[2] : 0,
+            (wc >= 4) ? ins[3] : 0);
         if (wc >= 4 &&
             ins[2] == SpvStorageClassInput &&
             s->int_id &&
