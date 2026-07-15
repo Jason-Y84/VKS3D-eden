@@ -1937,46 +1937,46 @@ fs_scan_type_instruction(
 {
     if (!s || !ins)
         return;
-    if (wc >= 2)
-    {
-        STEREO_LOG(
-            "FS_TYPE_DECL id=%u opcode=%u",
-            ins[1],
-            op);
-    }
+    //if (wc >= 2)
+    //{
+    //    STEREO_LOG(
+    //        "FS_TYPE_DECL id=%u opcode=%u",
+    //        ins[1],
+    //        op);
+    //}
     switch (op)
     {
     case SpvOpTypeFloat:
-        if (wc >= 3 && ins[2] == 32)
-        {
-            s->float_id = ins[1];
-            STEREO_LOG(
-                "FS_TYPE_FLOAT id=%u",
-                s->float_id);
-        }
+        //if (wc >= 3 && ins[2] == 32)
+        //{
+        //    s->float_id = ins[1];
+        //    STEREO_LOG(
+        //        "FS_TYPE_FLOAT id=%u",
+        //        s->float_id);
+        //}
         break;
     case SpvOpTypeInt:
-        if (wc >= 4 &&
-            ins[2] == 32 &&
-            ins[3] == 1)
-        {
-            s->int_id = ins[1];
-            STEREO_LOG(
-                "FS_TYPE_INT id=%u",
-                s->int_id);
-        }
+        //if (wc >= 4 &&
+        //    ins[2] == 32 &&
+        //    ins[3] == 1)
+        //{
+        //    s->int_id = ins[1];
+        //    STEREO_LOG(
+        //        "FS_TYPE_INT id=%u",
+        //        s->int_id);
+        //}
         break;
     case SpvOpTypeVector:
-        if (wc >= 4 &&
-            s->float_id &&
-            ins[2] == s->float_id &&
-            ins[3] == 3)
-        {
-            s->v3float_id = ins[1];
-            STEREO_LOG(
-                "FS_TYPE_VEC3_FLOAT id=%u",
-                s->v3float_id);
-        }
+        //if (wc >= 4 &&
+        //    s->float_id &&
+        //    ins[2] == s->float_id &&
+        //    ins[3] == 3)
+        //{
+        //    s->v3float_id = ins[1];
+        //    STEREO_LOG(
+        //        "FS_TYPE_VEC3_FLOAT id=%u",
+        //        s->v3float_id);
+        //}
         break;
     case SpvOpTypeImage:
     {
@@ -1986,16 +1986,16 @@ fs_scan_type_instruction(
         uint32_t dim     = ins[3];
         uint32_t depth   = ins[4];
         uint32_t arrayed = ins[5];
-        STEREO_LOG(
-            "FS_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
-            type_id,
-            ins[2],
-            dim,
-            depth,
-            arrayed,
-            ins[6],
-            ins[7],
-            ins[8]);
+        //STEREO_LOG(
+        //    "FS_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+        //    type_id,
+        //    ins[2],
+        //    dim,
+        //    depth,
+        //    arrayed,
+        //    ins[6],
+        //    ins[7],
+        //    ins[8]);
         if (dim == SpvDim2D &&
             arrayed == 0 &&
             s->n_img < FS_MAX_IMG)
@@ -2007,20 +2007,20 @@ fs_scan_type_instruction(
             img->depth     = depth;
             img->arrayed   = arrayed;
             img->patchable = true;
-            STEREO_LOG(
-                "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
-                img->id,
-                img->depth,
-                s->n_img - 1);
+            //STEREO_LOG(
+            //    "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
+            //    img->id,
+            //    img->depth,
+            //    s->n_img - 1);
         }
-        else
-        {
-            STEREO_LOG(
-                "FS_IMAGE_REJECT type=%u dim=%u arrayed=%u",
-                type_id,
-                dim,
-                arrayed);
-        }
+        //else
+        //{
+        //    STEREO_LOG(
+        //        "FS_IMAGE_REJECT type=%u dim=%u arrayed=%u",
+        //        type_id,
+        //        dim,
+        //        arrayed);
+        //}
         break;
     }
     case SpvOpTypeSampledImage:
@@ -2043,23 +2043,23 @@ fs_scan_type_instruction(
         if (found && s->n_si < FS_MAX_SI)
         {
             s->si_ids[s->n_si++] = ins[1];
-            STEREO_LOG(
-                "FS_SAMPLED_IMAGE_LINK sampledType=%u imageType=%u",
-                ins[1],
-                ins[2]);
-            STEREO_LOG(
-                "FS_SAMPLED_IMAGE_TYPE id=%u imageType=%u",
-                ins[1],
-                ins[2]);
+            //STEREO_LOG(
+            //    "FS_SAMPLED_IMAGE_LINK sampledType=%u imageType=%u",
+            //    ins[1],
+            //    ins[2]);
+            //STEREO_LOG(
+            //    "FS_SAMPLED_IMAGE_TYPE id=%u imageType=%u",
+            //    ins[1],
+            //    ins[2]);
         }
         break;
     }
     case SpvOpTypePointer:
-        STEREO_LOG(
-            "FS_TYPE_POINTER id=%u storage=%u target=%u",
-            (wc >= 2) ? ins[1] : 0,
-            (wc >= 3) ? ins[2] : 0,
-            (wc >= 4) ? ins[3] : 0);
+        //STEREO_LOG(
+        //    "FS_TYPE_POINTER id=%u storage=%u target=%u",
+        //    (wc >= 2) ? ins[1] : 0,
+        //    (wc >= 3) ? ins[2] : 0,
+        //    (wc >= 4) ? ins[3] : 0);
         if (wc >= 4 &&
             ins[2] == SpvStorageClassInput &&
             s->int_id &&
@@ -2113,11 +2113,11 @@ fs_process_decoration(
             decoration,
             value);
     }
-    STEREO_LOG(
-        "FS_DECORATE target=%u decoration=%u literal=%u",
-        target,
-        decoration,
-        value);
+    //STEREO_LOG(
+    //    "FS_DECORATE target=%u decoration=%u literal=%u",
+    //    target,
+    //    decoration,
+    //    value);
     if (decoration == SpvDecorationBuiltIn &&
         value == SpvBuiltInViewIndex)
     {
@@ -2191,19 +2191,19 @@ fs_process_decoration(
     {
         dec->binding =
             value;
-        STEREO_LOG(
-            "FS_BIND_CACHE target=%u binding=%u",
-            target,
-            value);
+        //STEREO_LOG(
+        //    "FS_BIND_CACHE target=%u binding=%u",
+        //    target,
+        //    value);
     }
     else
     {
         dec->set =
             value;
-        STEREO_LOG(
-            "FS_SET_CACHE target=%u set=%u",
-            target,
-            value);
+        //STEREO_LOG(
+        //    "FS_SET_CACHE target=%u set=%u",
+        //    target,
+        //    value);
     }
     /*
      * OpDecorate may appear after OpVariable.
@@ -2222,19 +2222,19 @@ fs_process_decoration(
         {
             var->binding =
                 value;
-            STEREO_LOG(
-                "FS_BIND_APPLY_EXISTING var=%u binding=%u",
-                var->id,
-                var->binding);
+            //STEREO_LOG(
+            //    "FS_BIND_APPLY_EXISTING var=%u binding=%u",
+            //    var->id,
+            //    var->binding);
         }
         else
         {
             var->set =
                 value;
-            STEREO_LOG(
-                "FS_SET_APPLY_EXISTING var=%u set=%u",
-                var->id,
-                var->set);
+            //STEREO_LOG(
+            //    "FS_SET_APPLY_EXISTING var=%u set=%u",
+            //    var->id,
+            //    var->set);
         }
     }   
 }
@@ -2282,13 +2282,13 @@ fs_scan_variable_instruction(
         0xffffffffu;
     var->location =
         0xffffffffu;
-    STEREO_LOG(
-        "FS_VAR_TYPE var=%u type=%u storage=%u set=%u binding=%u",
-        var->id,
-        var->type,
-        var->storage,
-        var->set,
-        var->binding);
+    //STEREO_LOG(
+    //    "FS_VAR_TYPE var=%u type=%u storage=%u set=%u binding=%u",
+    //    var->id,
+    //    var->type,
+    //    var->storage,
+    //    var->set,
+    //    var->binding);
     /*
      * Decorations may legally appear before OpVariable.
      *
@@ -2310,12 +2310,12 @@ fs_scan_variable_instruction(
         if (dec->location != 0xffffffffu)
             var->location =
                 dec->location;
-        STEREO_LOG(
-            "FS_DECORATION_APPLY var=%u set=%u binding=%u location=%u",
-            var->id,
-            var->set,
-            var->binding,
-            var->location);
+        //STEREO_LOG(
+        //    "FS_DECORATION_APPLY var=%u set=%u binding=%u location=%u",
+        //    var->id,
+        //    var->set,
+        //    var->binding,
+        //    var->location);
     }
     /*
      * Targeted debug for unresolved MSAA resource.
@@ -2341,22 +2341,22 @@ fs_scan_variable_instruction(
             var->set,
             var->binding);
     }
-    else
-    {
-        STEREO_LOG(
-            "FS_VAR_ADD id=%u type=%u storage=%u",
-            var->id,
-            var->type,
-            var->storage);
-    }
-    STEREO_LOG(
-        "FS_VAR_FINALIZE id=%u type=%u storage=%u set=%u binding=%u location=%u",
-        var->id,
-        var->type,
-        var->storage,
-        var->set,
-        var->binding,
-        var->location);
+    //else
+    //{
+    //    STEREO_LOG(
+    //        "FS_VAR_ADD id=%u type=%u storage=%u",
+    //        var->id,
+    //        var->type,
+    //        var->storage);
+    //}
+    //STEREO_LOG(
+    //    "FS_VAR_FINALIZE id=%u type=%u storage=%u set=%u binding=%u location=%u",
+    //    var->id,
+    //    var->type,
+    //    var->storage,
+    //    var->set,
+    //    var->binding,
+    //    var->location);
 }
 /*
  * Register an OpVariable instruction.
@@ -3339,6 +3339,10 @@ fs_prescan(
                     load->id,
                     load->owner_var,
                     call->argument_var);
+                STEREO_LOG(
+                    "FS_LOAD_RESOLVED load=%u owner=%u",
+                    load->id,
+                    call->argument_var);
                 load->owner_var =
                     call->argument_var;
                 break;
@@ -4132,15 +4136,15 @@ bool spirv_patch_stereo_fs(
         /* Extend OpImageFetch ivec2 -> ivec3(x,y,ViewIndex) */
         if (in_func && op == 95 && wc >= 5)
         {
-            STEREO_LOG(
-                "FS_FETCH opcode image=%u coord=%u result=%u",
-                in[i+3],
-                in[i+4],
-                in[i+2]);
-            STEREO_LOG(
-                "FS_FETCH_PATCH_ENTER image=%u result=%u",
-                in[i+3],
-                in[i+2]);
+            //STEREO_LOG(
+            //    "FS_FETCH opcode image=%u coord=%u result=%u",
+            //    in[i+3],
+            //    in[i+4],
+            //    in[i+2]);
+            //STEREO_LOG(
+            //    "FS_FETCH_PATCH_ENTER image=%u result=%u",
+            //    in[i+3],
+            //    in[i+2]);
             uint32_t coord_id = in[i+4];
             uint32_t descriptor_var = 0;
             bool image_known = false;
@@ -4153,32 +4157,32 @@ bool spirv_patch_stereo_fs(
                 descriptor_var =
                     s.loads[load].owner_var;
                 image_known = true;
-                STEREO_LOG(
-                    "FS_FETCH_MATCH image=%u loadIndex=%d load=%u var=%u",
-                    in[i+3],
-                    load,
-                    s.loads[load].id,
-                    descriptor_var);
+                //STEREO_LOG(
+                //    "FS_FETCH_MATCH image=%u loadIndex=%d load=%u var=%u",
+                //    in[i+3],
+                //    load,
+                //    s.loads[load].id,
+                //    descriptor_var);
             }
-            STEREO_LOG(
-                "FS_FETCH_PATCH_DECISION image=%u known=%u descriptor=%u",
-                in[i+3],
-                image_known,
-                descriptor_var);
-            if (load >= 0)
-            {
-                STEREO_LOG(
-                    "FS_FETCH_FOUND image=%u loadIndex=%d var=%u",
-                    in[i+3],
-                    load,
-                    s.loads[load].owner_var);
-            }
-            else
-            {
-                STEREO_LOG(
-                    "FS_FETCH_UNKNOWN image=%u",
-                    in[i+3]);
-            }
+            //STEREO_LOG(
+            //    "FS_FETCH_PATCH_DECISION image=%u known=%u descriptor=%u",
+            //    in[i+3],
+            //    image_known,
+            //    descriptor_var);
+            //if (load >= 0)
+            //{
+            //    STEREO_LOG(
+            //        "FS_FETCH_FOUND image=%u loadIndex=%d var=%u",
+            //        in[i+3],
+            //        load,
+            //        s.loads[load].owner_var);
+            //}
+            //else
+            //{
+            //    STEREO_LOG(
+            //        "FS_FETCH_UNKNOWN image=%u",
+            //        in[i+3]);
+            //}
             int vi = fs_var_index(&s, descriptor_var);
             if (vi >= 0)
             {
