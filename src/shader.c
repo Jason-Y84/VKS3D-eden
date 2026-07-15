@@ -233,13 +233,6 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 2] < m->value_capacity &&
                     w[i + 3] < m->value_capacity)
                 {
-                    if (MAT(w[i + 3]))
-                    {
-                        STEREO_LOG(
-                            "MAT_LOAD ptr=%u result=%u",
-                            w[i + 3],
-                            w[i + 2]);
-                    }
                     SETMAT(
                         w[i + 2],
                         MAT(w[i + 3]) || PTR(w[i + 3]));
@@ -301,11 +294,6 @@ static void do_scan(SpvMod *m, bool p2)
                 if(wc==4&&w[i+2]==32) m->it=w[i+1];
                 break;
             case SpvOpTypeMatrix:
-                if (wc >= 4)
-                {
-                    if (w[i + 1] < m->value_capacity)
-                        SETTYPE(w[i + 1], 1);
-                }
                 break;
             case SpvOpTypeStruct:
                 if (wc >= 3)
@@ -325,22 +313,8 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             case SpvOpTypeArray:
-                if (wc >= 4)
-                {
-                    if (TYPE(w[i + 2]))
-                    {
-                        SETTYPE(w[i + 1], 1);
-                    }
-                }
                 break;
             case SpvOpTypeRuntimeArray:
-                if (wc >= 3)
-                {
-                    if (TYPE(w[i + 2]))
-                    {
-                        SETTYPE(w[i + 1], 1);
-                    }
-                }
                 break;
             case SpvOpTranspose:
                 if (wc >= 4 &&
@@ -456,22 +430,11 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpVariable:
                 if (wc >= 4 &&
                     w[i + 1] < m->value_capacity &&
-                    w[i + 2] < m->value_capacity)
-                    {
-                        if (PTR(w[i + 1]))
-                        {
-                            SETPTR(w[i + 2], 1);
-                        }
-
-                        /*
-                         * Uniform/storage variables that ultimately contain
-                         * matrices should also seed matrix provenance.
-                         */
-                        if (TYPE(w[i + 1]))
-                        {
-                            SETMAT(w[i + 2], 1);
-                        }
-                    }
+                    w[i + 2] < m->value_capacity &&
+                    PTR(w[i + 1]))
+                {
+                SETPTR(w[i + 2], 1);
+                }
                 break;
             case SpvOpDecorate:
                 if(wc>=4&&w[i+2]==SpvDecorationBuiltIn){
