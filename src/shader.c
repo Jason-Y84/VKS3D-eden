@@ -2044,6 +2044,10 @@ fs_scan_type_instruction(
         {
             s->si_ids[s->n_si++] = ins[1];
             STEREO_LOG(
+                "FS_SAMPLED_IMAGE_LINK sampledType=%u imageType=%u",
+                ins[1],
+                ins[2]);
+            STEREO_LOG(
                 "FS_SAMPLED_IMAGE_TYPE id=%u imageType=%u",
                 ins[1],
                 ins[2]);
@@ -3804,12 +3808,12 @@ bool spirv_patch_stereo_fs(
             }
             i += wc; continue;
         }
-
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == 25 && wc >= 9 &&
             (fs_image_index(&s, in[i+1]) >= 0 ||
              fs_type_is_input_attachment(&s, in[i+1])) &&
-            in[i+5] == 0) {
+            in[i+5] == 0)
+        {
             STEREO_LOG(
                 "FS_IMAGE_PATCH_DETAIL type=%u sampled=%u dim=%u depth=%u arrayed=%u ms=%u format=%u",
                 in[i+1],
@@ -3819,6 +3823,14 @@ bool spirv_patch_stereo_fs(
                 in[i+5],
                 in[i+6],
                 in[i+8]);
+            sb_push_n(&ob, &in[i], wc);
+            ob.w[ob.n - wc + 5] = 1;   /* Arrayed */
+            STEREO_LOG(
+                "FS_IMAGE_ARRAY_PATCH type=%u oldArrayed=%u newArrayed=%u ms=%u",
+                in[i+1],
+                in[i+5],
+                ob.w[ob.n - wc + 5],
+                in[i+6]);
             for (uint32_t v = 0; v < s.n_var; ++v)
             {
                 if (s.vars[v].type == in[i+1])
@@ -3852,12 +3864,9 @@ bool spirv_patch_stereo_fs(
                 in[i+1],
                 in[i+4],
                 in[i+5]);
-            sb_push_n(&ob, &in[i], wc);
-            ob.w[ob.n - wc + 5] = 1; /* Arrayed */
             i += wc;
             continue;
         }
-
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
         if (op == 54 && !types_done) {
             types_done = true;
