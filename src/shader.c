@@ -2124,6 +2124,7 @@ fs_scan_type_instruction(
                 s->ptr_int_in_id);
         }
         break;
+    }
     default:
         break;
     }
