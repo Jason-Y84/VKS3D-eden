@@ -1504,6 +1504,14 @@ typedef struct
 
 typedef struct
 {
+    uint32_t id;
+    uint16_t opcode;
+    uint32_t target_type;   /* for OpTypePointer */
+    bool     is_image;
+} FsTypeInfo;
+
+typedef struct
+{
     //Image type declarations
     FsImageInfo images[FS_MAX_IMG];
     uint32_t    n_img;
@@ -2007,6 +2015,16 @@ fs_scan_type_instruction(
             img->depth     = depth;
             img->arrayed   = arrayed;
             img->patchable = true;
+            if (s->n_type < FS_MAX_TYPES)
+            {
+                FsTypeInfo *t = &s->types[s->n_type++];
+
+                memset(t, 0, sizeof(*t));
+
+                t->id       = type_id;
+                t->opcode   = op;
+                t->is_image = true;
+            }
             STEREO_LOG(
                 "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
                 img->id,
@@ -2043,6 +2061,16 @@ fs_scan_type_instruction(
         if (found && s->n_si < FS_MAX_SI)
         {
             s->si_ids[s->n_si++] = ins[1];
+            if (s->n_type < FS_MAX_TYPES)
+            {
+                FsTypeInfo *t = &s->types[s->n_type++];
+
+                memset(t, 0, sizeof(*t));
+
+                t->id       = ins[1];
+                t->opcode   = op;
+                t->is_image = true;
+            }
             STEREO_LOG(
                 "FS_SAMPLED_IMAGE_TYPE id=%u imageType=%u",
                 ins[1],
@@ -2051,17 +2079,46 @@ fs_scan_type_instruction(
         break;
     }
     case SpvOpTypePointer:
+    {
+        if (wc < 4)
+            break;
+        uint32_t ptr_id    = ins[1];
+        uint32_t storage   = ins[2];
+        uint32_t target_id = ins[3];
         STEREO_LOG(
             "FS_TYPE_POINTER id=%u storage=%u target=%u",
-            (wc >= 2) ? ins[1] : 0,
-            (wc >= 3) ? ins[2] : 0,
-            (wc >= 4) ? ins[3] : 0);
-        if (wc >= 4 &&
-            ins[2] == SpvStorageClassInput &&
-            s->int_id &&
-            ins[3] == s->int_id)
+            ptr_id,
+            storage,
+            target_id);
+        /* record pointer type */
+        if (s->n_type < FS_MAX_TYPES)
         {
-            s->ptr_int_in_id = ins[1];
+            FsTypeInfo *t = &s->types[s->n_type++];
+            memset(t, 0, sizeof(*t));
+            t->id          = ptr_id;
+            t->opcode      = op;
+            t->target_type = target_id;
+            /* if this points to a sampled-image or image type,
+               mark the pointer as image too */
+            for (uint32_t i = 0; i < s->n_type; ++i)
+            {
+                if (s->types[i].id == target_id &&
+                    s->types[i].is_image)
+                {
+                    t->is_image = true;
+                    STEREO_LOG(
+                        "FS_POINTER_IMAGE id=%u target=%u",
+                        ptr_id,
+                        target_id);
+                    break;
+                }
+            }
+        }
+        if (storage == SpvStorageClassInput &&
+            s->int_id &&
+            target_id == s->int_id)
+        {
+            s->ptr_int_in_id = ptr_id;
             STEREO_LOG(
                 "FS_PTR_INT_INPUT id=%u",
                 s->ptr_int_in_id);
