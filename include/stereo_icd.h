@@ -638,7 +638,9 @@ typedef struct StereoDevice {
 typedef struct StereoUBO {
     float eye_offset[2];
     float convergence;
-    float _pad;
+    float inv_convergence;
+    float projection_mode;
+    float _pad[3];
 } StereoUBO;
 
 /* -- Object lookup helpers ------------------------------------------------- */

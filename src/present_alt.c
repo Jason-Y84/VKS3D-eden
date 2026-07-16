@@ -1193,10 +1193,7 @@ void hotkeys_poll(StereoDevice *sd)
     if (changed) {
         stereo_config_compute_offsets(cfg);
         if (sd->stereo_ubo_map) {
-            float *p = (float *)sd->stereo_ubo_map;
-            p[0] = cfg->left_eye_offset;
-            p[1] = cfg->right_eye_offset;
-            p[2] = cfg->convergence;
+            stereo_write_ubo(sd);
         }
     }
 
