@@ -133,13 +133,6 @@ typedef struct
     uint32_t dot_count;
     bool has_matrix_ops;
     bool has_direct_position_write;
-    /* Projection matrix detection */
-    uint32_t projection_mul_result;
-    uint32_t projection_matrix_id;
-    uint32_t projection_vector_id;
-    uint32_t projection_function;
-    size_t   projection_mul_word;
-    bool     projection_mul_found;
     /* Matrix provenance tracking */
     uint32_t value_capacity;
     uint8_t *value_from_matrix;
@@ -216,16 +209,12 @@ static void do_scan(SpvMod *m, bool p2)
     #define SETPTR(id,v)   set_matrix_ptr(m, (id), (v))
     #define TYPE(id)       matrix_type(m, (id))
     #define SETTYPE(id,v)  set_matrix_type(m, (id), (v))
-    for (size_t i=5; i < m->count;)
-    {
-        uint32_t op=w[i] & 0xffff;
-        uint32_t wc=w[i] >> 16;
-        if (!wc || i + wc > m->count)
-            break;
+    for (size_t i=5;i<m->count;) {
+        uint32_t op=w[i]&0xffff, wc=w[i]>>16;
+        if (!wc||i+wc>m->count) break;
         if (!p2)
         {
-            switch (op)
-            {
+        switch(op) {
             case SpvOpDot:
                 m->dot_count++;
                 break;
@@ -250,8 +239,15 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             case SpvOpCompositeExtract:
-            case SpvOpVectorShuffle:
                 if (wc >= 5 &&
+                    w[i + 2] < m->value_capacity &&
+                    w[i + 3] < m->value_capacity)
+                {
+                    SETMAT(w[i + 2], MAT(w[i + 3]));
+                }
+                break;
+            case SpvOpVectorShuffle:
+                if (wc >= 6 &&
                     w[i + 2] < m->value_capacity &&
                     w[i + 3] < m->value_capacity)
                 {
@@ -262,8 +258,8 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 5 &&
                     w[i + 2] < m->value_capacity)
                 {
-                    uint8_t matrix=0;
-                    for (uint32_t k=3; k < wc; k++)
+                    uint8_t matrix = 0;
+                    for (uint32_t k = 3; k < wc; ++k)
                     {
                         if (w[i + k] < m->value_capacity &&
                             MAT(w[i + k]))
@@ -276,57 +272,39 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             case SpvOpCapability:
-                if (wc >= 2 &&
-                    w[i + 1] == SpvCapabilityMultiView)
-                {
-                    m->has_mv_cap=true;
-                }
+                if(wc>=2&&w[i+1]==SpvCapabilityMultiView) m->has_mv_cap=true;
                 break;
             case SpvOpEntryPoint:
-                if (wc >= 3)
-                {
-                    uint32_t e=w[i + 1];
-                    if (e == SpvExecVertex ||
-                        e == SpvExecTessEval ||
-                        e == SpvExecGeometry)
+                if(wc>=3){
+                    uint32_t e=w[i+1];
+                    if(e==SpvExecVertex||e==SpvExecTessEval||e==SpvExecGeometry)
                     {
                         m->is_patchable=true;
                         m->exec_model=(int)e;
-                        m->entry_function=w[i + 2];
-                    }
-                }
+                        m->entry_function = w[i+2];
+                    }}
                 break;
             case SpvOpTypeFloat:
-                if (wc == 3 && w[i + 2] == 32)
-                    m->ft=w[i + 1];
+                if(wc==3&&w[i+2]==32) m->ft=w[i+1];
                 break;
             case SpvOpTypeVector:
-                if (wc == 4 &&
-                    w[i + 2] == m->ft &&
-                    w[i + 3] == 4)
-                {
-                    m->v4t=w[i + 1];
-                }
+                if(wc==4&&w[i+2]==m->ft&&w[i+3]==4) m->v4t=w[i+1];
                 break;
             case SpvOpTypeInt:
-                if (wc == 4 &&
-                    w[i + 2] == 32)
-                {
-                    m->it=w[i + 1];
-                }
+                if(wc==4&&w[i+2]==32) m->it=w[i+1];
                 break;
             case SpvOpTypeMatrix:
-                if (wc >= 4 &&
-                    w[i + 1] < m->value_capacity)
+                if (wc >= 4)
                 {
-                    SETTYPE(w[i + 1], 1);
+                    if (w[i + 1] < m->value_capacity)
+                        SETTYPE(w[i + 1], 1);
                 }
                 break;
             case SpvOpTypeStruct:
                 if (wc >= 3)
                 {
-                    uint8_t matrix=0;
-                    for (uint32_t k=2; k < wc; k++)
+                    uint8_t matrix = 0;
+                    for (uint32_t k = 2; k < wc; ++k)
                     {
                         if (w[i + k] < m->value_capacity &&
                             TYPE(w[i + k]))
@@ -339,6 +317,10 @@ static void do_scan(SpvMod *m, bool p2)
                         SETTYPE(w[i + 1], matrix);
                 }
                 break;
+            case SpvOpTypeArray:
+                break;
+            case SpvOpTypeRuntimeArray:
+                break;
             case SpvOpTranspose:
                 if (wc >= 4 &&
                     w[i + 2] < m->value_capacity &&
@@ -348,39 +330,28 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             case SpvOpMatrixTimesVector:
-                m->has_matrix_ops=true;
-                if (wc >= 5)
-                {
-                    uint32_t result=w[i + 2];
-                    uint32_t matrix=w[i + 3];
-                    uint32_t vector=w[i + 4];
-                    if (result < m->value_capacity)
-                    {
-                        SETMAT(result, 1);
-                        /*
-                         * Candidate projection transform.
-                         *
-                         * We do not assume this is projection yet.
-                         * spirv_patch_stereo_vertex() validates it
-                         * against gl_Position later.
-                         */
-                        m->projection_mul_result=result;
-                        m->projection_matrix_id=matrix;
-                        m->projection_vector_id=vector;
-                        m->projection_function=current_function;
-                        m->projection_mul_word=i;
-                        m->projection_mul_found=true;
-                    }
-                }
-                break;
             case SpvOpMatrixTimesMatrix:
+                m->has_matrix_ops = true;
+                /* fall through */
+            case SpvOpVectorTimesScalar:
             case SpvOpVectorTimesMatrix:
             case SpvOpMatrixTimesScalar:
-            case SpvOpVectorTimesScalar:
-                if (wc >= 5 &&
-                    w[i + 2] < m->value_capacity)
+                if (wc >= 5)
                 {
-                    SETMAT(w[i + 2], 1);
+                    if (w[i + 2] < m->value_capacity)
+                    {
+                        SETMAT(w[i + 2], 1);
+                        // STEREO_LOG("MATRIX_MARK result=%u", w[i + 2]);
+                    }
+                    /*
+                    else
+                    {
+                        STEREO_LOG(
+                            "MATRIX_CAP_FAIL result=%u cap=%u",
+                            w[i + 2],
+                            m->value_capacity);
+                    }
+                    */
                 }
                 break;
             case SpvOpCopyObject:
@@ -396,8 +367,8 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 7 &&
                     w[i + 2] < m->value_capacity)
                 {
-                    uint8_t matrix=0;
-                    for (uint32_t k=5; k < wc; k++)
+                    uint8_t matrix = 0;
+                    for (uint32_t k = 5; k < wc; ++k)
                     {
                         if (w[i + k] < m->value_capacity)
                             matrix |= MAT(w[i + k]);
@@ -414,10 +385,7 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(
                         w[i + 2],
-                        matrix_or2(
-                            m,
-                            w[i + 3],
-                            w[i + 4]));
+                        matrix_or2(m, w[i + 4], w[i + 5]));
                 }
                 break;
             case SpvOpSelect:
@@ -426,11 +394,10 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(
                         w[i + 2],
-                        matrix_or2(
-                            m,
-                            w[i + 4],
-                            w[i + 5]));
+                        matrix_or2(m, w[i + 4], w[i + 5]));
                 }
+                break;
+            case SpvOpFunctionCall:
                 break;
             case SpvOpCompositeInsert:
                 if (wc >= 6 &&
@@ -447,20 +414,22 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpTypePointer:
                 if (wc >= 4)
                 {
-                    if (TYPE(w[i + 3]))
-                        SETPTR(w[i + 1], 1);
-                    if (w[i + 2] == SpvStorageOutput &&
-                        m->v4t &&
-                        w[i + 3] == m->v4t)
-                    {
-                        m->ptr_out_v4=w[i + 1];
-                    }
-                    if (w[i + 2] == SpvStorageInput &&
-                        m->it &&
-                        w[i + 3] == m->it)
-                    {
-                        m->ptr_in_int=w[i + 1];
-                    }
+                if (TYPE(w[i + 3]))
+                {
+                SETPTR(w[i + 1], 1);
+                }
+                if (w[i + 2] == SpvStorageOutput &&
+                m->v4t &&
+                w[i + 3] == m->v4t)
+                {
+                m->ptr_out_v4 = w[i + 1];
+                }
+                if (w[i + 2] == SpvStorageInput &&
+                m->it &&
+                w[i + 3] == m->it)
+                {
+                m->ptr_in_int = w[i + 1];
+                }
                 }
                 break;
             case SpvOpVariable:
@@ -469,25 +438,18 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 2] < m->value_capacity &&
                     PTR(w[i + 1]))
                 {
-                    SETPTR(w[i + 2], 1);
+                SETPTR(w[i + 2], 1);
                 }
                 break;
             case SpvOpDecorate:
-                if (wc >= 4 &&
-                    w[i + 2] == SpvDecorationBuiltIn)
-                {
-                    if (w[i + 3] == SpvBuiltInPosition &&
-                        !m->pos_is_block)
-                    {
-                        m->pos_var=w[i + 1];
+                if(wc>=4&&w[i+2]==SpvDecorationBuiltIn){
+                    if(w[i+3]==SpvBuiltInPosition&&!m->pos_is_block)
+                        m->pos_var=w[i+1];
+                    if(w[i+3]==SpvBuiltInViewIndex) {
+                        m->view_var = w[i+1];
+                        m->has_viewindex_builtin = true;
                     }
-                    if (w[i + 3] == SpvBuiltInViewIndex)
-                    {
-                        m->view_var=w[i + 1];
-                        m->has_viewindex_builtin=true;
-                    }
-                }
-                break;
+                } break;
             case SpvOpMemberDecorate:
                 if (wc >= 5 &&
                     w[i+3] == SpvDecorationBuiltIn &&
@@ -531,28 +493,23 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             }
-        }
-        else
-        {
-            if (op == SpvOpTypePointer &&
-                wc >= 4 &&
-                w[i + 2] == SpvStorageOutput)
+        } else {
+            if(op==SpvOpTypePointer && wc>=4 &&
+               w[i+2]==SpvStorageOutput)
             {
-                for (uint32_t k=0; k < m->pos_block_count; k++)
+                for(uint32_t k=0;k<m->pos_block_count;k++)
                 {
-                    if (w[i + 3] == m->pos_block_type[k])
+                    if(w[i+3]==m->pos_block_type[k])
                     {
-                        m->pos_ptr_type=w[i + 1];
+                        m->pos_ptr_type=w[i+1];
                         break;
                     }
                 }
             }
-            if (op == SpvOpVariable &&
-                wc >= 4 &&
-                w[i + 3] == SpvStorageOutput)
+            if(op==SpvOpVariable&&wc>=4&&w[i+3]==SpvStorageOutput)
             {
-                if (m->pos_ptr_type &&
-                    w[i + 1] == m->pos_ptr_type)
+                if(m->pos_ptr_type &&
+                   w[i+1]==m->pos_ptr_type)
                 {
                     m->pos_var=w[i+2];
                 }
@@ -754,13 +711,6 @@ typedef struct {
     float lo_dbg;
     float ro_dbg;
     const StereoDebugCtx *dbg;
-    /* Projection candidate discovered during scan */
-    uint32_t projection_mul_result;
-    uint32_t projection_matrix_id;
-    uint32_t projection_vector_id;
-    uint32_t projection_function;
-    size_t   projection_mul_word;
-    bool     projection_mul_found;
 } BodyCtx;
 
 typedef struct StereoDebugCtx {
@@ -1315,13 +1265,7 @@ bool spirv_patch_stereo_vertex(
         projection_mode,
         lo,
         ro,
-        dbg,
-        m.projection_mul_result,
-        m.projection_matrix_id,
-        m.projection_vector_id,
-        m.projection_function,
-        m.projection_mul_word,
-        m.projection_mul_found
+        dbg
     };
     /* Vertex/TessEval shaders:
      * inject after final position calculation.
@@ -1601,13 +1545,6 @@ typedef struct
     bool     in_function;
     uint32_t current_function_id;
     uint32_t current_param_index;
-    //Projection-multiply candidate tracking
-    uint32_t projection_mul_result;
-    uint32_t projection_matrix_id;
-    uint32_t projection_vector_id;
-    uint32_t projection_function;
-    size_t   projection_mul_word;
-    bool     projection_mul_found;
 } FsScan;
 
 static bool
@@ -3096,6 +3033,7 @@ fs_scan_instruction(
 {
     if (!s || !ins)
         return;
+
     /*
      * Diagnostic: log every image operation encountered during
      * the prescan so we know exactly which SPIR-V instructions
@@ -3117,9 +3055,11 @@ fs_scan_instruction(
             (wc >= 3) ? ins[2] : 0,
             (wc >= 4) ? ins[3] : 0);
         break;
+
     default:
         break;
     }
+
     switch (op)
     {
         /*
@@ -3195,57 +3135,6 @@ fs_scan_instruction(
                 s,
                 ins,
                 wc);
-            break;
-        /*
-         * Projection-multiply candidate detection.
-         *
-         * We only record a candidate when:
-         *  - we are inside a function,
-         *  - the matrix operand comes from a tracked load,
-         *  - that load resolves to a Uniform/UniformConstant variable.
-         *
-         * This is intentionally conservative so we do not treat
-         * arbitrary matrix math as a projection transform.
-         */
-        case SpvOpMatrixTimesVector:
-        case SpvOpVectorTimesMatrix:
-            if (wc >= 5 &&
-                s->in_function &&
-                !s->projection_mul_found)
-            {
-                uint32_t result_id = ins[2];
-                uint32_t lhs_id    = ins[3];
-                uint32_t rhs_id    = ins[4];
-                int load = fs_find_load(s, lhs_id);
-                if (load >= 0)
-                {
-                    uint32_t owner_var = s->loads[load].owner_var;
-                    int vi = fs_var_index(s, owner_var);
-                    if (vi >= 0)
-                    {
-                        const FsVariableInfo *var = &s->vars[vi];
-                        if (var->storage == SpvStorageClassUniform ||
-                            var->storage == SpvStorageClassUniformConstant)
-                        {
-                            s->projection_mul_found = true;
-                            s->projection_mul_result = result_id;
-                            s->projection_matrix_id  = lhs_id;
-                            s->projection_vector_id  = rhs_id;
-                            s->projection_function    = s->current_function_id;
-                            STEREO_LOG(
-                                "FS_PROJECTION_CANDIDATE fn=%u result=%u matrix=%u vector=%u var=%u storage=%u set=%u binding=%u",
-                                s->projection_function,
-                                s->projection_mul_result,
-                                s->projection_matrix_id,
-                                s->projection_vector_id,
-                                owner_var,
-                                var->storage,
-                                var->set,
-                                var->binding);
-                        }
-                    }
-                }
-            }
             break;
         /*
          * Resource ownership tracking.
