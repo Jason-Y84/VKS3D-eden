@@ -200,8 +200,6 @@ typedef struct StereoConfig {
 void stereo_config_init(StereoConfig *cfg);
 void stereo_config_compute_offsets(StereoConfig *cfg);
 
-void stereo_write_ubo(StereoDevice *sd);
-
 extern char g_dll_dir[512];
 extern char g_exe_dir[512];
 extern char g_global_ini[512];
@@ -636,6 +634,7 @@ typedef struct StereoDevice {
     uint32_t upgraded_image_count;
 } StereoDevice;
 
+void stereo_write_ubo(StereoDevice *sd);
 /* -- Stereo UBO layout ----------------------------------------------------- */
 typedef struct StereoUBO {
     float eye_offset[2];
