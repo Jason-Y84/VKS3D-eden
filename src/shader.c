@@ -3551,11 +3551,29 @@ fs_dump_scan_summary(
     {
         const FsLoadInfo *load =
             &s->loads[i];
-        STEREO_LOG(
-            "FS_LOAD_FINAL id=%u owner=%u binding=%u",
-            load->id,
-            load->owner_var,
-            load->binding);
+        int var =
+            fs_var_index(
+                s,
+                load->owner_var);
+        if (var >= 0)
+        {
+            STEREO_LOG(
+                "FS_LOAD_FINAL id=%u source=%u owner=%u set=%u binding=%u storage=%u",
+                load->id,
+                load->source_id,
+                load->owner_var,
+                s->vars[var].set,
+                s->vars[var].binding,
+                s->vars[var].storage);
+        }
+        else
+        {
+            STEREO_LOG(
+                "FS_LOAD_FINAL id=%u source=%u owner=%u (unresolved)",
+                load->id,
+                load->source_id,
+                load->owner_var);
+        }
     }
     /*
      * Calls
