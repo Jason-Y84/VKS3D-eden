@@ -221,12 +221,16 @@ static void do_scan(SpvMod *m, bool p2)
     #define SETPTR(id,v)   set_matrix_ptr(m, (id), (v))
     #define TYPE(id)       matrix_type(m, (id))
     #define SETTYPE(id,v)  set_matrix_type(m, (id), (v))
-    for (size_t i=5;i<m->count;) {
-        uint32_t op=w[i]&0xffff, wc=w[i]>>16;
-        if (!wc||i+wc>m->count) break;
+    for (size_t i=5; i < m->count;)
+    {
+        uint32_t op=w[i] & 0xffff;
+        uint32_t wc=w[i] >> 16;
+        if (!wc || i + wc > m->count)
+            break;
         if (!p2)
         {
-        switch(op) {
+            switch (op)
+            {
             case SpvOpDot:
                 m->dot_count++;
                 break;
@@ -251,15 +255,8 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             case SpvOpCompositeExtract:
-                if (wc >= 5 &&
-                    w[i + 2] < m->value_capacity &&
-                    w[i + 3] < m->value_capacity)
-                {
-                    SETMAT(w[i + 2], MAT(w[i + 3]));
-                }
-                break;
             case SpvOpVectorShuffle:
-                if (wc >= 6 &&
+                if (wc >= 5 &&
                     w[i + 2] < m->value_capacity &&
                     w[i + 3] < m->value_capacity)
                 {
@@ -270,8 +267,8 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 5 &&
                     w[i + 2] < m->value_capacity)
                 {
-                    uint8_t matrix = 0;
-                    for (uint32_t k = 3; k < wc; ++k)
+                    uint8_t matrix=0;
+                    for (uint32_t k=3; k < wc; k++)
                     {
                         if (w[i + k] < m->value_capacity &&
                             MAT(w[i + k]))
@@ -284,39 +281,57 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             case SpvOpCapability:
-                if(wc>=2&&w[i+1]==SpvCapabilityMultiView) m->has_mv_cap=true;
+                if (wc >= 2 &&
+                    w[i + 1] == SpvCapabilityMultiView)
+                {
+                    m->has_mv_cap=true;
+                }
                 break;
             case SpvOpEntryPoint:
-                if(wc>=3){
-                    uint32_t e=w[i+1];
-                    if(e==SpvExecVertex||e==SpvExecTessEval||e==SpvExecGeometry)
+                if (wc >= 3)
+                {
+                    uint32_t e=w[i + 1];
+                    if (e == SpvExecVertex ||
+                        e == SpvExecTessEval ||
+                        e == SpvExecGeometry)
                     {
                         m->is_patchable=true;
                         m->exec_model=(int)e;
-                        m->entry_function = w[i+2];
-                    }}
+                        m->entry_function=w[i + 2];
+                    }
+                }
                 break;
             case SpvOpTypeFloat:
-                if(wc==3&&w[i+2]==32) m->ft=w[i+1];
+                if (wc == 3 && w[i + 2] == 32)
+                    m->ft=w[i + 1];
                 break;
             case SpvOpTypeVector:
-                if(wc==4&&w[i+2]==m->ft&&w[i+3]==4) m->v4t=w[i+1];
+                if (wc == 4 &&
+                    w[i + 2] == m->ft &&
+                    w[i + 3] == 4)
+                {
+                    m->v4t=w[i + 1];
+                }
                 break;
             case SpvOpTypeInt:
-                if(wc==4&&w[i+2]==32) m->it=w[i+1];
+                if (wc == 4 &&
+                    w[i + 2] == 32)
+                {
+                    m->it=w[i + 1];
+                }
                 break;
             case SpvOpTypeMatrix:
-                if (wc >= 4)
+                if (wc >= 4 &&
+                    w[i + 1] < m->value_capacity)
                 {
-                    if (w[i + 1] < m->value_capacity)
-                        SETTYPE(w[i + 1], 1);
+                    SETTYPE(w[i + 1], 1);
                 }
                 break;
             case SpvOpTypeStruct:
                 if (wc >= 3)
                 {
-                    uint8_t matrix = 0;
-                    for (uint32_t k = 2; k < wc; ++k)
+                    uint8_t matrix=0;
+                    for (uint32_t k=2; k < wc; k++)
                     {
                         if (w[i + k] < m->value_capacity &&
                             TYPE(w[i + k]))
@@ -329,10 +344,6 @@ static void do_scan(SpvMod *m, bool p2)
                         SETTYPE(w[i + 1], matrix);
                 }
                 break;
-            case SpvOpTypeArray:
-                break;
-            case SpvOpTypeRuntimeArray:
-                break;
             case SpvOpTranspose:
                 if (wc >= 4 &&
                     w[i + 2] < m->value_capacity &&
@@ -342,28 +353,39 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             case SpvOpMatrixTimesVector:
-            case SpvOpMatrixTimesMatrix:
-                m->has_matrix_ops = true;
-                /* fall through */
-            case SpvOpVectorTimesScalar:
-            case SpvOpVectorTimesMatrix:
-            case SpvOpMatrixTimesScalar:
+                m->has_matrix_ops=true;
                 if (wc >= 5)
                 {
-                    if (w[i + 2] < m->value_capacity)
+                    uint32_t result=w[i + 2];
+                    uint32_t matrix=w[i + 3];
+                    uint32_t vector=w[i + 4];
+                    if (result < m->value_capacity)
                     {
-                        SETMAT(w[i + 2], 1);
-                        // STEREO_LOG("MATRIX_MARK result=%u", w[i + 2]);
+                        SETMAT(result, 1);
+                        /*
+                         * Candidate projection transform.
+                         *
+                         * We do not assume this is projection yet.
+                         * spirv_patch_stereo_vertex() validates it
+                         * against gl_Position later.
+                         */
+                        m->projection_mul_result=result;
+                        m->projection_matrix_id=matrix;
+                        m->projection_vector_id=vector;
+                        m->projection_function=current_function;
+                        m->projection_mul_word=i;
+                        m->projection_mul_found=true;
                     }
-                    /*
-                    else
-                    {
-                        STEREO_LOG(
-                            "MATRIX_CAP_FAIL result=%u cap=%u",
-                            w[i + 2],
-                            m->value_capacity);
-                    }
-                    */
+                }
+                break;
+            case SpvOpMatrixTimesMatrix:
+            case SpvOpVectorTimesMatrix:
+            case SpvOpMatrixTimesScalar:
+            case SpvOpVectorTimesScalar:
+                if (wc >= 5 &&
+                    w[i + 2] < m->value_capacity)
+                {
+                    SETMAT(w[i + 2], 1);
                 }
                 break;
             case SpvOpCopyObject:
@@ -379,8 +401,8 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 7 &&
                     w[i + 2] < m->value_capacity)
                 {
-                    uint8_t matrix = 0;
-                    for (uint32_t k = 5; k < wc; ++k)
+                    uint8_t matrix=0;
+                    for (uint32_t k=5; k < wc; k++)
                     {
                         if (w[i + k] < m->value_capacity)
                             matrix |= MAT(w[i + k]);
@@ -397,7 +419,10 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(
                         w[i + 2],
-                        matrix_or2(m, w[i + 4], w[i + 5]));
+                        matrix_or2(
+                            m,
+                            w[i + 3],
+                            w[i + 4]));
                 }
                 break;
             case SpvOpSelect:
@@ -406,10 +431,11 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(
                         w[i + 2],
-                        matrix_or2(m, w[i + 4], w[i + 5]));
+                        matrix_or2(
+                            m,
+                            w[i + 4],
+                            w[i + 5]));
                 }
-                break;
-            case SpvOpFunctionCall:
                 break;
             case SpvOpCompositeInsert:
                 if (wc >= 6 &&
@@ -426,22 +452,20 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpTypePointer:
                 if (wc >= 4)
                 {
-                if (TYPE(w[i + 3]))
-                {
-                SETPTR(w[i + 1], 1);
-                }
-                if (w[i + 2] == SpvStorageOutput &&
-                m->v4t &&
-                w[i + 3] == m->v4t)
-                {
-                m->ptr_out_v4 = w[i + 1];
-                }
-                if (w[i + 2] == SpvStorageInput &&
-                m->it &&
-                w[i + 3] == m->it)
-                {
-                m->ptr_in_int = w[i + 1];
-                }
+                    if (TYPE(w[i + 3]))
+                        SETPTR(w[i + 1], 1);
+                    if (w[i + 2] == SpvStorageOutput &&
+                        m->v4t &&
+                        w[i + 3] == m->v4t)
+                    {
+                        m->ptr_out_v4=w[i + 1];
+                    }
+                    if (w[i + 2] == SpvStorageInput &&
+                        m->it &&
+                        w[i + 3] == m->it)
+                    {
+                        m->ptr_in_int=w[i + 1];
+                    }
                 }
                 break;
             case SpvOpVariable:
@@ -450,18 +474,25 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 2] < m->value_capacity &&
                     PTR(w[i + 1]))
                 {
-                SETPTR(w[i + 2], 1);
+                    SETPTR(w[i + 2], 1);
                 }
                 break;
             case SpvOpDecorate:
-                if(wc>=4&&w[i+2]==SpvDecorationBuiltIn){
-                    if(w[i+3]==SpvBuiltInPosition&&!m->pos_is_block)
-                        m->pos_var=w[i+1];
-                    if(w[i+3]==SpvBuiltInViewIndex) {
-                        m->view_var = w[i+1];
-                        m->has_viewindex_builtin = true;
+                if (wc >= 4 &&
+                    w[i + 2] == SpvDecorationBuiltIn)
+                {
+                    if (w[i + 3] == SpvBuiltInPosition &&
+                        !m->pos_is_block)
+                    {
+                        m->pos_var=w[i + 1];
                     }
-                } break;
+                    if (w[i + 3] == SpvBuiltInViewIndex)
+                    {
+                        m->view_var=w[i + 1];
+                        m->has_viewindex_builtin=true;
+                    }
+                }
+                break;
             case SpvOpMemberDecorate:
                 if (wc >= 5 &&
                     w[i+3] == SpvDecorationBuiltIn &&
@@ -505,23 +536,28 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             }
-        } else {
-            if(op==SpvOpTypePointer && wc>=4 &&
-               w[i+2]==SpvStorageOutput)
+        }
+        else
+        {
+            if (op == SpvOpTypePointer &&
+                wc >= 4 &&
+                w[i + 2] == SpvStorageOutput)
             {
-                for(uint32_t k=0;k<m->pos_block_count;k++)
+                for (uint32_t k=0; k < m->pos_block_count; k++)
                 {
-                    if(w[i+3]==m->pos_block_type[k])
+                    if (w[i + 3] == m->pos_block_type[k])
                     {
-                        m->pos_ptr_type=w[i+1];
+                        m->pos_ptr_type=w[i + 1];
                         break;
                     }
                 }
             }
-            if(op==SpvOpVariable&&wc>=4&&w[i+3]==SpvStorageOutput)
+            if (op == SpvOpVariable &&
+                wc >= 4 &&
+                w[i + 3] == SpvStorageOutput)
             {
-                if(m->pos_ptr_type &&
-                   w[i+1]==m->pos_ptr_type)
+                if (m->pos_ptr_type &&
+                    w[i + 1] == m->pos_ptr_type)
                 {
                     m->pos_var=w[i+2];
                 }
