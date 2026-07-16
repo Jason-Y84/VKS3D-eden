@@ -1060,6 +1060,8 @@ stereo_CmdCopyImage(
     uint32_t regionCount,
     const VkImageCopy *pRegions)
 {
+    STEREO_LOG(
+        "ENTER CmdCopyImage");
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
@@ -1085,4 +1087,6 @@ stereo_CmdCopyImage(
         dstImageLayout,
         regionCount,
         pRegions);
+    STEREO_LOG(
+        "EXIT CmdCopyImage");
 }
