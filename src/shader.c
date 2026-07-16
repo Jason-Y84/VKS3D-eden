@@ -1601,6 +1601,13 @@ typedef struct
     bool     in_function;
     uint32_t current_function_id;
     uint32_t current_param_index;
+    //Projection-multiply candidate tracking
+    uint32_t projection_mul_result;
+    uint32_t projection_matrix_id;
+    uint32_t projection_vector_id;
+    uint32_t projection_function;
+    size_t   projection_mul_word;
+    bool     projection_mul_found;
 } FsScan;
 
 static bool
