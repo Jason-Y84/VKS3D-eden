@@ -87,7 +87,7 @@ static const char **stereo_filter_extensions(
     return merged;
 }
 
-static void stereo_write_ubo(StereoDevice *sd)
+void stereo_write_ubo(StereoDevice *sd)
 {
     if (!sd || !sd->stereo_ubo_map)
         return;
