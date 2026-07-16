@@ -3360,112 +3360,87 @@ fs_fixup_function_parameters(
     if (!s)
         return;
     /*
-     * Resolve deferred function-call arguments.
-     *
-     * During the first scan we only know:
-     *
-     *   OpFunctionCall
-     *       |
-     *       +-- argument value
-     *
-     * but not always:
-     *
-     *   function parameter ID
-     *
-     * because SPIR-V functions can appear in any order.
+     * Resolve parameter ids for every call.
      */
     for (uint32_t i = 0; i < s->n_call; ++i)
     {
         FsCallInfo *call =
             &s->calls[i];
-        int fn_index =
+        int fn =
             fs_find_function(
                 s,
                 call->function_id);
-        if (fn_index < 0)
-        {
-            STEREO_LOG(
-                "FS_FIXUP_FUNCTION_MISS function=%u",
-                call->function_id);
+        if (fn < 0)
             continue;
-        }
-        FsFunctionInfo *fn =
-            &s->functions[fn_index];
-        uint32_t parameter_index =
-            fn->first_param +
+        FsFunctionInfo *func =
+            &s->functions[fn];
+        uint32_t param_index =
+            func->first_param +
             call->parameter_index;
-        if (parameter_index >= s->n_param)
-        {
-            STEREO_LOG(
-                "FS_FIXUP_PARAMETER_RANGE function=%u index=%u",
-                call->function_id,
-                parameter_index);
+        if (param_index >= s->n_param)
             continue;
-        }
         call->parameter_id =
-            s->params[parameter_index].id;
+            s->params[param_index].id;
         STEREO_LOG(
-            "FS_CALL_PARAMETER_RESOLVE function=%u parameter=%u arg=%u",
+            "FS_CALL_PARAMETER function=%u param=%u arg=%u",
             call->function_id,
             call->parameter_id,
             call->argument_var);
     }
     /*
-     * Resolve loads that originated from function parameters.
+     * Resolve deferred ownership.
      *
-     * Example:
-     *
-     * main()
-     *   |
-     *   v
-     * helper(depthTexture)
-     *   |
-     *   v
-     * OpLoad %param
-     *
-     * The first pass cannot know that %param maps back to the
-     * original descriptor variable.
+     * owner_var currently contains the parameter SSA id
+     * recorded during OpLoad.
      */
-    for (uint32_t load = 0;
-         load < s->n_load;
-         ++load)
+    for (uint32_t i = 0; i < s->n_load; ++i)
     {
-        FsLoadInfo *entry =
-            &s->loads[load];
-        if (entry->owner_var != 0)
+        FsLoadInfo *load =
+            &s->loads[i];
+        int p =
+            fs_find_parameter(
+                s,
+                load->owner_var);
+        if (p < 0)
             continue;
-        for (uint32_t call = 0;
-             call < s->n_call;
-             ++call)
+        FsParameterInfo *param =
+            &s->params[p];
+        bool resolved = false;
+        for (uint32_t c = 0; c < s->n_call; ++c)
         {
-            FsCallInfo *c =
-                &s->calls[call];
-            if (c->parameter_id !=
-                entry->source_id)
-            {
+            FsCallInfo *call =
+                &s->calls[c];
+            if (call->function_id !=
+                param->function_id)
                 continue;
-            }
-            entry->owner_var =
-                c->argument_var;
+            if (call->parameter_id !=
+                param->id)
+                continue;
+            load->owner_var =
+                call->argument_var;
+            resolved = true;
             STEREO_LOG(
-                "FS_LOAD_PARAMETER_FIXUP load=%u owner=%u",
-                entry->id,
-                entry->owner_var);
+                "FS_LOAD_FIXUP load=%u owner=%u",
+                load->id,
+                load->owner_var);
             break;
         }
+        if (!resolved)
+        {
+            STEREO_LOG(
+                "FS_LOAD_FIXUP_FAILED load=%u param=%u",
+                load->id,
+                param->id);
+        }
     }
-    /*
-     * Final unresolved count.
-     *
-     * Unresolved entries are not fatal. Some shaders contain
-     * dead code or resources that never reach a sample.
-     */
     uint32_t unresolved = 0;
-    for (uint32_t i = 0;
-         i < s->n_load;
-         ++i)
+    for (uint32_t i = 0; i < s->n_load; ++i)
     {
-        if (s->loads[i].owner_var == 0)
+        int var =
+            fs_var_index(
+                s,
+                s->loads[i].owner_var);
+        if (var < 0)
             ++unresolved;
     }
     STEREO_LOG(
