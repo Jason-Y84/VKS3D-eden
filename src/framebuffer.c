@@ -1079,7 +1079,7 @@ stereo_CmdCopyImage(
             dst_stereo,
             regionCount);
     }
-    stereo_CmdCopyImage(
+    sd->real.CmdCopyImage(
         commandBuffer,
         srcImage,
         srcImageLayout,
