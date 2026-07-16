@@ -2714,57 +2714,37 @@ fs_track_image_propagation(
         return;
     bool propagate =
         (op == SpvOpImage) ||
-        (op == SpvOpCopyObject &&
-         fs_is_image_related_type(s, ins[1]));
+        (op == SpvOpCopyObject);
     if (!propagate)
         return;
-    uint32_t result = ins[2];
-    uint32_t source = ins[3];
+    uint32_t result_id = ins[2];
+    uint32_t source_id = ins[3];
     int src =
         fs_find_load(
             s,
-            source);
-    if (src >= 0)
+            source_id);
+    if (src < 0)
     {
-        FsLoadInfo *dst =
-            NULL;
-        int existing =
-            fs_find_load(
-                s,
-                result);
-        if (existing >= 0)
-        {
-            dst = &s->loads[existing];
-        }
-        else
-        {
-            if (s->n_load >= FS_MAX_LOADS)
-                return;
-            dst = &s->loads[s->n_load++];
-            memset(dst, 0, sizeof(*dst));
-        }
-        *dst = s->loads[src];
-        dst->id = result;
-        STEREO_LOG(
-            "FS_PROPAGATE image=%u -> %u owner=%u binding=%u",
-            source,
-            result,
-            dst->owner_var,
-            dst->binding);
         return;
     }
-    /*
-     * Source isn't known yet.
-     * Preserve SSA for later fixup.
-     */
-    fs_add_load_mapping(
-        s,
-        result,
-        source);
+    if (s->n_load >= FS_MAX_LOADS)
+    {
+        STEREO_LOG(
+            "FS_PROP_OVERFLOW result=%u",
+            result_id);
+        return;
+    }
+    FsLoadInfo *dst =
+        &s->loads[s->n_load++];
+    *dst = s->loads[src];
+    dst->id = result_id;
     STEREO_LOG(
-        "FS_PROPAGATE_DEFERRED image=%u -> %u",
-        source,
-        result);
+        "FS_PROPAGATE op=%s src=%u dst=%u owner=%u source=%u",
+        spv_op_name(op),
+        source_id,
+        result_id,
+        dst->owner_var,
+        dst->source_id);
 }
 /*
  * Track OpSampledImage ownership.
