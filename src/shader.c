@@ -2769,6 +2769,9 @@ fs_track_sampled_image(
 {
     if (!s || wc < 5)
         return;
+    /*
+     * Ignore non-sampled-image result types.
+     */
     if (!fs_id_in(
             s->si_ids,
             s->n_si,
@@ -2776,46 +2779,40 @@ fs_track_sampled_image(
     {
         return;
     }
-    uint32_t result  = ins[2];
-    uint32_t image   = ins[3];
-    uint32_t sampler = ins[4];
+    uint32_t result_id  = ins[2];
+    uint32_t image_id   = ins[3];
+    uint32_t sampler_id = ins[4];
     int src =
         fs_find_load(
             s,
-            image);
-    if (src >= 0)
+            image_id);
+    if (src < 0)
     {
-        FsLoadInfo *dst = NULL;
-        int existing =
-            fs_find_load(
-                s,
-                result);
-        if (existing >= 0)
-            dst = &s->loads[existing];
-        else
-        {
-            if (s->n_load >= FS_MAX_LOADS)
-                return;
-            dst = &s->loads[s->n_load++];
-            memset(dst,0,sizeof(*dst));
-        }
-        *dst = s->loads[src];
-        dst->id = result;
         STEREO_LOG(
-            "FS_SAMPLED_IMAGE result=%u image=%u owner=%u",
-            result,
-            image,
-            dst->owner_var);
+            "FS_SAMPLED_IMAGE_NO_SOURCE result=%u image=%u sampler=%u",
+            result_id,
+            image_id,
+            sampler_id);
         return;
     }
-    fs_add_load_mapping(
-        s,
-        result,
-        image);
+    if (s->n_load >= FS_MAX_LOADS)
+    {
+        STEREO_LOG(
+            "FS_SAMPLED_IMAGE_OVERFLOW result=%u",
+            result_id);
+        return;
+    }
+    FsLoadInfo *dst =
+        &s->loads[s->n_load++];
+    *dst = s->loads[src];
+    dst->id = result_id;
     STEREO_LOG(
-        "FS_SAMPLED_IMAGE_DEFERRED result=%u image=%u",
-        result,
-        image);
+        "FS_SAMPLED_IMAGE result=%u image=%u sampler=%u owner=%u source=%u",
+        result_id,
+        image_id,
+        sampler_id,
+        dst->owner_var,
+        dst->source_id);
 }
 /*
  * Scan image sampling/fetch/read/write instructions.
