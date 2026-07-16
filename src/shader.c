@@ -3096,7 +3096,6 @@ fs_scan_instruction(
 {
     if (!s || !ins)
         return;
-
     /*
      * Diagnostic: log every image operation encountered during
      * the prescan so we know exactly which SPIR-V instructions
@@ -3118,11 +3117,9 @@ fs_scan_instruction(
             (wc >= 3) ? ins[2] : 0,
             (wc >= 4) ? ins[3] : 0);
         break;
-
     default:
         break;
     }
-
     switch (op)
     {
         /*
@@ -3198,6 +3195,57 @@ fs_scan_instruction(
                 s,
                 ins,
                 wc);
+            break;
+        /*
+         * Projection-multiply candidate detection.
+         *
+         * We only record a candidate when:
+         *  - we are inside a function,
+         *  - the matrix operand comes from a tracked load,
+         *  - that load resolves to a Uniform/UniformConstant variable.
+         *
+         * This is intentionally conservative so we do not treat
+         * arbitrary matrix math as a projection transform.
+         */
+        case SpvOpMatrixTimesVector:
+        case SpvOpVectorTimesMatrix:
+            if (wc >= 5 &&
+                s->in_function &&
+                !s->projection_mul_found)
+            {
+                uint32_t result_id = ins[2];
+                uint32_t lhs_id    = ins[3];
+                uint32_t rhs_id    = ins[4];
+                int load = fs_find_load(s, lhs_id);
+                if (load >= 0)
+                {
+                    uint32_t owner_var = s->loads[load].owner_var;
+                    int vi = fs_var_index(s, owner_var);
+                    if (vi >= 0)
+                    {
+                        const FsVariableInfo *var = &s->vars[vi];
+                        if (var->storage == SpvStorageClassUniform ||
+                            var->storage == SpvStorageClassUniformConstant)
+                        {
+                            s->projection_mul_found = true;
+                            s->projection_mul_result = result_id;
+                            s->projection_matrix_id  = lhs_id;
+                            s->projection_vector_id  = rhs_id;
+                            s->projection_function    = s->current_function_id;
+                            STEREO_LOG(
+                                "FS_PROJECTION_CANDIDATE fn=%u result=%u matrix=%u vector=%u var=%u storage=%u set=%u binding=%u",
+                                s->projection_function,
+                                s->projection_mul_result,
+                                s->projection_matrix_id,
+                                s->projection_vector_id,
+                                owner_var,
+                                var->storage,
+                                var->set,
+                                var->binding);
+                        }
+                    }
+                }
+            }
             break;
         /*
          * Resource ownership tracking.
