@@ -2723,65 +2723,61 @@ fs_track_image_propagation(
     uint32_t op,
     uint32_t wc)
 {
-    if (wc < 4)
+    if (!s || wc < 4)
         return;
-    /*
-     * Only image-producing instructions can preserve
-     * descriptor ownership.
-     *
-     * Example:
-     *
-     *   %img0 = OpLoad %image %depthTexture
-     *   %img1 = OpImage %image %img0
-     *
-     * %img1 still refers to the same descriptor.
-     */
     bool propagate =
         (op == SpvOpImage) ||
         (op == SpvOpCopyObject &&
-         fs_is_image_related_type(
-             s,
-             ins[1]));
+         fs_is_image_related_type(s, ins[1]));
     if (!propagate)
         return;
-    uint32_t source =
-        ins[3];
-    uint32_t result =
-        ins[2];
-    uint32_t owner = 0;
-    STEREO_LOG(
-        "FS_PROPAGATE_TRY op=%s(%u) src=%u dst=%u",
-        spv_op_name(op),
-        op,
-        source,
-        result);
-    if (!fs_resolve_load_owner(
+    uint32_t result = ins[2];
+    uint32_t source = ins[3];
+    int src =
+        fs_find_load(
             s,
-            source,
-            &owner))
+            source);
+    if (src >= 0)
     {
-        /*
-         * Keep unresolved IDs alive.
-         *
-         * They may refer to function parameters that are
-         * repaired later by fs_fixup_function_parameters().
-         */
-        owner = source;
+        FsLoadInfo *dst =
+            NULL;
+        int existing =
+            fs_find_load(
+                s,
+                result);
+        if (existing >= 0)
+        {
+            dst = &s->loads[existing];
+        }
+        else
+        {
+            if (s->n_load >= FS_MAX_LOADS)
+                return;
+            dst = &s->loads[s->n_load++];
+            memset(dst, 0, sizeof(*dst));
+        }
+        *dst = s->loads[src];
+        dst->id = result;
         STEREO_LOG(
-            "FS_PROPAGATE_DEFERRED src=%u dst=%u",
+            "FS_PROPAGATE image=%u -> %u owner=%u binding=%u",
             source,
-            result);
+            result,
+            dst->owner_var,
+            dst->binding);
+        return;
     }
+    /*
+     * Source isn't known yet.
+     * Preserve SSA for later fixup.
+     */
     fs_add_load_mapping(
         s,
         result,
-        owner);
+        source);
     STEREO_LOG(
-        "FS_IMAGE_PROPAGATE op=%s src=%u dst=%u owner=%u",
-        spv_op_name(op),
+        "FS_PROPAGATE_DEFERRED image=%u -> %u",
         source,
-        result,
-        owner);
+        result);
 }
 /*
  * Track OpSampledImage ownership.
