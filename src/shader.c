@@ -2515,58 +2515,65 @@ fs_scan_load_instruction(
     const uint32_t *ins,
     uint32_t wc)
 {
-    if (!s || wc < 4)
+    if (wc < 4)
         return;
-    uint32_t result_type = ins[1];
-    uint32_t result_id   = ins[2];
-    uint32_t source_id   = ins[3];
-    /* Only image/sampled-image objects matter. */
+    uint32_t result_type =
+        ins[1];
+    uint32_t result_id =
+        ins[2];
+    uint32_t source_id =
+        ins[3];
+    /*
+     * Only track loads that produce image-related objects.
+     *
+     * We intentionally avoid tracking every OpLoad because
+     * large deferred shaders contain hundreds of unrelated
+     * loads (UBOs, push constants, storage buffers, etc.).
+     *
+     * Projection correction later needs to answer:
+     *
+     *   "Which descriptor produced this sampled image?"
+     *
+     * so resource ownership is the only information needed here.
+     */
     if (!fs_is_image_related_type(
             s,
             result_type))
     {
         return;
     }
-    if (s->n_load >= FS_MAX_LOADS)
-    {
-        STEREO_LOG(
-            "FS_LOAD_OVERFLOW id=%u",
-            result_id);
-        return;
-    }
-    FsLoadInfo *load =
-        &s->loads[s->n_load++];
-    memset(
-        load,
-        0,
-        sizeof(*load));
-    load->id        = result_id;
-    load->source_id = source_id;
-    load->binding   = 0xffffffffu;
+    uint32_t owner = 0;
     /*
-     * Try to resolve immediately.
-     * If this fails we deliberately leave owner_var == 0 so
-     * fs_fixup_function_parameters() and copy propagation can
-     * resolve it later.
+     * Direct descriptor variable load:
+     *
+     *   %img = OpLoad %image_type %descriptor
+     *
+     * Resolve immediately if possible.
      */
     if (!fs_resolve_load_owner(
             s,
             source_id,
-            &load->owner_var))
+            &owner))
     {
-        load->owner_var = 0;
+        /*
+         * The source may be a function parameter.
+         *
+         * It will be fixed later by
+         *
+         * fs_fixup_function_parameters()
+         *
+         * after all calls and parameters are known.
+         */
+        owner = source_id;
         STEREO_LOG(
-            "FS_LOAD_DEFER result=%u source=%u",
+            "FS_LOAD_DEFERRED result=%u source=%u",
             result_id,
             source_id);
     }
-    else
-    {
-        STEREO_LOG(
-            "FS_LOAD_RESOLVE result=%u owner=%u",
-            result_id,
-            load->owner_var);
-    }
+    fs_add_load_mapping(
+        s,
+        result_id,
+        owner);
     int var =
         fs_var_index(
             s,
@@ -2574,19 +2581,25 @@ fs_scan_load_instruction(
     if (var >= 0)
     {
         STEREO_LOG(
-            "FS_LOAD_SOURCE result=%u sourceVar=%u set=%u binding=%u storage=%u",
+            "FS_LOAD_SOURCE result=%u sourceVar=%u set=%u binding=%u type=%u",
             result_id,
             source_id,
             s->vars[var].set,
             s->vars[var].binding,
-            s->vars[var].storage);
+            s->vars[var].type);
+    }
+    else
+    {
+        STEREO_LOG(
+            "FS_LOAD_SOURCE_UNKNOWN result=%u source=%u",
+            result_id,
+            source_id);
     }
     STEREO_LOG(
-        "FS_LOAD_REGISTER result=%u type=%u owner=%u source=%u",
+        "FS_LOAD_REGISTER result=%u owner=%u type=%u",
         result_id,
-        result_type,
-        load->owner_var,
-        load->source_id);
+        owner,
+        result_type);
 }
 /*
  * Track OpFunctionCall relationships.
