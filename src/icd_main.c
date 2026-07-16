@@ -297,6 +297,10 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         return (PFN_vkVoidFunction)stereo_CmdDrawIndexedIndirect;
     if (!strcmp(pName, "vkCmdCopyImage"))
         return (PFN_vkVoidFunction)stereo_CmdCopyImage;
+    if (!strcmp(pName, "vkCmdBlitImage"))
+        return (PFN_vkVoidFunction)stereo_CmdBlitImage;
+    if (!strcmp(pName, "vkCmdResolveImage"))
+        return (PFN_vkVoidFunction)stereo_CmdResolveImage;
     if (!strcmp(pName, "vkCreateRenderPass"))
         return (PFN_vkVoidFunction)stereo_CreateRenderPass;
 #ifdef VK_KHR_create_renderpass2
