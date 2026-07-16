@@ -133,6 +133,18 @@ typedef struct
     uint32_t dot_count;
     bool has_matrix_ops;
     bool has_direct_position_write;
+    /* Projection matrix detection */
+    uint32_t projection_mul_result;
+    uint32_t projection_matrix_id;
+    uint32_t projection_vector_id;
+    uint32_t projection_function;
+    size_t   projection_mul_word;
+    bool     projection_mul_found;
+    /* Matrix provenance tracking */
+    uint32_t value_capacity;
+    uint8_t *value_from_matrix;
+    uint8_t *is_matrix_type;
+    uint8_t *is_matrix_ptr;
     /* Matrix provenance tracking */
     uint32_t value_capacity;
     uint8_t *value_from_matrix;
