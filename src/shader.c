@@ -2832,129 +2832,74 @@ fs_scan_image_operation(
     uint32_t op,
     uint32_t wc)
 {
-    if (wc < 5)
+    if (!s || wc < 5)
         return;
     switch (op)
     {
-        case SpvOpImageSampleImplicitLod:
-        case SpvOpImageSampleExplicitLod:
-        case SpvOpImageSampleDrefImplicitLod:
-        case SpvOpImageSampleDrefExplicitLod:
-        case SpvOpImageFetch:
-        case SpvOpImageRead:
-        case SpvOpImageWrite:
-            break;
-        default:
-            return;
+    case SpvOpImageSampleImplicitLod:
+    case SpvOpImageSampleExplicitLod:
+    case SpvOpImageSampleDrefImplicitLod:
+    case SpvOpImageSampleDrefExplicitLod:
+    case SpvOpImageFetch:
+    case SpvOpImageRead:
+    case SpvOpImageWrite:
+        break;
+    default:
+        return;
     }
-    /*
-     * Image sampling instructions:
-     *
-     *   ins[1] = result type
-     *   ins[2] = result id
-     *   ins[3] = sampled image/image operand
-     *   ins[4] = coordinate
-     *
-     * At this stage we are not modifying shaders.
-     *
-     * We are building the resource map required later to
-     * detect:
-     *
-     *   depth texture sampling
-     *          |
-     *          v
-     *   view-space reconstruction
-     *          |
-     *          v
-     *   projection matrix usage
-     *
-     * which is needed for correct stereo SSAO/deferred effects.
-     */
-    uint32_t result =
-        ins[2];
-    uint32_t image =
-        ins[3];
-    uint32_t coord =
-        ins[4];
-    STEREO_LOG(
-        "FS_IMAGE_OP op=%s(%u) result=%u image=%u coord=%u",
-        spv_op_name(op),
-        op,
-        result,
-        image,
-        coord);
-    uint32_t owner = 0;
-    if (!fs_resolve_load_owner(
+    uint32_t image_id = ins[3];
+    int load =
+        fs_find_load(
             s,
-            image,
-            &owner))
+            image_id);
+    if (load < 0)
     {
-        /*
-         * The image may still be unresolved because it came
-         * through a helper function parameter.
-         *
-         * fs_fixup_function_parameters() will repair these
-         * after the complete module scan.
-         */
-        owner = image;
         STEREO_LOG(
-            "FS_IMAGE_OWNER_DEFERRED image=%u",
-            image);
+            "FS_IMAGE_NO_LOAD image=%u op=%s",
+            image_id,
+            spv_op_name(op));
+        return;
+    }
+    FsLoadInfo *li =
+        &s->loads[load];
+    if (li->owner_var == 0)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_UNRESOLVED image=%u source=%u",
+            image_id,
+            li->source_id);
+        return;
     }
     int var =
         fs_var_index(
             s,
-            owner);
+            li->owner_var);
     if (var < 0)
     {
         STEREO_LOG(
-            "FS_IMAGE_OWNER_UNKNOWN image=%u owner=%u",
-            image,
-            owner);
+            "FS_IMAGE_OWNER_UNKNOWN owner=%u",
+            li->owner_var);
         return;
     }
-    STEREO_LOG(
-        "FS_IMAGE_DESCRIPTOR image=%u owner=%u set=%u binding=%u type=%u",
-        image,
-        owner,
-        s->vars[var].set,
-        s->vars[var].binding,
-        s->vars[var].type);
-    /*
-     * Important future hook:
-     *
-     * This is where projection/depth analysis will attach.
-     *
-     * Once we know:
-     *
-     *   binding -> depth attachment
-     *   image sampling -> depth value
-     *   math chain -> reconstruction
-     *
-     * we can inject projection correction instead of only
-     * stereoizing the original vertex transform.
-     */
     bool stereo =
         fs_binding_is_stereo_attachment(
             s,
-            owner);
-
+            li->owner_var);
+    li->binding =
+        s->vars[var].binding;
     STEREO_LOG(
-        "FS_IMAGE_CLASSIFY image=%u owner=%u varIndex=%d storage=%u set=%u binding=%u stereo=%u",
-        image,
-        owner,
-        var,
-        s->vars[var].storage,
+        "FS_IMAGE_SAMPLE op=%s image=%u owner=%u set=%u binding=%u stereo=%u",
+        spv_op_name(op),
+        image_id,
+        li->owner_var,
         s->vars[var].set,
         s->vars[var].binding,
         stereo);
-
     if (stereo)
     {
         STEREO_LOG(
-            "FS_DEPTH_RESOURCE_SAMPLE image=%u owner=%u binding=%u",
-            image,
-            owner,
+            "FS_STEREO_RESOURCE image=%u binding=%u",
+            image_id,
             s->vars[var].binding);
     }
 }
