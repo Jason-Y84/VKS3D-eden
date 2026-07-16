@@ -2800,19 +2800,8 @@ fs_track_sampled_image(
     const uint32_t *ins,
     uint32_t wc)
 {
-    if (wc < 5)
+    if (!s || wc < 5)
         return;
-    /*
-     * OpSampledImage layout:
-     *
-     *   ins[1] = result type
-     *   ins[2] = result id
-     *   ins[3] = image id
-     *   ins[4] = sampler id
-     *
-     * The resulting sampled-image object must retain
-     * ownership of the original image descriptor.
-     */
     if (!fs_id_in(
             s->si_ids,
             s->n_si,
@@ -2820,45 +2809,46 @@ fs_track_sampled_image(
     {
         return;
     }
-    uint32_t result =
-        ins[2];
-    uint32_t image =
-        ins[3];
-    uint32_t sampler =
-        ins[4];
-    STEREO_LOG(
-        "FS_SAMPLED_IMAGE result=%u image=%u sampler=%u",
-        result,
-        image,
-        sampler);
-    uint32_t owner = 0;
-    /*
-     * The image operand normally comes from a previous
-     * OpLoad or propagated image operation.
-     */
-    if (!fs_resolve_load_owner(
+    uint32_t result  = ins[2];
+    uint32_t image   = ins[3];
+    uint32_t sampler = ins[4];
+    int src =
+        fs_find_load(
             s,
-            image,
-            &owner))
-    {
-        /*
-         * Preserve the unresolved source ID.
-         *
-         * Function parameter forwarding may resolve it later.
-         */
-        owner = image;
-        STEREO_LOG(
-            "FS_SAMPLED_IMAGE_OWNER_DEFERRED image=%u",
             image);
+    if (src >= 0)
+    {
+        FsLoadInfo *dst = NULL;
+        int existing =
+            fs_find_load(
+                s,
+                result);
+        if (existing >= 0)
+            dst = &s->loads[existing];
+        else
+        {
+            if (s->n_load >= FS_MAX_LOADS)
+                return;
+            dst = &s->loads[s->n_load++];
+            memset(dst,0,sizeof(*dst));
+        }
+        *dst = s->loads[src];
+        dst->id = result;
+        STEREO_LOG(
+            "FS_SAMPLED_IMAGE result=%u image=%u owner=%u",
+            result,
+            image,
+            dst->owner_var);
+        return;
     }
     fs_add_load_mapping(
         s,
         result,
-        owner);
+        image);
     STEREO_LOG(
-        "FS_SAMPLED_IMAGE_OWNER result=%u owner=%u",
+        "FS_SAMPLED_IMAGE_DEFERRED result=%u image=%u",
         result,
-        owner);
+        image);
 }
 /*
  * Scan image sampling/fetch/read/write instructions.
