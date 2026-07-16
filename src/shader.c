@@ -754,6 +754,13 @@ typedef struct {
     float lo_dbg;
     float ro_dbg;
     const StereoDebugCtx *dbg;
+    /* Projection candidate discovered during scan */
+    uint32_t projection_mul_result;
+    uint32_t projection_matrix_id;
+    uint32_t projection_vector_id;
+    uint32_t projection_function;
+    size_t   projection_mul_word;
+    bool     projection_mul_found;
 } BodyCtx;
 
 typedef struct StereoDebugCtx {
@@ -1308,7 +1315,13 @@ bool spirv_patch_stereo_vertex(
         projection_mode,
         lo,
         ro,
-        dbg
+        dbg,
+        m.projection_mul_result,
+        m.projection_matrix_id,
+        m.projection_vector_id,
+        m.projection_function,
+        m.projection_mul_word,
+        m.projection_mul_found
     };
     /* Vertex/TessEval shaders:
      * inject after final position calculation.
