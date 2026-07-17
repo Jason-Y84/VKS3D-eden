@@ -746,7 +746,7 @@ typedef struct {
     uint32_t projection_mode;
     float lo_dbg;
     float ro_dbg;
-    const StereoDebugCtx *dbg;
+    StereoDebugCtx *dbg;
 } BodyCtx;
 
 typedef struct StereoDebugCtx {
@@ -970,7 +970,7 @@ bool spirv_patch_stereo_vertex(
     float ro,
     float conv,
     bool inj_vi,
-    const StereoDebugCtx *dbg)
+    StereoDebugCtx *dbg)
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC)
         return false;
@@ -4312,6 +4312,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
     VkShaderModule                   *tmp_mod = calloc(N, sizeof(VkShaderModule));
     VkPipelineShaderStageCreateInfo **tst     = calloc(N, sizeof(void*));
     VkGraphicsPipelineCreateInfo     *infos   = malloc(N * sizeof(*infos));
+    StereoDebugCtx                   *dbg_out = calloc(N, sizeof(*dbg_out));
     if (!tmp_mod||!tst||!infos) {
         free(tmp_mod); free(tst); free(infos);
         return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -4821,7 +4822,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "PathB candidate module=%p words=%zu",
                 (void*)ci->pStages[vs_stage].module,
                 e->words);
-            StereoDebugCtx dbgB = {
+            StereoDebugCtx *dbgB = &dbg_out[p];
+            *dbgB = (StereoDebugCtx){
                 p,
                 ci->renderPass,
                 in_mv_rp,
@@ -4966,11 +4968,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
 
                 info->view_mask = 0; /* default */
-                info->has_proj_ubo = dbgA.has_proj_ubo;
-                info->proj_set = dbgA.proj_set;
-                info->proj_binding = dbgA.proj_binding;
-                info->proj_member = dbgA.proj_member;
-                info->proj_var = dbgA.proj_var;
+                info->has_proj_ubo = dbg_out[p].has_proj_ubo;
+                info->proj_set     = dbg_out[p].proj_set;
+                info->proj_binding = dbg_out[p].proj_binding;
+                info->proj_member  = dbg_out[p].proj_member;
+                info->proj_var     = dbg_out[p].proj_var;
 
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
