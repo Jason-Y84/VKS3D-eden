@@ -239,7 +239,20 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i+3] == m->proj_var)
                 {
                     m->proj_found = VK_TRUE;
+                    STEREO_LOG(
+                        "PROJ_SET member=%u result_id=%u base=%u index_id=%u",
+                        member_index,
+                        result_id,
+                        base_id,
+                        index_id);
                     m->proj_member = w[i+4];
+                }
+                if (base_id == m->ubo_var)
+                {
+                    STEREO_LOG(
+                        "ACCESSCHAIN base=ubo result=%u member_const=%u",
+                        result_id,
+                        member_const);
                 }
                 break;
             case SpvOpLoad:
@@ -911,7 +924,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         }
         {
             uint32_t w[] = {
-                op_(131, 5),
+                op_(SpvOpFSub, 5),
                 m->ft,
                 negconv,
                 c->cf0,
@@ -942,7 +955,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         }
         {
             uint32_t w[] = {
-                op_(131, 5),
+                op_(SpvOpFSub, 5),
                 m->ft,
                 nx,
                 tmp,
