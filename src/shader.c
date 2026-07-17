@@ -567,6 +567,17 @@ static void spv_scan(SpvMod *m)
     do_scan(m, false);
     if (m->pos_is_block)
         do_scan(m, true);
+    STEREO_LOG(
+        "SCAN hash=%016llx exec=%u matrix=%u proj=%u dot=%u direct=%u emit=%u pos=%u block=%u",
+        (unsigned long long)hash_spv(m->words, m->count),
+        m->exec_model,
+        m->has_matrix_ops,
+        m->proj_found,
+        m->dot_count,
+        m->has_direct_position_write,
+        m->emit_count,
+        m->pos_var,
+        m->pos_is_block);
 }
 
 uint64_t hash_spv(const uint32_t *data, size_t words)
@@ -1017,9 +1028,14 @@ bool spirv_patch_stereo_vertex(
         if (!m.has_matrix_ops)
         {
             STEREO_LOG(
-                "PATCH_SKIP no_matrix hash=%016llx",
-                (unsigned long long)spv_hash);
-
+                "PATCH_SKIP no_matrix hash=%016llx exec=%u dot=%u direct=%u emit=%u pos=%u block=%u",
+                (unsigned long long)spv_hash,
+                m.exec_model,
+                m.dot_count,
+                m.has_direct_position_write,
+                m.emit_count,
+                m.pos_var,
+                m.pos_is_block);
             free_spv_provenance(&m);
             return false;
         }
