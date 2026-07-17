@@ -1206,6 +1206,11 @@ bool spirv_patch_stereo_vertex(
             dbg->proj_binding,
             dbg->proj_member,
             dbg->proj_var);
+        STEREO_LOG(
+            "PROJ_TRACE access=%u load=%u member=%u",
+            m.proj_access_chain,
+            m.proj_load,
+            m.proj_member);
     }
     if (m.exec_model == SpvExecVertex)
     {
