@@ -1103,17 +1103,22 @@ bool spirv_patch_stereo_vertex(
     if (dbg)
     {
         STEREO_LOG(
-            "PROJ_DETECT hash=%016llx set=%u binding=%u member=%u var=%u",
-            (unsigned long long)hash_spv(words, word_count),
+            "PROJ_DETECT hash=%016llx set=%u binding=%u member=%u var=%u found=%u",
+            (unsigned long long)spv_hash,
             dbg->proj_set,
             dbg->proj_binding,
             dbg->proj_member,
-            dbg->proj_var);
-        dbg->has_proj_ubo = true;
-        dbg->proj_set = m.proj_set;
-        dbg->proj_binding = m.proj_binding;
-        dbg->proj_member = m.proj_member;
-        dbg->proj_var = m.proj_var;
+            dbg->proj_var,
+            m.proj_found);
+    
+        if (m.proj_found)
+        {
+            dbg->has_proj_ubo = true;
+            dbg->proj_set = m.proj_set;
+            dbg->proj_binding = m.proj_binding;
+            dbg->proj_member = m.proj_member;
+            dbg->proj_var = m.proj_var;
+        }
     }
     if (m.exec_model == SpvExecVertex)
     {
