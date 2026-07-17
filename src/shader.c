@@ -287,6 +287,14 @@ static void do_scan(SpvMod *m, bool p2)
                         w[i + 2],
                         MAT(w[i + 3]) || PTR(w[i + 3]));
                 }
+                if (wc >= 4 &&
+                    w[i+3] == m->proj_access_chain)
+                {
+                    m->proj_load = w[i+2];
+                    STEREO_LOG(
+                        "PROJ_LOAD id=%u",
+                        m->proj_load);
+                }
                 break;
             case SpvOpCompositeExtract:
                 if (wc >= 5 &&
