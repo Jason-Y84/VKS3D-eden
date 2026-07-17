@@ -1111,6 +1111,12 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_CmdBindDescriptorSets(
     VkCommandBuffer commandBuffer,
     VkPipelineBindPoint pipelineBindPoint,
+    VkPipelineLayout layout,
+    uint32_t firstSet,
+    uint32_t descriptorSetCount,
+    const VkDescriptorSet *pDescriptorSets,
+    uint32_t dynamicOffsetCount,
+    const uint32_t *pDynamicOffsets)
 {
     StereoDevice *sd = find_any_device();
     if (!sd)
