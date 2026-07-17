@@ -761,6 +761,8 @@ typedef struct StereoDebugCtx {
     uint32_t proj_binding;
     uint32_t proj_member;
     uint32_t proj_var;
+    bool has_matrix_ops;
+    bool direct_position_write;
 } StereoDebugCtx;
 
 static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
@@ -1102,15 +1104,9 @@ bool spirv_patch_stereo_vertex(
     }
     if (dbg)
     {
-        STEREO_LOG(
-            "PROJ_DETECT hash=%016llx set=%u binding=%u member=%u var=%u found=%u",
-            (unsigned long long)spv_hash,
-            dbg->proj_set,
-            dbg->proj_binding,
-            dbg->proj_member,
-            dbg->proj_var,
-            m.proj_found);
-    
+        dbg->has_matrix_ops = m.has_matrix_ops;
+        dbg->direct_position_write = m.has_direct_position_write;
+        dbg->has_proj_ubo = false;
         if (m.proj_found)
         {
             dbg->has_proj_ubo = true;
@@ -1119,6 +1115,14 @@ bool spirv_patch_stereo_vertex(
             dbg->proj_member = m.proj_member;
             dbg->proj_var = m.proj_var;
         }
+        STEREO_LOG(
+            "PROJ_DETECT hash=%016llx found=%u set=%u binding=%u member=%u var=%u",
+            (unsigned long long)spv_hash,
+            m.proj_found,
+            dbg->proj_set,
+            dbg->proj_binding,
+            dbg->proj_member,
+            dbg->proj_var);
     }
     if (m.exec_model == SpvExecVertex)
     {
@@ -4791,7 +4795,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             ci->stageCount > 0 &&
             has_vs &&
             !has_tcs &&
-            vs_stage!=~0u) {
+            vs_stage!=~0u &&
+            dbg_out[p].has_matrix_ops &&
+            !dbg_out[p].direct_position_write) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[vs_stage].module);
             if (!e) { STEREO_LOG("Pipe %u PathB: VS not cached",p); continue; }
             STEREO_LOG(
@@ -4848,7 +4854,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 in_mv_rp,
                 (uint32_t)VK_SHADER_STAGE_VERTEX_BIT,
                 0,
-                9
+                9,
+                false,
+                false
             };
 
             if (!spirv_patch_stereo_vertex(
