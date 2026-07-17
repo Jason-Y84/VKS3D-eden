@@ -1069,6 +1069,39 @@ stereo_UpdateDescriptorSets(
         descriptorCopyCount,
         pDescriptorCopies);
 }
+
+static void stereo_overwrite_projection_binding(
+    StereoDevice *sd,
+    VkDescriptorSet set,
+    uint32_t binding)
+{
+    if (!sd || !sd->stereo.enabled || !sd->stereo_ubo_map || set == VK_NULL_HANDLE)
+        return;
+    StereoUBO *ubo = (StereoUBO *)sd->stereo_ubo_map;
+    if (!ubo)
+        return;
+    VkDescriptorBufferInfo bi = {
+        .buffer = sd->stereo_ubo,
+        .offset = 0,
+        .range  = sizeof(StereoUBO),
+    };
+    VkWriteDescriptorSet w = {
+        .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet          = set,
+        .dstBinding      = binding,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .pBufferInfo     = &bi,
+    };
+    sd->real.UpdateDescriptorSets(sd->real_device, 1, &w, 0, NULL);
+    STEREO_LOG(
+        "PROJ_DESC_REWRITE set=%p binding=%u buffer=%p",
+        (void *)(uintptr_t)set,
+        binding,
+        (void *)sd->stereo_ubo);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 stereo_CmdBindDescriptorSets(
     VkCommandBuffer commandBuffer,
