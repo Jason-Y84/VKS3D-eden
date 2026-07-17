@@ -1121,50 +1121,17 @@ stereo_CmdBindDescriptorSets(
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
-    if (sd->stereo.enabled && pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS &&
-        pDescriptorSets && descriptorSetCount > 0)
+    if (sd->stereo.enabled &&
+        pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS)
     {
         VkPipeline pipe = lookup_bound_pipeline(sd, commandBuffer);
         StereoPipelineInfo *info = find_pipeline_info(sd, pipe);
         if (info &&
-            info->has_proj_ubo &&
-            info->proj_set != UINT32_MAX &&
-            info->proj_binding != UINT32_MAX &&
-            info->proj_member != UINT32_MAX &&
-            info->proj_var != UINT32_MAX)
-        {
-            uint32_t target_set = info->proj_set;
-            if (target_set >= firstSet &&
-                target_set < firstSet + descriptorSetCount)
-            {
-                uint32_t rel = target_set - firstSet;
-                VkDescriptorSet ds = pDescriptorSets[rel];
-                if (ds != VK_NULL_HANDLE)
-                {
-                    STEREO_LOG(
-                        "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u member=%u var=%u",
-                        (void *)pipe,
-                        info->has_proj_ubo,
-                        info->proj_set,
-                        info->proj_binding,
-                        info->proj_member,
-                        info->proj_var);
-                    STEREO_LOG(
-                        "PROJ_BIND_SKIP_TEMP pipe=%p set=%u binding=%u ds=%p member=%u",
-                        (void *)pipe,
-                        target_set,
-                        info->proj_binding,
-                        (void *)ds,
-                        info->proj_member);
-                }
-            }
-        }
-        else if (info)
+            info->has_proj_ubo)
         {
             STEREO_LOG(
-                "PROJ_REWRITE_SKIP pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                "PROJ_PIPE pipe=%p set=%u binding=%u member=%u var=%u",
                 (void *)pipe,
-                info->has_proj_ubo,
                 info->proj_set,
                 info->proj_binding,
                 info->proj_member,
