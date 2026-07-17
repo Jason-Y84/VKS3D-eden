@@ -39,6 +39,11 @@ VkPipeline lookup_bound_pipeline(
     StereoDevice* sd,
     VkCommandBuffer cb);
 
+static void stereo_overwrite_projection_binding(
+    StereoDevice *sd,
+    VkDescriptorSet ds,
+    uint32_t binding);
+
 /* ── vkCreateFramebuffer ────────────────────────────────────────────────── */
 VKAPI_ATTR VkResult VKAPI_CALL
 stereo_CreateFramebuffer(
