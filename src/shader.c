@@ -1003,6 +1003,11 @@ bool spirv_patch_stereo_vertex(
      * - entry point classification
      */
     spv_scan(&m);
+    /*
+     * Optional shader blacklist.
+     * Used for debugging shaders that should remain untouched.
+     */
+    uint64_t spv_hash = hash_spv(m.words, m.count);
     /* Reject trivial passthrough vertex shaders.
      * World geometry always contains matrix math.
      * Fullscreen/UI shaders generally don't.
@@ -1019,11 +1024,6 @@ bool spirv_patch_stereo_vertex(
             return false;
         }
     }
-    /*
-     * Optional shader blacklist.
-     * Used for debugging shaders that should remain untouched.
-     */
-    uint64_t spv_hash = hash_spv(m.words, m.count);
     {
         static bool skip_list_init;
         static char skip_list[1024];
