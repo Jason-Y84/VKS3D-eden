@@ -967,6 +967,13 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         };
         sb_push_n(out, w, 6);
     }
+    STEREO_LOG(
+        "PROJ_WRITE pos_var=%u ptr=%u new_pos=%u x=%u view=%u",
+        m->pos_var,
+        pptr,
+        np,
+        nx,
+        m->view_var);
     {
         uint32_t w[] = {
             op_(SpvOpStore, 3),
