@@ -996,18 +996,34 @@ bool spirv_patch_stereo_vertex(
         free_spv_provenance(&m);
         return false;
     }
-    spv_scan(&m);
     /* Analyze shader structure before modification:
      * - matrix provenance
      * - gl_Position location
      * - ViewIndex availability
      * - entry point classification
      */
-    uint64_t spv_hash = hash_spv(m.words, m.count);
+    spv_scan(&m);
+    /* Reject trivial passthrough vertex shaders.
+     * World geometry always contains matrix math.
+     * Fullscreen/UI shaders generally don't.
+     */
+    if (m.exec_model == SpvExecVertex)
+    {
+        if (!m.has_matrix_ops)
+        {
+            STEREO_LOG(
+                "PATCH_SKIP no_matrix hash=%016llx",
+                (unsigned long long)spv_hash);
+
+            free_spv_provenance(&m);
+            return false;
+        }
+    }
     /*
      * Optional shader blacklist.
      * Used for debugging shaders that should remain untouched.
      */
+    uint64_t spv_hash = hash_spv(m.words, m.count);
     {
         static bool skip_list_init;
         static char skip_list[1024];
@@ -4795,9 +4811,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             ci->stageCount > 0 &&
             has_vs &&
             !has_tcs &&
-            vs_stage!=~0u &&
-            dbg_out[p].has_matrix_ops &&
-            !dbg_out[p].direct_position_write) {
+            vs_stage != ~0u) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[vs_stage].module);
             if (!e) { STEREO_LOG("Pipe %u PathB: VS not cached",p); continue; }
             STEREO_LOG(
