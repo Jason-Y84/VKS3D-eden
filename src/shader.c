@@ -4780,12 +4780,14 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         }
 
         STEREO_LOG(
-        "PATHB_GATE p=%u in_mv=%d has_vs=%d has_tcs=%d vs_stage=%u",
-        p,
-        in_mv_rp,
-        has_vs,
-        has_tcs,
-        vs_stage);
+            "PATHB_GATE p=%u in_mv=%d has_vs=%d has_tcs=%d vs_stage=%u matrix=%u direct=%u",
+            p,
+            in_mv_rp,
+            has_vs,
+            has_tcs,
+            vs_stage,
+            (unsigned)dbg_out[p].has_matrix_ops,
+            (unsigned)dbg_out[p].direct_position_write);
         /* ── Path B: patch VS with gl_ViewIndex ──────────────────────────
          * Only patch actual multiview render passes.
          * Non-multiview passes include deferred G-buffer, shadow, SSAO,
@@ -4796,7 +4798,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             has_vs &&
             !has_tcs &&
             vs_stage!=~0u &&
-            dbg_out[p].has_matrix_ops &&
             !dbg_out[p].direct_position_write) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[vs_stage].module);
             if (!e) { STEREO_LOG("Pipe %u PathB: VS not cached",p); continue; }
@@ -4908,7 +4909,19 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 p);
             continue;
         }
-
+        else if (in_mv_rp &&
+                 ci->stageCount > 0 &&
+                 has_vs &&
+                 !has_tcs &&
+                 vs_stage!=~0u)
+        {
+            STEREO_LOG(
+                "PATHB_SKIP p=%u matrix=%u direct=%u quad=%u",
+                p,
+                (unsigned)dbg_out[p].has_matrix_ops,
+                (unsigned)dbg_out[p].direct_position_write,
+                (unsigned)is_quad);
+        }
         STEREO_LOG("Pipe %u: no patchable VS/TES stage (stageCount=%u has_vs=%d has_tes=%d has_tcs=%d) — not patched",
                    p, ci->stageCount, has_vs, has_tes, has_tcs);
     }
