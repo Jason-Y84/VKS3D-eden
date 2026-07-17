@@ -27,6 +27,27 @@
 #define SpvStorageInput         1
 #define SPIRV_MAGIC             0x07230203u
 
+static bool
+spv_resolve_u32_constant(const SpvMod *m, uint32_t id, uint32_t *value)
+{
+    if (!m || !value || !m->words)
+        return false;
+    for (size_t i = 5; i < m->count; )
+    {
+        uint32_t op = m->words[i] & 0xffffu;
+        uint32_t wc = m->words[i] >> 16;
+        if (!wc || i + wc > m->count)
+            break;
+        if (op == SpvOpConstant && wc >= 4 && m->words[i + 2] == id)
+        {
+            *value = m->words[i + 3];
+            return true;
+        }
+        i += wc;
+    }
+    return false;
+}
+
 /* ── Dynamic SPIR-V word buffer ─────────────────────────────────────────── */
 typedef struct {
     uint32_t *w;
@@ -238,13 +259,17 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 5 &&
                     w[i+3] == m->proj_var)
                 {
+                    uint32_t member_id = w[i + 4];
+                    uint32_t member_value = member_id;
+                    (void)spv_resolve_u32_constant(m, member_id, &member_value);
                     STEREO_LOG(
-                        "PROJ_ACCESS result=%u base=%u index_id=%u",
+                        "PROJ_ACCESS result=%u base=%u index_id=%u member=%u",
                         w[i+2],
                         w[i+3],
-                        w[i+4]);
+                        member_id,
+                        member_value);
                     m->proj_found = VK_TRUE;
-                    m->proj_member = w[i+4];
+                    m->proj_member = member_value;
                 }
                 break;
             case SpvOpLoad:
@@ -968,7 +993,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         sb_push_n(out, w, 6);
     }
     STEREO_LOG(
-        "PROJ_WRITE pos_var=%u ptr=%u new_pos=%u x=%u view=%u",
+        "PROJ_WRITE pos_var=%u pptr=%u new_pos=%u x=%u view=%u",
         m->pos_var,
         pptr,
         np,
