@@ -1158,11 +1158,14 @@ stereo_CmdBindDescriptorSets(
                         info->proj_binding,
                         info->proj_member,
                         info->proj_var);
-                    stereo_write_ubo(sd);
-                    stereo_overwrite_projection_binding(sd, ds, info->proj_binding);
+                    /*
+                     * TEMPORARY: do not replace the application's projection UBO
+                     * with stereo_ubo. The current stereo_ubo layout is not compatible
+                     * with the shader's original UBO layout and can black-screen geometry.
+                     */
                     rewrite_done = true;
                     STEREO_LOG(
-                        "PROJ_BIND_REWRITE pipe=%p set=%u binding=%u ds=%p member=%u",
+                        "PROJ_BIND_SKIP_TEMP pipe=%p set=%u binding=%u ds=%p member=%u",
                         (void *)pipe,
                         target_set,
                         info->proj_binding,

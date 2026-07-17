@@ -268,8 +268,10 @@ static void do_scan(SpvMod *m, bool p2)
                         w[i+3],
                         member_id,
                         member_value);
-                    m->proj_found = VK_TRUE;
-                    m->proj_member = member_value;
+                    if (!m->proj_found) {
+                        m->proj_found = VK_TRUE;
+                        m->proj_member = member_value;
+                    }
                 }
                 break;
             case SpvOpLoad:
