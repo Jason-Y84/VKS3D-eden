@@ -262,6 +262,7 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 5 &&
                     w[i+3] == m->proj_var)
                 {
+                    m->proj_access_chain = w[i+2];
                     uint32_t member_id = w[i + 4];
                     uint32_t member_value = member_id;
                     (void)spv_resolve_u32_constant(m, member_id, &member_value);
