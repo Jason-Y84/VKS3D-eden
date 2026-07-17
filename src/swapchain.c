@@ -1196,11 +1196,8 @@ stereo_QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
         case STEREO_PRESENT_SBS:
         case STEREO_PRESENT_TAB:
         case STEREO_PRESENT_INTERLACED:
-            STEREO_LOG(
-                "GPU_COMPOSE_BYPASS mode=%d",
-                (int)sc_i->present_mode);
-            /* Temporary: bypass GPU compose completely. */
-            pr = sd->real.QueuePresentKHR(queue, pPresentInfo);
+            /* GPU blit compose — no CPU readback, no GDI */
+            pr = gpu_compose_present(sd, sc_i, queue, wcount, wsems);
             break;
         default:
             pr = VK_SUCCESS;
