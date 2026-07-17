@@ -4341,8 +4341,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         sd->stereo.flip_eyes);
     for (uint32_t p=0; p<N; p++) {
         const VkGraphicsPipelineCreateInfo *ci=&pCI[p];
-        StereoPipelineInfo *info =
-            add_pipeline_info(sd);
+        //REMOVED StereoPipelineInfo *info =
+        //REMOVED     add_pipeline_info(sd);
         const VkBaseInStructure *base =
             (const VkBaseInStructure*)ci->pNext;
         uint32_t view_mask = 0;
