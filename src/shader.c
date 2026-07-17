@@ -1133,14 +1133,6 @@ bool spirv_patch_stereo_vertex(
             free_spv_provenance(&m);
             return false;
         }
-        if (!m.has_matrix_ops &&
-            m.has_direct_position_write)
-        {
-            STEREO_LOG(
-            "PATCH_SKIP direct clip-space vertex shader");
-            free_spv_provenance(&m);
-            return false;
-        }
         if (m.pos_is_block && !m.has_matrix_ops)
         {
             STEREO_LOG(
@@ -4803,7 +4795,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             ci->stageCount > 0 &&
             has_vs &&
             !has_tcs &&
-            vs_stage!=~0u) {
+            vs_stage!=~0u &&
+            dbg_out[p].has_matrix_ops &&
+            !dbg_out[p].direct_position_write) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[vs_stage].module);
             if (!e) { STEREO_LOG("Pipe %u PathB: VS not cached",p); continue; }
             STEREO_LOG(
@@ -4852,10 +4846,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             STEREO_LOG(
                 "PathB candidate module=%p words=%zu",
                 (void*)ci->pStages[vs_stage].module,
-                e->words);
-            STEREO_LOG(
-                "PATHB_PATCH_ATTEMPT hash=%016llx words=%zu",
-                (unsigned long long)hash_spv(e->spv, e->words),
                 e->words);
             StereoDebugCtx *dbgB = &dbg_out[p];
             *dbgB = (StereoDebugCtx){
