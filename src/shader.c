@@ -138,8 +138,6 @@ typedef struct
     uint8_t *value_from_matrix;
     uint8_t *is_matrix_type;
     uint8_t *is_matrix_ptr;
-    /* Projection provenance tracking */
-    uint8_t *is_projection_value;
     /* Projection UBO discovery */
     uint32_t proj_struct_type;
     uint32_t proj_ptr_type;
@@ -148,23 +146,13 @@ typedef struct
     uint32_t proj_binding;
     uint32_t proj_member;
     VkBool32 proj_found;
-    /* Diagnostics */
+    /* projection load tracking */
+    uint32_t proj_access_chain;
+    uint32_t proj_load;
     uint32_t proj_access_count;
     uint32_t proj_load_count;
     uint32_t proj_mtv_count;
-    uint32_t proj_mtm_count;
 } SpvMod;
-
-static inline uint8_t projection_value(const SpvMod *m, uint32_t id)
-{
-    return valid_id(m, id) ? m->is_projection_value[id] : 0;
-}
-
-static inline void set_projection_value(SpvMod *m, uint32_t id, uint8_t value)
-{
-    if (valid_id(m, id))
-        m->is_projection_value[id] = value;
-}
 
 static inline bool valid_id(const SpvMod *m, uint32_t id)
 {
@@ -216,11 +204,12 @@ static void free_spv_provenance(SpvMod *m)
     free(m->value_from_matrix);
     free(m->is_matrix_type);
     free(m->is_matrix_ptr);
-    free(m->is_projection_value);
+
     m->value_from_matrix = NULL;
     m->is_matrix_type = NULL;
     m->is_matrix_ptr = NULL;
-    m->is_projection_value = NULL;}
+    m->value_capacity = 0;
+}
 
 static uint64_t hash_spv(const uint32_t *data, size_t words);
 
@@ -308,21 +297,14 @@ static void do_scan(SpvMod *m, bool p2)
                         MAT(w[i + 3]) || PTR(w[i + 3]));
                 }
                 if (wc >= 4 &&
-                    w[i + 3] < m->value_capacity)
+                    w[i+3] == m->proj_access_chain)
                 {
-                    if (w[i + 3] == m->proj_access_chain ||
-                        projection_value(m, w[i + 3]))
-                    {
-                        set_projection_value(
-                            m,
-                            w[i + 2],
-                            1);
-                        m->proj_load_count++;
-                        STEREO_LOG(
-                            "PROJ_LOAD id=%u count=%u",
-                            w[i+2],
-                            m->proj_load_count);
-                    }
+                    m->proj_load = w[i + 2];
+                    m->proj_load_count++;
+                    STEREO_LOG(
+                        "PROJ_LOAD id=%u count=%u",
+                        w[i+2],
+                        m->proj_load_count);
                 }
                 break;
             case SpvOpCompositeExtract:
@@ -418,7 +400,6 @@ static void do_scan(SpvMod *m, bool p2)
                     SETMAT(w[i + 2], MAT(w[i + 3]));
                 }
                 break;
-
             case SpvOpMatrixTimesVector:
             case SpvOpMatrixTimesMatrix:
                 m->has_matrix_ops = true;
@@ -426,40 +407,36 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpVectorTimesScalar:
             case SpvOpVectorTimesMatrix:
             case SpvOpMatrixTimesScalar:
-                if (wc >= 5 &&
-                    w[i + 2] < m->value_capacity)
+                if (wc >= 5)
                 {
-                    uint32_t lhs = w[i + 3];
-                    uint32_t rhs = w[i + 4];
-                    SETMAT(w[i + 2], 1);
-                    if (projection_value(m, lhs) ||
-                        projection_value(m, rhs))
+                    if (w[i + 2] < m->value_capacity)
                     {
-                        set_projection_value(
-                            m,
-                            w[i + 2],
-                            1);
-                        if (op == SpvOpMatrixTimesVector)
+                        uint32_t matrix = w[i+3];
+                        uint32_t vector = w[i+4];
+                        if (matrix < m->value_capacity &&
+                            MAT(matrix))
                         {
-                            m->proj_mtv_count++;
+                            if (matrix == m->proj_load)
+                                m->proj_mtv_count++;
                             STEREO_LOG(
-                                "PROJ_MTV result=%u lhs=%u rhs=%u count=%u",
+                                "PROJ_MTV result=%u matrix=%u vector=%u count=%u",
                                 w[i+2],
-                                lhs,
-                                rhs,
+                                matrix,
+                                vector,
                                 m->proj_mtv_count);
                         }
-                        else if (op == SpvOpMatrixTimesMatrix)
-                        {
-                            m->proj_mtm_count++;
-                            STEREO_LOG(
-                                "PROJ_MTM result=%u lhs=%u rhs=%u count=%u",
-                                w[i+2],
-                                lhs,
-                                rhs,
-                                m->proj_mtm_count);
-                        }
+                        SETMAT(w[i + 2], 1);
+                        // STEREO_LOG("MATRIX_MARK result=%u", w[i + 2]);
                     }
+                    /*
+                    else
+                    {
+                        STEREO_LOG(
+                            "MATRIX_CAP_FAIL result=%u cap=%u",
+                            w[i + 2],
+                            m->value_capacity);
+                    }
+                    */
                 }
                 break;
             case SpvOpCopyObject:
@@ -469,10 +446,6 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 3] < m->value_capacity)
                 {
                     SETMAT(w[i + 2], MAT(w[i + 3]));
-                    set_projection_value(
-                        m,
-                        w[i + 2],
-                        projection_value(m, w[i + 3]));
                 }
                 break;
             case SpvOpExtInst:
@@ -498,11 +471,6 @@ static void do_scan(SpvMod *m, bool p2)
                     SETMAT(
                         w[i + 2],
                         matrix_or2(m, w[i + 4], w[i + 5]));
-                    set_projection_value(
-                        m,
-                        w[i + 2],
-                        projection_value(m, w[i + 4]) ||
-                        projection_value(m, w[i + 5]));
                 }
                 break;
             case SpvOpSelect:
@@ -512,11 +480,6 @@ static void do_scan(SpvMod *m, bool p2)
                     SETMAT(
                         w[i + 2],
                         matrix_or2(m, w[i + 4], w[i + 5]));
-                    set_projection_value(
-                        m,
-                        w[i + 2],
-                        projection_value(m, w[i + 4]) ||
-                        projection_value(m, w[i + 5]));
                 }
                 break;
             case SpvOpFunctionCall:
@@ -1113,12 +1076,9 @@ bool spirv_patch_stereo_vertex(
         calloc(m.value_capacity, sizeof(uint8_t));
     m.is_matrix_ptr =
         calloc(m.value_capacity, sizeof(uint8_t));
-    m.is_projection_value =
-        calloc(m.value_capacity, sizeof(uint8_t));
     if (!m.value_from_matrix ||
         !m.is_matrix_type ||
-        !m.is_matrix_ptr ||
-        !m.is_projection_value)
+        !m.is_matrix_ptr)
     {
         free_spv_provenance(&m);
         return false;
