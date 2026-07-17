@@ -1055,7 +1055,6 @@ stereo_CmdDrawIndexedIndirect(
         stride);
 }
 
-
 static void stereo_overwrite_projection_binding(
     StereoDevice *sd,
     VkDescriptorSet set,
@@ -1086,25 +1085,6 @@ static void stereo_overwrite_projection_binding(
         (void *)(uintptr_t)set,
         binding,
         (void *)sd->stereo_ubo);
-}
-
-VKAPI_ATTR void VKAPI_CALL
-stereo_UpdateDescriptorSets(
-    VkDevice device,
-    uint32_t descriptorWriteCount,
-    const VkWriteDescriptorSet *pDescriptorWrites,
-    uint32_t descriptorCopyCount,
-    const VkCopyDescriptorSet *pDescriptorCopies)
-{
-    StereoDevice *sd = stereo_device_from_handle(device);
-    if (!sd)
-        return;
-    sd->real.UpdateDescriptorSets(
-        sd->real_device,
-        descriptorWriteCount,
-        pDescriptorWrites,
-        descriptorCopyCount,
-        pDescriptorCopies);
 }
 
 VKAPI_ATTR void VKAPI_CALL

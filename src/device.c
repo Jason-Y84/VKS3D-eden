@@ -306,3 +306,22 @@ stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
     stereo_device_free(device);
     STEREO_LOG("Device destroyed: %p", (void*)device);
 }
+
+VKAPI_ATTR void VKAPI_CALL
+stereo_UpdateDescriptorSets(
+    VkDevice device,
+    uint32_t descriptorWriteCount,
+    const VkWriteDescriptorSet *pDescriptorWrites,
+    uint32_t descriptorCopyCount,
+    const VkCopyDescriptorSet *pDescriptorCopies)
+{
+    StereoDevice *sd = stereo_device_from_handle(device);
+    if (!sd)
+        return;
+    sd->real.UpdateDescriptorSets(
+        sd->real_device,
+        descriptorWriteCount,
+        pDescriptorWrites,
+        descriptorCopyCount,
+        pDescriptorCopies);
+}
