@@ -138,6 +138,14 @@ typedef struct
     uint8_t *value_from_matrix;
     uint8_t *is_matrix_type;
     uint8_t *is_matrix_ptr;
+    /* Projection UBO discovery */
+    uint32_t proj_struct_type;
+    uint32_t proj_ptr_type;
+    uint32_t proj_var;
+    uint32_t proj_set;
+    uint32_t proj_binding;
+    uint32_t proj_member;
+    VkBool32 proj_found;
 } SpvMod;
 
 static inline bool valid_id(const SpvMod *m, uint32_t id)
@@ -227,6 +235,12 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETPTR(w[i + 2], PTR(w[i + 3]));
                 }
+                if (wc >= 5 &&
+                    w[i+3] == m->proj_var)
+                {
+                    m->proj_found = VK_TRUE;
+                    m->proj_member = w[i+4];
+                }
                 break;
             case SpvOpLoad:
                 if (wc >= 4 &&
@@ -315,6 +329,8 @@ static void do_scan(SpvMod *m, bool p2)
                     }
                     if (w[i + 1] < m->value_capacity)
                         SETTYPE(w[i + 1], matrix);
+                    if (matrix)
+                        m->proj_struct_type = w[i+1];
                 }
                 break;
             case SpvOpTypeArray:
@@ -418,6 +434,8 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                 SETPTR(w[i + 1], 1);
                 }
+                if (w[i+3] == m->proj_struct_type)
+                    m->proj_ptr_type = w[i+1];
                 if (w[i + 2] == SpvStorageOutput &&
                 m->v4t &&
                 w[i + 3] == m->v4t)
@@ -440,8 +458,26 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                 SETPTR(w[i + 2], 1);
                 }
+                if (w[i+1] == m->proj_ptr_type &&
+                    w[i+3] == SpvStorageClassUniform)
+                {
+                    m->proj_var = w[i+2];
+                }
                 break;
             case SpvOpDecorate:
+                if (wc >= 4)
+                {
+                    if (w[i+2] == SpvDecorationDescriptorSet &&
+                        w[i+1] == m->proj_var)
+                    {
+                        m->proj_set = w[i+3];
+                    }
+                    if (w[i+2] == SpvDecorationBinding &&
+                        w[i+1] == m->proj_var)
+                    {
+                        m->proj_binding = w[i+3];
+                    }
+                }
                 if(wc>=4&&w[i+2]==SpvDecorationBuiltIn){
                     if(w[i+3]==SpvBuiltInPosition&&!m->pos_is_block)
                         m->pos_var=w[i+1];
@@ -1049,6 +1085,16 @@ bool spirv_patch_stereo_vertex(
         m.dot_count,
         m.emit_count,
         m.has_viewindex_builtin);
+    if (m->proj_found)
+    {
+        STEREO_LOG(
+            "PROJ_UBO hash=%016llx set=%u binding=%u member=%u var=%u",
+            (unsigned long long)spv_hash,
+            m->proj_set,
+            m->proj_binding,
+            m->proj_member,
+            m->proj_var);
+    }
     if (m.exec_model == SpvExecVertex)
     {
         if (!m.pos_var)
