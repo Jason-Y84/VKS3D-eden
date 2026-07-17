@@ -1111,66 +1111,42 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_CmdBindDescriptorSets(
     VkCommandBuffer commandBuffer,
     VkPipelineBindPoint pipelineBindPoint,
-    VkPipelineLayout layout,
-    uint32_t firstSet,
-    uint32_t descriptorSetCount,
-    const VkDescriptorSet *pDescriptorSets,
-    uint32_t dynamicOffsetCount,
-    const uint32_t *pDynamicOffsets)
 {
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
-    bool rewrite_done = false;
     if (sd->stereo.enabled && pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS &&
         pDescriptorSets && descriptorSetCount > 0)
     {
         VkPipeline pipe = lookup_bound_pipeline(sd, commandBuffer);
         StereoPipelineInfo *info = find_pipeline_info(sd, pipe);
-        //IMPORTANT: TEMPORARY. Original values
-        //if (info &&
-        //    info->has_proj_ubo &&
-        //    info->proj_set != UINT32_MAX &&
-        //    info->proj_binding != UINT32_MAX &&
-        //    info->proj_member != UINT32_MAX)
         if (info &&
             info->has_proj_ubo &&
             info->proj_set != UINT32_MAX &&
             info->proj_binding != UINT32_MAX &&
             info->proj_member != UINT32_MAX &&
-            info->proj_var != UINT32_MAX &&
-            info->proj_var != 0 &&
-            info->proj_member != 0)
+            info->proj_var != UINT32_MAX)
         {
             uint32_t target_set = info->proj_set;
             if (target_set >= firstSet &&
                 target_set < firstSet + descriptorSetCount)
             {
-                uint32_t rel = target_set - firstSet;
-                VkDescriptorSet ds = pDescriptorSets[rel];
                 if (ds != VK_NULL_HANDLE)
                 {
                     STEREO_LOG(
                         "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u member=%u var=%u",
                         (void *)pipe,
-                        info->has_proj_ubo,
-                        info->proj_set,
-                        info->proj_binding,
                         info->proj_member,
                         info->proj_var);
-                    /*
-                     * TEMPORARY: do not replace the application's projection UBO
-                     * with stereo_ubo. The current stereo_ubo layout is not compatible
-                     * with the shader's original UBO layout and can black-screen geometry.
-                     */
-                    rewrite_done = true;
                     STEREO_LOG(
-                        "PROJ_BIND_SKIP_TEMP pipe=%p set=%u binding=%u ds=%p member=%u",
+                        "PROJ_BIND_REWRITE pipe=%p set=%u binding=%u ds=%p member=%u",
                         (void *)pipe,
                         target_set,
                         info->proj_binding,
                         (void *)ds,
                         info->proj_member);
+                    stereo_write_ubo(sd);
+                    stereo_overwrite_projection_binding(sd, ds, info->proj_binding);
                 }
             }
         }
