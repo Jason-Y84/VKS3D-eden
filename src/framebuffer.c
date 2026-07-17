@@ -1137,11 +1137,16 @@ stereo_CmdBindDescriptorSets(
             if (target_set >= firstSet &&
                 target_set < firstSet + descriptorSetCount)
             {
+                uint32_t rel = target_set - firstSet;
+                VkDescriptorSet ds = pDescriptorSets[rel];
                 if (ds != VK_NULL_HANDLE)
                 {
                     STEREO_LOG(
                         "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u member=%u var=%u",
                         (void *)pipe,
+                        info->has_proj_ubo,
+                        info->proj_set,
+                        info->proj_binding,
                         info->proj_member,
                         info->proj_var);
                     STEREO_LOG(
