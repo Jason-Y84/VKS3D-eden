@@ -238,21 +238,13 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 5 &&
                     w[i+3] == m->proj_var)
                 {
+                    STEREO_LOG(
+                        "PROJ_ACCESS result=%u base=%u index_id=%u",
+                        w[i+2],
+                        w[i+3],
+                        w[i+4]);
                     m->proj_found = VK_TRUE;
-                    STEREO_LOG(
-                        "PROJ_SET member=%u result_id=%u base=%u index_id=%u",
-                        member_index,
-                        result_id,
-                        base_id,
-                        index_id);
                     m->proj_member = w[i+4];
-                }
-                if (base_id == m->ubo_var)
-                {
-                    STEREO_LOG(
-                        "ACCESSCHAIN base=ubo result=%u member_const=%u",
-                        result_id,
-                        member_const);
                 }
                 break;
             case SpvOpLoad:
