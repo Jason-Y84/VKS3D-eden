@@ -137,7 +137,7 @@ jobs:
           build/tests/${{matrix.Configuration}}/VKS3D_demo.exe
 
   Release:
-    name: Release r${{env.CommitCount}}
+    name: Release
     runs-on: windows-latest
     needs: Build
     steps:
