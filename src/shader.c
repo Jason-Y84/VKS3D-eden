@@ -1085,15 +1085,15 @@ bool spirv_patch_stereo_vertex(
         m.dot_count,
         m.emit_count,
         m.has_viewindex_builtin);
-    if (m->proj_found)
+    if (m.proj_found)
     {
         STEREO_LOG(
             "PROJ_UBO hash=%016llx set=%u binding=%u member=%u var=%u",
             (unsigned long long)spv_hash,
-            m->proj_set,
-            m->proj_binding,
-            m->proj_member,
-            m->proj_var);
+            m.proj_set,
+            m.proj_binding,
+            m.proj_member,
+            m.proj_var);
     }
     if (m.exec_model == SpvExecVertex)
     {
