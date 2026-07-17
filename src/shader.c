@@ -146,6 +146,9 @@ typedef struct
     uint32_t proj_binding;
     uint32_t proj_member;
     VkBool32 proj_found;
+    /* projection load tracking */
+    uint32_t proj_access_chain;
+    uint32_t proj_load;
 } SpvMod;
 
 static inline bool valid_id(const SpvMod *m, uint32_t id)
