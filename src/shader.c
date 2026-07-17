@@ -756,6 +756,11 @@ typedef struct StereoDebugCtx {
     uint32_t stage;
     uint32_t vertex_binding_count;
     uint32_t is_quad;
+    VkBool32 has_proj_ubo;
+    uint32_t proj_set;
+    uint32_t proj_binding;
+    uint32_t proj_member;
+    uint32_t proj_var;
 } StereoDebugCtx;
 
 static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
@@ -965,7 +970,7 @@ bool spirv_patch_stereo_vertex(
     float ro,
     float conv,
     bool inj_vi,
-    const StereoDebugCtx *dbg)
+    StereoDebugCtx *dbg)
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC)
         return false;
@@ -1094,6 +1099,14 @@ bool spirv_patch_stereo_vertex(
             m.proj_binding,
             m.proj_member,
             m.proj_var);
+    }
+    if (dbg)
+    {
+        dbg->has_proj_ubo = true;
+        dbg->proj_set = m.proj_set;
+        dbg->proj_binding = m.proj_binding;
+        dbg->proj_member = m.proj_member;
+        dbg->proj_var = m.proj_var;
     }
     if (m.exec_model == SpvExecVertex)
     {
@@ -4953,6 +4966,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
 
                 info->view_mask = 0; /* default */
+                info->has_proj_ubo = dbgB.has_proj_ubo;
+                info->proj_set = dbgB.proj_set;
+                info->proj_binding = dbgB.proj_binding;
+                info->proj_member = dbgB.proj_member;
+                info->proj_var = dbgB.proj_var;
 
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {

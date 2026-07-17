@@ -266,7 +266,6 @@ typedef struct RealInstanceDispatch {
     PFN_vkDestroyDebugUtilsMessengerEXT             DestroyDebugUtilsMessengerEXT;
     PFN_vkSubmitDebugUtilsMessageEXT                SubmitDebugUtilsMessageEXT;
 } RealInstanceDispatch;
-
 typedef struct RealDeviceDispatch {
     PFN_vkGetDeviceProcAddr          GetDeviceProcAddr;
     PFN_vkDestroyDevice              DestroyDevice;
@@ -402,7 +401,6 @@ typedef struct RealDeviceDispatch {
     VkResult (VKAPI_PTR *ImportSemaphoreWin32HandleKHR)(
         VkDevice,
         const VkImportSemaphoreWin32HandleInfoKHR *);
-
 } RealDeviceDispatch;
 
 /* -- Object wrappers ------------------------------------------------------- */
@@ -494,23 +492,24 @@ typedef struct StereoFramebufferTrack {
 typedef struct StereoPipelineInfo
 {
     VkPipeline pipeline;
-
     VkRenderPass original_renderpass;
     VkRenderPass mv_renderpass;
-
     uint32_t stage_count;
-
     VkShaderModule vs_module;
     VkShaderModule fs_module;
-
     VkBool32 patched_vs;
     VkBool32 patched_fs;
-
     /* Classification recorded at pipeline creation */
     VkBool32 is_quad;
     uint32_t vertex_binding_count;
     /* Vulkan 1.3 dynamic rendering multiview */
     uint32_t view_mask;
+    /* Projection-UBO candidate discovered while scanning the patched stage */
+    VkBool32 has_proj_ubo;
+    uint32_t proj_set;
+    uint32_t proj_binding;
+    uint32_t proj_member;
+    uint32_t proj_var;
 } StereoPipelineInfo;
 
 typedef struct StereoDevice {
@@ -528,7 +527,6 @@ typedef struct StereoDevice {
     uint32_t               render_pass_count;
     StereoSwapchain        swapchains[MAX_SWAPCHAINS];
     uint32_t               swapchain_count;
-
     VkImage                intercepted_depth[MAX_DEPTH_IMAGES];
     uint32_t               intercepted_depth_count;
     /* Color attachment images also upgraded to arrayLayers=2 for deferred stereo */
@@ -545,7 +543,6 @@ typedef struct StereoDevice {
     StereoFramebufferTrack fb_tracks[MAX_FB_TRACK];
     uint32_t               fb_track_count;
     stereo_mutex_t         lock;
-
     /* -- Multiview render pass tracking ----------------------------------- *
      * Set to true when stereo_CreateRenderPass successfully injects          *
      * viewMask=0x3 into a swapchain output render pass.                      *
@@ -555,7 +552,6 @@ typedef struct StereoDevice {
      *           layer 1 is UNDEFINED → read layer_count=1, show left for     *
      *           both eyes (2D, not black, not a GPU TDR).                    */
     bool                   multiview_pass_exists;
-
     /* -- Shader module cache for deferred SPIR-V patching ----------------- *
      * stereo_CreateShaderModule stores original SPIR-V here for VS/GS/TES.  *
      * stereo_CreateGraphicsPipelines picks the last pre-rast stage, patches  *
@@ -564,7 +560,6 @@ typedef struct StereoDevice {
      * stereo_DestroyShaderModule frees the cache entry.                       */
     StereoShaderCache      shader_cache[MAX_SHADER_CACHE];
     uint32_t               shader_cache_count;
-
     /* -- Temporary patched shader modules (alive until DestroyDevice) ----- *
      * Driver 426.06 holds a reference to module SPIR-V even after           *
      * CreateGraphicsPipelines returns, so we must not destroy the temp      *
@@ -572,53 +567,40 @@ typedef struct StereoDevice {
 #define MAX_TMP_MODULES 512
     VkShaderModule         tmp_modules[MAX_TMP_MODULES];
     uint32_t               tmp_module_count;
-
     /* -- D3D11 / DXGI stereo output ---------------------------------------- */
     bool                   d3d11_ok, dxgi_init_in_progress;
     void                  *d3d11_dev, *d3d11_ctx, *nvapi_stereo, *nvapi_lib, *d3d11_lib;
-
     /* -- Graphics queue ----------------------------------------------------- */
     VkQueue                gfx_queue;
     uint32_t               gfx_qf;
-
     /* -- INI file paths ----------------------------------------------------- */
     char                   global_ini[512];
     char                   local_ini[512];
-
     /* -- Hotkey debounce ---------------------------------------------------- */
     uint32_t               hotkey_prev;
-
     /* -- D3D9 direct-mode state --------------------------------------------- */
     bool                   dx9_ok;
     void                  *dx9_lib, *dx9_d3d, *dx9_dev, *dx9_surf, *dx9_nvstereo;
-
     /* -- NV3D-Lib direct stereo output ------------------------------------- */
     bool                   nv3d_ok;
     void                  *nv3d_iface;
-
     VkImage                nv3d_image;
     VkDeviceMemory         nv3d_memory;
-
     VkSemaphore            nv3d_timeline;
     uint64_t               nv3d_value;
-
     HANDLE                 nv3d_mem_handle;
     HANDLE                 nv3d_fence_handle;
-
     uint32_t               nv3d_width;
     uint32_t               nv3d_height;
-
     /* -- Compose swap chain state ------------------------------------------- */
     bool                   comp_ok;
     HWND                   comp_hwnd;
     void                  *comp_composed;
     uint32_t               comp_w, comp_h;
-
     /* -- Pipelines ------------------------------------------- */
     StereoPipelineInfo *pipeline_info;
     uint32_t pipeline_info_count;
     uint32_t pipeline_info_capacity;
-
     /* -- CommandBuffer -> currently bound graphics pipeline -------- */
 #define MAX_CB_TRACK 4096
     struct {
@@ -629,7 +611,6 @@ typedef struct StereoDevice {
         VkFramebuffer framebuffer;
     } cb_track[MAX_CB_TRACK];
     uint32_t cb_track_count;
-
     VkImage upgraded_images[MAX_UPGRADED_VIEWS];
     uint32_t upgraded_image_count;
 } StereoDevice;
@@ -770,7 +751,8 @@ VKAPI_ATTR void     VKAPI_CALL stereo_CmdDraw(VkCommandBuffer, uint32_t, uint32_
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndexed(VkCommandBuffer, uint32_t, uint32_t, uint32_t, int32_t, uint32_t);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndirect(VkCommandBuffer, VkBuffer, VkDeviceSize, uint32_t, uint32_t);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndexedIndirect(VkCommandBuffer, VkBuffer, VkDeviceSize, uint32_t, uint32_t);
-
+VKAPI_ATTR void     VKAPI_CALL stereo_UpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *pDescriptorWrites, uint32_t descriptorCopyCount, const VkCopyDescriptorSet *pDescriptorCopies);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdBindDescriptorSets(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet, uint32_t descriptorSetCount, const VkDescriptorSet *pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets);
 
 /* shader.c */
 StereoPipelineInfo *
