@@ -1121,12 +1121,17 @@ stereo_CmdBindDescriptorSets(
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
+    bool rewrite_done = false;
     if (sd->stereo.enabled && pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS &&
         pDescriptorSets && descriptorSetCount > 0)
     {
         VkPipeline pipe = lookup_bound_pipeline(sd, commandBuffer);
         StereoPipelineInfo *info = find_pipeline_info(sd, pipe);
-        if (info && info->has_proj_ubo)
+        if (info &&
+            info->has_proj_ubo &&
+            info->proj_set != UINT32_MAX &&
+            info->proj_binding != UINT32_MAX &&
+            info->proj_member != UINT32_MAX)
         {
             uint32_t target_set = info->proj_set;
             if (target_set >= firstSet &&
@@ -1136,8 +1141,17 @@ stereo_CmdBindDescriptorSets(
                 VkDescriptorSet ds = pDescriptorSets[rel];
                 if (ds != VK_NULL_HANDLE)
                 {
+                    STEREO_LOG(
+                        "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                        (void *)pipe,
+                        info->has_proj_ubo,
+                        info->proj_set,
+                        info->proj_binding,
+                        info->proj_member,
+                        info->proj_var);
                     stereo_write_ubo(sd);
                     stereo_overwrite_projection_binding(sd, ds, info->proj_binding);
+                    rewrite_done = true;
                     STEREO_LOG(
                         "PROJ_BIND_REWRITE pipe=%p set=%u binding=%u ds=%p member=%u",
                         (void *)pipe,
@@ -1147,6 +1161,17 @@ stereo_CmdBindDescriptorSets(
                         info->proj_member);
                 }
             }
+        }
+        else if (info)
+        {
+            STEREO_LOG(
+                "PROJ_REWRITE_SKIP pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                (void *)pipe,
+                info->has_proj_ubo,
+                info->proj_set,
+                info->proj_binding,
+                info->proj_member,
+                info->proj_var);
         }
     }
     sd->real.CmdBindDescriptorSets(

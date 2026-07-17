@@ -4313,6 +4313,13 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
     VkPipelineShaderStageCreateInfo **tst     = calloc(N, sizeof(void*));
     VkGraphicsPipelineCreateInfo     *infos   = malloc(N * sizeof(*infos));
     StereoDebugCtx                   *dbg_out = calloc(N, sizeof(*dbg_out));
+    for (uint32_t i = 0; i < N; i++)
+    {
+        dbg_out[i].proj_set     = UINT32_MAX;
+        dbg_out[i].proj_binding = UINT32_MAX;
+        dbg_out[i].proj_member  = UINT32_MAX;
+        dbg_out[i].proj_var     = UINT32_MAX;
+    }
     if (!tmp_mod||!tst||!infos) {
         free(tmp_mod); free(tst); free(infos);
         return VK_ERROR_OUT_OF_HOST_MEMORY;
