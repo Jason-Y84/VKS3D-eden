@@ -1028,7 +1028,7 @@ bool spirv_patch_stereo_vertex(
         if (!m.has_matrix_ops)
         {
             STEREO_LOG(
-                "PATCH_SKIP no_matrix hash=%016llx exec=%u dot=%u direct=%u emit=%u pos=%u block=%u",
+                "PATCH_SKIP no_matrix hash=%016llx exec=%u dots=%u direct=%u emit=%u pos=%u block=%u",
                 (unsigned long long)spv_hash,
                 m.exec_model,
                 m.dot_count,
