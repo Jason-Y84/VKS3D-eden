@@ -152,7 +152,6 @@ typedef struct
     uint32_t proj_access_count;
     uint32_t proj_load_count;
     uint32_t proj_mtv_count;
-    uint32_t proj_mtm_count;
 } SpvMod;
 
 static inline bool valid_id(const SpvMod *m, uint32_t id)
@@ -266,15 +265,16 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 5 &&
                     w[i+3] == m->proj_var)
                 {
+                    m->proj_access_count++;
+                    m->proj_access_chain = w[i + 2];
                     uint32_t member_id = w[i + 4];
                     uint32_t member_value = member_id;
-                    m->proj_access_count++;
+                    (void)spv_resolve_u32_constant(m, member_id, &member_value);
                     STEREO_LOG(
                         "PROJ_ACCESS result=%u member=%u count=%u",
                         w[i+2],
                         member_value,
                         m->proj_access_count);
-                    (void)spv_resolve_u32_constant(m, member_id, &member_value);
                     STEREO_LOG(
                         "PROJ_ACCESS result=%u base=%u index_id=%u member=%u",
                         w[i+2],
@@ -299,6 +299,7 @@ static void do_scan(SpvMod *m, bool p2)
                 if (wc >= 4 &&
                     w[i+3] == m->proj_access_chain)
                 {
+                    m->proj_load = w[i + 2];
                     m->proj_load_count++;
                     STEREO_LOG(
                         "PROJ_LOAD id=%u count=%u",
