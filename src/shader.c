@@ -27,27 +27,6 @@
 #define SpvStorageInput         1
 #define SPIRV_MAGIC             0x07230203u
 
-static bool
-spv_resolve_u32_constant(const SpvMod *m, uint32_t id, uint32_t *value)
-{
-    if (!m || !value || !m->words)
-        return false;
-    for (size_t i = 5; i < m->count; )
-    {
-        uint32_t op = m->words[i] & 0xffffu;
-        uint32_t wc = m->words[i] >> 16;
-        if (!wc || i + wc > m->count)
-            break;
-        if (op == SpvOpConstant && wc >= 4 && m->words[i + 2] == id)
-        {
-            *value = m->words[i + 3];
-            return true;
-        }
-        i += wc;
-    }
-    return false;
-}
-
 /* ── Dynamic SPIR-V word buffer ─────────────────────────────────────────── */
 typedef struct {
     uint32_t *w;
@@ -227,6 +206,27 @@ static void free_spv_provenance(SpvMod *m)
 }
 
 static uint64_t hash_spv(const uint32_t *data, size_t words);
+
+static bool
+spv_resolve_u32_constant(const SpvMod *m, uint32_t id, uint32_t *value)
+{
+    if (!m || !value || !m->words)
+        return false;
+    for (size_t i = 5; i < m->count; )
+    {
+        uint32_t op = m->words[i] & 0xffffu;
+        uint32_t wc = m->words[i] >> 16;
+        if (!wc || i + wc > m->count)
+            break;
+        if (op == SpvOpConstant && wc >= 4 && m->words[i + 2] == id)
+        {
+            *value = m->words[i + 3];
+            return true;
+        }
+        i += wc;
+    }
+    return false;
+}
 
 static void do_scan(SpvMod *m, bool p2)
 {
