@@ -92,15 +92,6 @@ void stereo_write_ubo(StereoDevice *sd)
     if (!sd || !sd->stereo_ubo_map)
         return;
     StereoUBO *ubo = (StereoUBO *)sd->stereo_ubo_map;
-    if (!ubo)
-        return;
-    STEREO_LOG(
-        "PROJ_UBO_WRITE set=%p binding=%u left=%f right=%f conv=%f",
-        (void *)(uintptr_t)set,
-        binding,
-        ubo->projection[0][3],
-        ubo->projection[0][3],
-        ubo->convergence);
     memset(ubo, 0, sizeof(*ubo));
     ubo->eye_offset[0] = sd->stereo.left_eye_offset;
     ubo->eye_offset[1] = sd->stereo.right_eye_offset;
@@ -110,6 +101,13 @@ void stereo_write_ubo(StereoDevice *sd)
             ? (1.0f / sd->stereo.convergence)
             : 0.0f;
     ubo->projection_mode = (float)sd->stereo.projection;
+    STEREO_LOG(
+        "STEREO_UBO_WRITE left=%f right=%f conv=%f invconv=%f mode=%f",
+        sd->stereo.left_eye_offset,
+        sd->stereo.right_eye_offset,
+        sd->stereo.convergence,
+        ubo->inv_convergence,
+        ubo->projection_mode);
 }
 
 /* ── Allocate and bind stereo UBO ───────────────────────────────────────── */
