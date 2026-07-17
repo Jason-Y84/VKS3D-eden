@@ -970,7 +970,7 @@ bool spirv_patch_stereo_vertex(
     float ro,
     float conv,
     bool inj_vi,
-    StereoDebugCtx *dbg)
+    const StereoDebugCtx *dbg)
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC)
         return false;
@@ -4966,11 +4966,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
 
                 info->view_mask = 0; /* default */
-                info->has_proj_ubo = dbgB.has_proj_ubo;
-                info->proj_set = dbgB.proj_set;
-                info->proj_binding = dbgB.proj_binding;
-                info->proj_member = dbgB.proj_member;
-                info->proj_var = dbgB.proj_var;
+                info->has_proj_ubo = dbgA.has_proj_ubo;
+                info->proj_set = dbgA.proj_set;
+                info->proj_binding = dbgA.proj_binding;
+                info->proj_member = dbgA.proj_member;
+                info->proj_var = dbgA.proj_var;
 
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {

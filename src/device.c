@@ -400,7 +400,7 @@ stereo_CmdBindDescriptorSets(
         }
     }
     sd->real.CmdBindDescriptorSets(
-        sd->real_device,
+        commandBuffer,
         pipelineBindPoint,
         layout,
         firstSet,
