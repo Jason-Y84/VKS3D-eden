@@ -1121,19 +1121,61 @@ stereo_CmdBindDescriptorSets(
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
-    VkPipeline pipe = VK_NULL_HANDLE;
-    StereoPipelineInfo *info = NULL;
     if (sd->stereo.enabled &&
-        pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS)
+        pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS &&
+        pDescriptorSets &&
+        descriptorSetCount > 0)
     {
-        pipe = lookup_bound_pipeline(sd, commandBuffer);
-        info = find_pipeline_info(sd, pipe);
+        VkPipeline pipe = lookup_bound_pipeline(sd, commandBuffer);
+        StereoPipelineInfo *info = find_pipeline_info(sd, pipe);
         if (info &&
-            info->has_proj_ubo)
+            info->has_proj_ubo &&
+            info->proj_set != UINT32_MAX &&
+            info->proj_binding != UINT32_MAX &&
+            info->proj_member != UINT32_MAX &&
+            info->proj_var != UINT32_MAX)
         {
+            uint32_t target_set = info->proj_set;
             STEREO_LOG(
                 "PROJ_PIPE pipe=%p set=%u binding=%u member=%u var=%u",
                 (void *)pipe,
+                info->proj_set,
+                info->proj_binding,
+                info->proj_member,
+                info->proj_var);
+            if (target_set >= firstSet &&
+                target_set < firstSet + descriptorSetCount)
+            {
+                uint32_t rel = target_set - firstSet;
+                VkDescriptorSet ds = pDescriptorSets[rel];
+                if (ds != VK_NULL_HANDLE)
+                {
+                    STEREO_LOG(
+                        "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                        (void *)pipe,
+                        info->has_proj_ubo,
+                        info->proj_set,
+                        info->proj_binding,
+                        info->proj_member,
+                        info->proj_var);
+                    stereo_write_ubo(sd);
+                    stereo_overwrite_projection_binding(sd, ds, info->proj_binding);
+                    STEREO_LOG(
+                        "PROJ_BIND_REWRITE pipe=%p set=%u binding=%u ds=%p member=%u",
+                        (void *)pipe,
+                        target_set,
+                        info->proj_binding,
+                        (void *)ds,
+                        info->proj_member);
+                }
+            }
+        }
+        else if (info)
+        {
+            STEREO_LOG(
+                "PROJ_REWRITE_SKIP pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                (void *)pipe,
+                info->has_proj_ubo,
                 info->proj_set,
                 info->proj_binding,
                 info->proj_member,
@@ -1149,26 +1191,4 @@ stereo_CmdBindDescriptorSets(
         pDescriptorSets,
         dynamicOffsetCount,
         pDynamicOffsets);
-    /*
-     * Projection rewrite happens after the application's descriptor sets
-     * are bound, because we need the real descriptor set handle.
-     */
-    if (sd->stereo.enabled &&
-        pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS &&
-        info &&
-        info->has_proj_ubo)
-    {
-        STEREO_LOG(
-            "PROJ_REWRITE_CHECK pipe=%p set=%u binding=%u member=%u",
-            (void *)pipe,
-            info->proj_set,
-            info->proj_binding,
-            info->proj_member);
-        /*
-         * TODO: inject projection UBO rewrite here.
-         *
-         * Do NOT bind stereo_ubo blindly yet.
-         * We still need to preserve the application's original UBO layout.
-         */
-    }
 }
