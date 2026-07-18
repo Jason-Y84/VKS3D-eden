@@ -1105,7 +1105,7 @@ bool spirv_patch_stereo_vertex(
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC)
         return false;
-    const int projection_mode =
+    int projection_mode =
         cfg ? cfg->projection : STEREO_PROJECTION_PARALLEL;
     SpvMod m = {0};
     m.words = in;
@@ -1140,6 +1140,16 @@ bool spirv_patch_stereo_vertex(
      * Used for debugging shaders that should remain untouched.
      */
     uint64_t spv_hash = hash_spv(m.words, m.count);
+
+    if (m.proj_found && m.proj_member_mask == 0x5)
+    {
+        projection_mode = STEREO_PROJECTION_OFF_AXIS;
+        STEREO_LOG(
+            "PROJ_FIXUP forcing off-axis projection hash=%016llx mask=0x%X",
+            (unsigned long long)spv_hash,
+            m.proj_member_mask);
+    }
+
     /* Reject trivial passthrough vertex shaders.
      * World geometry always contains matrix math.
      * Fullscreen/UI shaders generally don't.
