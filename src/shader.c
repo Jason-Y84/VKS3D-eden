@@ -209,7 +209,7 @@ static inline void set_proj_value(SpvMod *m, uint32_t id, uint8_t value)
         m->is_proj_value[id] = value;
 }
 
-static inline uint8_t view_value(SpvMod *m, uint32_t id)
+static inline uint8_t view_value(const SpvMod *m, uint32_t id)
 {
     return (id < m->value_capacity) ? m->is_view_value[id] : 0;
 }
