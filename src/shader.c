@@ -5155,7 +5155,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 info->has_proj_ubo          = dbg_out[p].has_proj_ubo;
                 info->proj_set              = dbg_out[p].proj_set;
                 info->proj_binding          = dbg_out[p].proj_binding;
-                info->proj_member_mask      = dbg_out[p].proj_member;
+                info->proj_member_mask      = dbg_out[p].proj_member_mask;
                 info->proj_var              = dbg_out[p].proj_var;
 
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
