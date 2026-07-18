@@ -285,9 +285,8 @@ static void do_scan(SpvMod *m, bool p2)
                     (void)spv_resolve_u32_constant(m, member_id, &member_value);
                     m->proj_access_count++;
                     m->proj_found = VK_TRUE;
-                    SETPROJ(w[i + 2], 1);
-                    if (!m->proj_member)
-                        m->proj_member = member_value;
+                    /* remember WHICH member this pointer references */
+                    SETPROJ(w[i + 2], member_value + 1);
                     STEREO_LOG(
                         "PROJ_ACCESS result=%u base=%u index_id=%u member=%u",
                         w[i+2],
@@ -312,7 +311,7 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 if (wc >= 4 && PROJ(w[i + 3]))
                 {
-                    SETPROJ(w[i + 2], 1);
+                    SETPROJ(w[i + 2], PROJ(w[i + 3]));
                     m->proj_load_count++;
                     STEREO_LOG(
                         "PROJ_LOAD id=%u src=%u count=%u proj=%u",
@@ -430,21 +429,25 @@ static void do_scan(SpvMod *m, bool p2)
                     {
                         uint32_t a = w[i + 3];
                         uint32_t b = w[i + 4];
-                        bool proj_a = PROJ(a);
-                        bool proj_b = PROJ(b);
+                        uint8_t proj_a = PROJ(a);
+                        uint8_t proj_b = PROJ(b);
                         if ((proj_a || proj_b) &&
                             (op == SpvOpMatrixTimesVector || op == SpvOpMatrixTimesMatrix))
                         {
+                            uint8_t proj = proj_a ? proj_a : proj_b;
+                            /* THIS is the member that actually reaches MVP */
+                            m->proj_member = proj - 1;
                             m->proj_mtv_count++;
                             STEREO_LOG(
-                                "PROJ_MTV result=%u matrix=%u vector=%u count=%u",
-                                w[i+2],
+                                "PROJ_MTV result=%u matrix=%u vector=%u member=%u count=%u",
+                                w[i + 2],
                                 a,
                                 b,
+                                m->proj_member,
                                 m->proj_mtv_count);
                         }
                         if (proj_a || proj_b)
-                            SETPROJ(w[i + 2], 1);
+                            SETPROJ(w[i + 2], proj_a ? proj_a : proj_b);
                         SETMAT(w[i + 2], 1);
                     }
                 }
@@ -457,7 +460,7 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(w[i + 2], MAT(w[i + 3]));
                     if (PROJ(w[i + 3]))
-                        SETPROJ(w[i + 2], 1);
+                        SETPROJ(w[i + 2], PROJ(w[i + 3]));
                 }
                 break;
             case SpvOpExtInst:
@@ -471,12 +474,13 @@ static void do_scan(SpvMod *m, bool p2)
                         if (w[i + k] < m->value_capacity)
                         {
                             matrix |= MAT(w[i + k]);
-                            proj |= PROJ(w[i + k]);
+                            if (!proj && PROJ(w[i + k]))
+                                proj = PROJ(w[i + k]);
                         }
                     }
                     SETMAT(w[i + 2], matrix);
                     if (proj)
-                        SETPROJ(w[i + 2], 1);
+                        SETPROJ(w[i + 2], proj);
                 }
                 break;
             case SpvOpFAdd:
@@ -489,8 +493,10 @@ static void do_scan(SpvMod *m, bool p2)
                     SETMAT(
                         w[i + 2],
                         matrix_or2(m, w[i + 4], w[i + 5]));
-                    if (PROJ(w[i + 4]) || PROJ(w[i + 5]))
-                        SETPROJ(w[i + 2], 1);
+                    if (PROJ(w[i + 4]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 4]));
+                    else if (PROJ(w[i + 5]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 5]));
                 }
                 break;
             case SpvOpSelect:
@@ -500,8 +506,10 @@ static void do_scan(SpvMod *m, bool p2)
                     SETMAT(
                         w[i + 2],
                         matrix_or2(m, w[i + 4], w[i + 5]));
-                    if (PROJ(w[i + 4]) || PROJ(w[i + 5]))
-                        SETPROJ(w[i + 2], 1);
+                    if (PROJ(w[i + 4]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 4]));
+                    else if (PROJ(w[i + 5]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 5]));
                 }
                 break;
             case SpvOpFunctionCall:
@@ -515,16 +523,18 @@ static void do_scan(SpvMod *m, bool p2)
                     if (w[i + 3] < m->value_capacity)
                     {
                         matrix |= MAT(w[i + 3]);
-                        proj |= PROJ(w[i + 3]);
+                        if (PROJ(w[i + 3]))
+                            proj = PROJ(w[i + 3]);
                     }
                     if (w[i + 4] < m->value_capacity)
                     {
                         matrix |= MAT(w[i + 4]);
-                        proj |= PROJ(w[i + 4]);
+                        if (!proj && PROJ(w[i + 4]))
+                            proj = PROJ(w[i + 4]);
                     }
                     SETMAT(w[i + 2], matrix);
                     if (proj)
-                        SETPROJ(w[i + 2], 1);
+                        SETPROJ(w[i + 2], proj);
                 }
                 break;
             case SpvOpTypePointer:
