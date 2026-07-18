@@ -1158,8 +1158,8 @@ stereo_CmdBindDescriptorSets(
                         info->proj_binding,
                         info->proj_member,
                         info->proj_var);
-                    stereo_write_ubo(sd);
-                    //stereo_overwrite_projection_binding(sd, ds, info->proj_binding);
+                    //stereo_write_ubo(sd);
+                    stereo_overwrite_projection_binding(sd, ds, info->proj_binding);
                     STEREO_LOG(
                         "PROJ_BIND_REWRITE pipe=%p set=%u binding=%u ds=%p member=%u",
                         (void *)pipe,
