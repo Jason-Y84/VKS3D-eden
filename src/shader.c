@@ -1211,14 +1211,14 @@ bool spirv_patch_stereo_vertex(
      */
     uint64_t spv_hash = hash_spv(m.words, m.count);
 
-    if (m.proj_found && m.proj_member_mask == 0x5)
-    {
-        projection_mode = STEREO_PROJECTION_OFF_AXIS;
-        STEREO_LOG(
-            "PROJ_FIXUP forcing off-axis projection hash=%016llx mask=0x%X",
-            (unsigned long long)spv_hash,
-            m.proj_member_mask);
-    }
+    //if (m.proj_found && m.proj_member_mask == 0x5)
+    //{
+    //    projection_mode = STEREO_PROJECTION_OFF_AXIS;
+    //    STEREO_LOG(
+    //        "PROJ_FIXUP forcing off-axis projection hash=%016llx mask=0x%X",
+    //        (unsigned long long)spv_hash,
+    //        m.proj_member_mask);
+    //}
 
     /* Reject trivial passthrough vertex shaders.
      * World geometry always contains matrix math.
