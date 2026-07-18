@@ -1296,6 +1296,26 @@ bool spirv_patch_stereo_vertex(
     int projection_mode =
         cfg ? cfg->projection : STEREO_PROJECTION_PARALLEL;
     SpvMod m = {0};
+    #undef MAT
+    #undef SETMAT
+    #undef PTR
+    #undef SETPTR
+    #undef TYPE
+    #undef SETTYPE
+    #undef PROJ
+    #undef SETPROJ
+    #undef VIEW
+    #undef SETVIEW
+    #define MAT(id)        matrix_value(&m, (id))
+    #define SETMAT(id,v)   set_matrix_value(&m, (id), (v))
+    #define PTR(id)        matrix_ptr(&m, (id))
+    #define SETPTR(id,v)   set_matrix_ptr(&m, (id), (v))
+    #define TYPE(id)       matrix_type(&m, (id))
+    #define SETTYPE(id,v)  set_matrix_type(&m, (id), (v))
+    #define PROJ(id)       proj_value(&m, (id))
+    #define SETPROJ(id,v)  set_proj_value(&m, (id), (v))
+    #define VIEW(id)       view_value(&m, (id))
+    #define SETVIEW(id,v)  set_view_value(&m, (id), (v))
     m.words = in;
     m.count = in_c;
     m.bound = m.words[3];
