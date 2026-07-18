@@ -890,16 +890,6 @@ typedef struct StereoDebugCtx {
 static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
 {
     SpvMod *m = c->m;
-
-    /*
-     * TEMP SSAO DEBUG:
-     * Force projection corruption on shaders that consume projection UBO.
-     * Remove after identifying matrix ownership.
-     */
-    bool debug_proj_distort =
-        m->proj_found &&
-        m->proj_member_mask == 0x5;
-    
     uint32_t ch = (*nid)++;
     uint32_t lp = (*nid)++;
     uint32_t pptr;
@@ -994,47 +984,11 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     }
     if (c->projection_mode == STEREO_PROJECTION_PARALLEL)
     {
-        uint32_t input_x = px;
-
-        if (debug_proj_distort)
-        {
-            uint32_t debug_const = (*nid)++;
-            uint32_t debug_mul = (*nid)++;
-
-            uint32_t cbuf[] = {
-                op_(SpvOpConstant, 4),
-                m->ft,
-                debug_const,
-                0
-            };
-
-            float v = 1.5f;
-            memcpy(&cbuf[3], &v, sizeof(v));
-
-            sb_push_n(out, cbuf, 4);
-
-            uint32_t mul[] = {
-                op_(SpvOpFMul, 5),
-                m->ft,
-                debug_mul,
-                px,
-                debug_const
-            };
-
-            sb_push_n(out, mul, 5);
-
-            input_x = debug_mul;
-
-            STEREO_LOG(
-                "SSAO_DEBUG projection perturb applied hash member_mask=0x%X",
-                m->proj_member_mask);
-        }
-
         uint32_t w[] = {
             op_(SpvOpFAdd, 5),
             m->ft,
             nx,
-            input_x,
+            px,
             sel
         };
         sb_push_n(out, w, 5);
