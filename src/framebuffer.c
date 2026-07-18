@@ -1158,16 +1158,39 @@ stereo_CmdBindDescriptorSets(
                         info->proj_binding,
                         info->proj_member_mask,
                         info->proj_var);
-                    //IMPORTANT: Temporarily disabled to restore geometry rendering
-                    //stereo_write_ubo(sd);
-                    //stereo_overwrite_projection_binding(sd, ds, info->proj_binding);
-                    STEREO_LOG(
-                        "PROJ_BIND_REWRITE pipe=%p set=%u binding=%u ds=%p mask=0x%X",
-                        (void *)pipe,
-                        target_set,
-                        info->proj_binding,
-                        (void *)ds,
-                        info->proj_member_mask);
+                    /*
+                     * Only replace the descriptor if the shader uses
+                     * ONLY the projection matrix member.
+                     *
+                     * Any additional members (mask != 0x4) mean the shader
+                     * also consumes other data from the same UBO, so replacing
+                     * the entire descriptor corrupts those values.
+                     */
+                    if (info->proj_member_mask == (1u << 2))
+                    {
+                        stereo_write_ubo(sd);
+                        stereo_overwrite_projection_binding(
+                            sd,
+                            ds,
+                            info->proj_binding);
+                        STEREO_LOG(
+                            "PROJ_DESC_REWRITE pipe=%p set=%u binding=%u ds=%p mask=0x%X",
+                            (void *)pipe,
+                            target_set,
+                            info->proj_binding,
+                            (void *)ds,
+                            info->proj_member_mask);
+                    }
+                    else
+                    {
+                        STEREO_LOG(
+                            "PROJ_DESC_SKIP pipe=%p set=%u binding=%u ds=%p mask=0x%X",
+                            (void *)pipe,
+                            target_set,
+                            info->proj_binding,
+                            (void *)ds,
+                            info->proj_member_mask);
+                    }
                 }
             }
         }
