@@ -116,11 +116,9 @@ typedef struct
     uint32_t view_var;
     /* Common types */
     uint32_t ft;
-    uint32_t v3t;
     uint32_t v4t;
     uint32_t it;
     uint32_t bt;
-    uint32_t ptr_out_v3;
     uint32_t ptr_out_v4;
     uint32_t ptr_in_int;
     /* Entry point */
@@ -140,24 +138,21 @@ typedef struct
     uint8_t *value_from_matrix;
     uint8_t *is_matrix_type;
     uint8_t *is_matrix_ptr;
-    /* Projection / view provenance */
-    uint8_t  *is_proj_value;
-    uint8_t  *is_view_value;
+    /* Projection UBO discovery */
     uint32_t proj_struct_type;
     uint32_t proj_ptr_type;
     uint32_t proj_var;
     uint32_t proj_set;
     uint32_t proj_binding;
-    uint32_t proj_member;
     uint32_t proj_member_mask;
     VkBool32 proj_found;
+    /* projection load tracking */
     uint32_t proj_access_count;
     uint32_t proj_load_count;
     uint32_t proj_mtv_count;
-    /* Output tracking */
-    uint8_t  *var_is_output;
-    uint32_t *var_location;
-    uint32_t out_pos_var;
+    /* Projection provenance per SSA value */
+    uint8_t *is_proj_value;
+    uint8_t *is_view_value;
 } SpvMod;
 
 static inline bool valid_id(const SpvMod *m, uint32_t id)
@@ -227,17 +222,6 @@ static inline uint8_t matrix_or2(const SpvMod *m,
     return matrix_value(m, a) | matrix_value(m, b);
 }
 
-static inline uint32_t var_location(const SpvMod *m, uint32_t id)
-{
-    return valid_id(m, id) ? m->var_location[id] : UINT32_MAX;
-}
-
-static inline void set_var_location(SpvMod *m, uint32_t id, uint32_t value)
-{
-    if (valid_id(m, id))
-        m->var_location[id] = value;
-}
-
 static void free_spv_provenance(SpvMod *m)
 {
     free(m->value_from_matrix);
@@ -287,11 +271,9 @@ static void do_scan(SpvMod *m, bool p2)
     #define TYPE(id)       matrix_type(m, (id))
     #define SETTYPE(id,v)  set_matrix_type(m, (id), (v))
     #define PROJ(id)       proj_value(m, (id))
-    #define SETPROJ(id,v)   set_proj_value(m, (id), (v))
+    #define SETPROJ(id,v)  set_proj_value(m, (id), (v))
     #define VIEW(id)       view_value(m, (id))
     #define SETVIEW(id,v)  set_view_value(m, (id), (v))
-    #define VLOC(id)       var_location(m, (id))
-    #define SETVLOC(id,v)  set_var_location(m, (id), (v))
     for (size_t i=5;i<m->count;) {
         uint32_t op=w[i]&0xffff, wc=w[i]>>16;
         if (!wc||i+wc>m->count) break;
@@ -430,13 +412,7 @@ static void do_scan(SpvMod *m, bool p2)
                 if(wc==3&&w[i+2]==32) m->ft=w[i+1];
                 break;
             case SpvOpTypeVector:
-                if (wc == 4)
-                {
-                    if (w[i + 2] == m->ft && w[i + 3] == 3)
-                        m->v3t = w[i + 1];
-                    if (w[i + 2] == m->ft && w[i + 3] == 4)
-                        m->v4t = w[i + 1];
-                }
+                if(wc==4&&w[i+2]==m->ft&&w[i+3]==4) m->v4t=w[i+1];
                 break;
             case SpvOpTypeInt:
                 if(wc==4&&w[i+2]==32) m->it=w[i+1];
@@ -632,20 +608,24 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpTypePointer:
                 if (wc >= 4)
                 {
-                    if (TYPE(w[i + 3]))
-                        SETPTR(w[i + 1], 1);
-                    if (w[i + 3] == m->v3t && w[i + 2] == SpvStorageOutput)
-                        m->ptr_out_v3 = w[i + 1];
-                    if (w[i + 3] == m->v4t && w[i + 2] == SpvStorageOutput)
-                        m->ptr_out_v4 = w[i + 1];
-                    if (w[i + 3] == m->proj_struct_type)
-                        m->proj_ptr_type = w[i + 1];
-                    if (w[i + 2] == SpvStorageInput &&
-                        m->it &&
-                        w[i + 3] == m->it)
-                    {
-                        m->ptr_in_int = w[i + 1];
-                    }
+                if (TYPE(w[i + 3]))
+                {
+                SETPTR(w[i + 1], 1);
+                }
+                if (w[i+3] == m->proj_struct_type)
+                    m->proj_ptr_type = w[i+1];
+                if (w[i + 2] == SpvStorageOutput &&
+                m->v4t &&
+                w[i + 3] == m->v4t)
+                {
+                m->ptr_out_v4 = w[i + 1];
+                }
+                if (w[i + 2] == SpvStorageInput &&
+                m->it &&
+                w[i + 3] == m->it)
+                {
+                m->ptr_in_int = w[i + 1];
+                }
                 }
                 break;
             case SpvOpVariable:
@@ -656,49 +636,34 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETPTR(w[i + 2], 1);
                 }
-                if (w[i + 1] == m->proj_ptr_type &&
-                    w[i + 3] == SpvStorageClassUniform)
+                if (w[i+1] == m->proj_ptr_type &&
+                    w[i+3] == SpvStorageClassUniform)
                 {
-                    m->proj_var = w[i + 2];
-                }
-                if (w[i + 3] == SpvStorageOutput)
-                {
-                    SETVLOC(w[i + 2], VLOC(w[i + 2]));
-                    if (w[i + 1] == m->ptr_out_v3 && VLOC(w[i + 2]) == 3)
-                        m->out_pos_var = w[i + 2];
+                    m->proj_var = w[i+2];
                 }
                 break;
             case SpvOpDecorate:
                 if (wc >= 4)
                 {
-                    if (w[i + 2] == SpvDecorationDescriptorSet &&
-                        w[i + 1] == m->proj_var)
+                    if (w[i+2] == SpvDecorationDescriptorSet &&
+                        w[i+1] == m->proj_var)
                     {
-                        m->proj_set = w[i + 3];
+                        m->proj_set = w[i+3];
                     }
-                    if (w[i + 2] == SpvDecorationBinding &&
-                        w[i + 1] == m->proj_var)
+                    if (w[i+2] == SpvDecorationBinding &&
+                        w[i+1] == m->proj_var)
                     {
-                        m->proj_binding = w[i + 3];
-                    }
-                    if (w[i + 2] == SpvDecorationLocation)
-                    {
-                        SETVLOC(w[i + 1], w[i + 3]);
-                        if (w[i + 3] == 3)
-                            m->out_pos_var = w[i + 1];
+                        m->proj_binding = w[i+3];
                     }
                 }
-                if (wc >= 4 && w[i + 2] == SpvDecorationBuiltIn)
-                {
-                    if (w[i + 3] == SpvBuiltInPosition && !m->pos_is_block)
-                        m->pos_var = w[i + 1];
-                    if (w[i + 3] == SpvBuiltInViewIndex)
-                    {
-                        m->view_var = w[i + 1];
+                if(wc>=4&&w[i+2]==SpvDecorationBuiltIn){
+                    if(w[i+3]==SpvBuiltInPosition&&!m->pos_is_block)
+                        m->pos_var=w[i+1];
+                    if(w[i+3]==SpvBuiltInViewIndex) {
+                        m->view_var = w[i+1];
                         m->has_viewindex_builtin = true;
                     }
-                }
-                break;
+                } break;
             case SpvOpMemberDecorate:
                 if (wc >= 5 &&
                     w[i+3] == SpvDecorationBuiltIn &&
@@ -1192,92 +1157,6 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     }
 }
 
-static void emit_viewspace_adjust(
-    SpvBuf *out,
-    const BodyCtx *c,
-    uint32_t src,
-    uint32_t *nid,
-    uint32_t vec_t,
-    uint32_t *adjusted_id)
-{
-    SpvMod *m = c->m;
-    uint32_t lv  = c->have_view ? (*nid)++ : 0;
-    uint32_t isl  = c->have_view ? (*nid)++ : 0;
-    uint32_t sel  = (*nid)++;
-    uint32_t px   = (*nid)++;
-    uint32_t nx   = (*nid)++;
-    uint32_t adj  = (*nid)++;
-    if (c->have_view && m->view_var && m->it && c->bt)
-    {
-        {
-            uint32_t w[] = {
-                op_(SpvOpLoad, 4),
-                m->it,
-                lv,
-                m->view_var
-            };
-            sb_push_n(out, w, 4);
-        }
-        {
-            uint32_t w[] = {
-                op_(SpvOpIEqual, 5),
-                c->bt,
-                isl,
-                lv,
-                c->cz
-            };
-            sb_push_n(out, w, 5);
-        }
-        {
-            uint32_t w[] = {
-                op_(SpvOpSelect, 6),
-                m->ft,
-                sel,
-                isl,
-                c->cr,
-                c->cl
-            };
-            sb_push_n(out, w, 6);
-        }
-    }
-    else
-    {
-        sel = c->cl;
-    }
-    {
-        uint32_t w[] = {
-            op_(SpvOpCompositeExtract, 5),
-            m->ft,
-            px,
-            src,
-            0u
-        };
-        sb_push_n(out, w, 5);
-    }
-    {
-        uint32_t w[] = {
-            op_(SpvOpFAdd, 5),
-            m->ft,
-            nx,
-            px,
-            sel
-        };
-        sb_push_n(out, w, 5);
-    }
-    {
-        uint32_t w[] = {
-            op_(SpvOpCompositeInsert, 6),
-            vec_t,
-            adj,
-            nx,
-            src,
-            0u
-        };
-        sb_push_n(out, w, 6);
-    }
-    *adjusted_id = adj;
-}
-
 /* ── Public patcher ──────────────────────────────────────────────────────── */
 bool spirv_patch_stereo_vertex(
     const StereoConfig *cfg,
@@ -1296,26 +1175,6 @@ bool spirv_patch_stereo_vertex(
     int projection_mode =
         cfg ? cfg->projection : STEREO_PROJECTION_PARALLEL;
     SpvMod m = {0};
-    #undef MAT
-    #undef SETMAT
-    #undef PTR
-    #undef SETPTR
-    #undef TYPE
-    #undef SETTYPE
-    #undef PROJ
-    #undef SETPROJ
-    #undef VIEW
-    #undef SETVIEW
-    #define MAT(id)        matrix_value(&m, (id))
-    #define SETMAT(id,v)   set_matrix_value(&m, (id), (v))
-    #define PTR(id)        matrix_ptr(&m, (id))
-    #define SETPTR(id,v)   set_matrix_ptr(&m, (id), (v))
-    #define TYPE(id)       matrix_type(&m, (id))
-    #define SETTYPE(id,v)  set_matrix_type(&m, (id), (v))
-    #define PROJ(id)       proj_value(&m, (id))
-    #define SETPROJ(id,v)  set_proj_value(&m, (id), (v))
-    #define VIEW(id)       view_value(&m, (id))
-    #define SETVIEW(id,v)  set_view_value(&m, (id), (v))
     m.words = in;
     m.count = in_c;
     m.bound = m.words[3];
@@ -1351,6 +1210,7 @@ bool spirv_patch_stereo_vertex(
      * Used for debugging shaders that should remain untouched.
      */
     uint64_t spv_hash = hash_spv(m.words, m.count);
+
     if (m.proj_found && m.proj_member_mask == 0x5)
     {
         projection_mode = STEREO_PROJECTION_OFF_AXIS;
@@ -1359,6 +1219,7 @@ bool spirv_patch_stereo_vertex(
             (unsigned long long)spv_hash,
             m.proj_member_mask);
     }
+
     /* Reject trivial passthrough vertex shaders.
      * World geometry always contains matrix math.
      * Fullscreen/UI shaders generally don't.
@@ -1837,35 +1698,10 @@ bool spirv_patch_stereo_vertex(
             }
             else
             {
-                if (opx == SpvOpStore && wcx >= 3)
-                {
-                    uint32_t dst = in[i + 1];
-                    uint32_t src = in[i + 2];
-                    if (dst == m.out_pos_var &&
-                        src < m.value_capacity &&
-                        VIEW(src) &&
-                        m.v3t)
-                    {
-                        uint32_t adjusted = 0;
-                        emit_viewspace_adjust(
-                            &ob,
-                            &bc,
-                            src,
-                            &nid,
-                            m.v3t,
-                            &adjusted);
-                        {
-                            uint32_t w[] = {
-                                op_(SpvOpStore, 3),
-                                dst,
-                                adjusted
-                            };
-                            sb_push_n(&ob, w, 3);
-                        }
-                        i += wcx;
-                        continue;
-                    }
-                }
+                sb_push_n(
+                    &ob,
+                    &in[i],
+                    wcx);
             }
             i += wcx;
             continue;
