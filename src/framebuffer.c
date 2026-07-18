@@ -1132,16 +1132,16 @@ stereo_CmdBindDescriptorSets(
             info->has_proj_ubo &&
             info->proj_set != UINT32_MAX &&
             info->proj_binding != UINT32_MAX &&
-            info->proj_member != UINT32_MAX &&
+            info->proj_member_mask != UINT32_MAX &&
             info->proj_var != UINT32_MAX)
         {
             uint32_t target_set = info->proj_set;
             STEREO_LOG(
-                "PROJ_PIPE pipe=%p set=%u binding=%u member=%u var=%u",
+                "PROJ_PIPE pipe=%p set=%u binding=%u mask=0x%X var=%u",
                 (void *)pipe,
                 info->proj_set,
                 info->proj_binding,
-                info->proj_member,
+                info->proj_member_mask,
                 info->proj_var);
             if (target_set >= firstSet &&
                 target_set < firstSet + descriptorSetCount)
@@ -1151,35 +1151,35 @@ stereo_CmdBindDescriptorSets(
                 if (ds != VK_NULL_HANDLE)
                 {
                     STEREO_LOG(
-                        "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                        "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u mask=0x%X var=%u",
                         (void *)pipe,
                         info->has_proj_ubo,
                         info->proj_set,
                         info->proj_binding,
-                        info->proj_member,
+                        info->proj_member_mask,
                         info->proj_var);
                     //IMPORTANT: Temporarily disabled to restore geometry rendering
                     //stereo_write_ubo(sd);
                     //stereo_overwrite_projection_binding(sd, ds, info->proj_binding);
                     STEREO_LOG(
-                        "PROJ_BIND_REWRITE pipe=%p set=%u binding=%u ds=%p member=%u",
+                        "PROJ_BIND_REWRITE pipe=%p set=%u binding=%u ds=%p mask=0x%X",
                         (void *)pipe,
                         target_set,
                         info->proj_binding,
                         (void *)ds,
-                        info->proj_member);
+                        info->proj_member_mask);
                 }
             }
         }
         else if (info)
         {
             STEREO_LOG(
-                "PROJ_REWRITE_SKIP pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                "PROJ_REWRITE_SKIP pipe=%p has=%u set=%u binding=%u mask=0x%X var=%u",
                 (void *)pipe,
                 info->has_proj_ubo,
                 info->proj_set,
                 info->proj_binding,
-                info->proj_member,
+                info->proj_member_mask,
                 info->proj_var);
         }
     }

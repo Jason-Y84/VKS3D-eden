@@ -508,7 +508,7 @@ typedef struct StereoPipelineInfo
     VkBool32 has_proj_ubo;
     uint32_t proj_set;
     uint32_t proj_binding;
-    uint32_t proj_member;
+    uint32_t proj_member_mask;
     uint32_t proj_var;
 } StereoPipelineInfo;
 

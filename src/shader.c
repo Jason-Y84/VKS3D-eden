@@ -144,7 +144,7 @@ typedef struct
     uint32_t proj_var;
     uint32_t proj_set;
     uint32_t proj_binding;
-    uint32_t proj_member;
+    uint32_t proj_member_mask;
     VkBool32 proj_found;
     /* projection load tracking */
     uint32_t proj_access_count;
@@ -436,14 +436,15 @@ static void do_scan(SpvMod *m, bool p2)
                         {
                             uint8_t proj = proj_a ? proj_a : proj_b;
                             /* THIS is the member that actually reaches MVP */
-                            m->proj_member = proj - 1;
+                            m->proj_member_mask |= 1u << (proj - 1);
                             m->proj_mtv_count++;
                             STEREO_LOG(
-                                "PROJ_MTV result=%u matrix=%u vector=%u member=%u count=%u",
+                                "PROJ_MTV result=%u matrix=%u vector=%u member=%u mask=0x%X count=%u",
                                 w[i + 2],
                                 a,
                                 b,
-                                m->proj_member,
+                                proj - 1,
+                                m->proj_member_mask,
                                 m->proj_mtv_count);
                         }
                         if (proj_a || proj_b)
@@ -880,7 +881,7 @@ typedef struct StereoDebugCtx {
     VkBool32 has_proj_ubo;
     uint32_t proj_set;
     uint32_t proj_binding;
-    uint32_t proj_member;
+    uint32_t proj_member_mask;
     uint32_t proj_var;
     bool has_matrix_ops;
     bool direct_position_write;
@@ -1247,11 +1248,11 @@ bool spirv_patch_stereo_vertex(
     if (m.proj_found)
     {
         STEREO_LOG(
-            "PROJ_UBO hash=%016llx set=%u binding=%u member=%u var=%u",
+            "PROJ_UBO hash=%016llx set=%u binding=%u mask=0x%X var=%u",
             (unsigned long long)spv_hash,
             m.proj_set,
             m.proj_binding,
-            m.proj_member,
+            m.proj_member_mask,
             m.proj_var);
     }
     if (dbg)
@@ -1264,23 +1265,23 @@ bool spirv_patch_stereo_vertex(
             dbg->has_proj_ubo = true;
             dbg->proj_set = m.proj_set;
             dbg->proj_binding = m.proj_binding;
-            dbg->proj_member = m.proj_member;
+            dbg->proj_member_mask = m.proj_member_mask;
             dbg->proj_var = m.proj_var;
         }
         STEREO_LOG(
-            "PROJ_DETECT hash=%016llx found=%u set=%u binding=%u member=%u var=%u",
+            "PROJ_DETECT hash=%016llx found=%u set=%u binding=%u mask=0x%X var=%u",
             (unsigned long long)spv_hash,
             m.proj_found,
             dbg->proj_set,
             dbg->proj_binding,
-            dbg->proj_member,
+            dbg->proj_member_mask,
             dbg->proj_var);
         STEREO_LOG(
-            "PROJ_TRACE access_count=%u load_count=%u mtv_count=%u member=%u",
+            "PROJ_TRACE access_count=%u load_count=%u mtv_count=%u mask=0x%X",
             m.proj_access_count,
             m.proj_load_count,
             m.proj_mtv_count,
-            m.proj_member);
+            m.proj_member_mask);
     }
     if (m.exec_model == SpvExecVertex)
     {
@@ -4489,10 +4490,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
     StereoDebugCtx                   *dbg_out = calloc(N, sizeof(*dbg_out));
     for (uint32_t i = 0; i < N; i++)
     {
-        dbg_out[i].proj_set     = UINT32_MAX;
-        dbg_out[i].proj_binding = UINT32_MAX;
-        dbg_out[i].proj_member  = UINT32_MAX;
-        dbg_out[i].proj_var     = UINT32_MAX;
+        dbg_out[i].proj_set             = UINT32_MAX;
+        dbg_out[i].proj_binding         = UINT32_MAX;
+        dbg_out[i].proj_member_mask     = UINT32_MAX;
+        dbg_out[i].proj_var             = UINT32_MAX;
     }
     if (!tmp_mod||!tst||!infos) {
         free(tmp_mod); free(tst); free(infos);
@@ -5151,11 +5152,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
 
                 info->view_mask = 0; /* default */
-                info->has_proj_ubo = dbg_out[p].has_proj_ubo;
-                info->proj_set     = dbg_out[p].proj_set;
-                info->proj_binding = dbg_out[p].proj_binding;
-                info->proj_member  = dbg_out[p].proj_member;
-                info->proj_var     = dbg_out[p].proj_var;
+                info->has_proj_ubo          = dbg_out[p].has_proj_ubo;
+                info->proj_set              = dbg_out[p].proj_set;
+                info->proj_binding          = dbg_out[p].proj_binding;
+                info->proj_member_mask      = dbg_out[p].proj_member;
+                info->proj_var              = dbg_out[p].proj_var;
 
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
