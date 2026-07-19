@@ -1576,20 +1576,22 @@ bool spirv_patch_stereo_vertex(
     }
     BodyCtx bc =
     {
-        &m,
-        have_view,
-        uv4,
-        uint_,
-        bt,
-        id_cz,
-        id_cf0,
-        id_cl,
-        id_cr,
-        id_cc,
-        projection_mode,
-        lo,
-        ro,
-        dbg
+        .m                   = &m,
+        .have_view           = have_view,
+        .has_projection_path = false,
+        .has_view_path       = false,
+        .uv4                 = uv4,
+        .uint_               = uint_,
+        .bt                  = bt,
+        .cz                  = id_cz,
+        .cf0                 = id_cf0,
+        .cl                  = id_cl,
+        .cr                  = id_cr,
+        .cc                  = id_cc,
+        .projection_mode     = projection_mode,
+        .lo_dbg              = lo,
+        .ro_dbg              = ro,
+        .dbg                 = dbg
     };
     /* Vertex/TessEval shaders:
      * inject after final position calculation.
