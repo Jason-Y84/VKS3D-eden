@@ -4250,7 +4250,10 @@ bool spirv_patch_stereo_fs(
         }
         /* Extend 2D sampling coordinate to 3D for patched loads */
         if (in_func && wc >= 5 &&
-            (op == 87 || op == 88 || op == 89 || op == 90) &&
+            (op == SpvOpImageSampleImplicitLod ||
+             op == SpvOpImageSampleExplicitLod ||
+             op == SpvOpImageSampleDrefImplicitLod ||
+             op == SpvOpImageSampleDrefExplicitLod) &&
             fs_find_load(&s, in[i+3]) >= 0)
         {
             STEREO_LOG(
