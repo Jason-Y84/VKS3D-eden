@@ -1718,6 +1718,17 @@ bool spirv_patch_stereo_vertex(
             i += wcx;
             continue;
         }
+        STEREO_LOG(
+            "VS_PATCH_SUMMARY pipeline=%u projPath=%u viewPath=%u projMode=%u "
+            "projVar=%u members=0x%X matrixOps=%u directPos=%u",
+            dbg ? dbg->pipeline_index : 0,
+            has_projection_path,
+            has_view_path,
+            projection_mode,
+            dbg ? dbg->proj_var : 0,
+            dbg ? dbg->proj_member_mask : 0,
+            dbg ? dbg->has_matrix_ops : 0,
+            dbg ? dbg->direct_position_write : 0);
         if (is_gs &&
             opx == SpvOpEmitVertex)
         {
