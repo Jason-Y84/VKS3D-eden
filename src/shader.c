@@ -1719,11 +1719,11 @@ bool spirv_patch_stereo_vertex(
             continue;
         }
         STEREO_LOG(
-            "VS_PATCH_SUMMARY pipeline=%u projPath=%u viewPath=%u projMode=%u "
+            "VS_PATCH_SUMMARY pipeline=%u projFound=%u viewBuiltin=%u projMode=%u "
             "projVar=%u members=0x%X matrixOps=%u directPos=%u",
             dbg ? dbg->pipeline_index : 0,
-            has_projection_path,
-            has_view_path,
+            m.proj_found,
+            m.has_viewindex_builtin,
             projection_mode,
             dbg ? dbg->proj_var : 0,
             dbg ? dbg->proj_member_mask : 0,
