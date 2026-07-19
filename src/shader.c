@@ -153,6 +153,11 @@ typedef struct
     /* Projection provenance per SSA value */
     uint8_t *is_proj_value;
     uint8_t *is_view_value;
+    /* ---------- NEW ---------- */
+    /* Value was reconstructed from depth/screen-space rather than world-space. */
+    uint8_t *is_screen_value;
+    /* Number of reconstruction operations detected. */
+    uint32_t screen_reconstruct_count;
 } SpvMod;
 
 static inline bool valid_id(const SpvMod *m, uint32_t id)
@@ -229,11 +234,11 @@ static void free_spv_provenance(SpvMod *m)
     free(m->is_matrix_ptr);
     free(m->is_proj_value);
     free(m->is_view_value);
-
     m->value_from_matrix = NULL;
-    m->is_matrix_type = NULL;
-    m->is_matrix_ptr = NULL;
-    m->is_proj_value = NULL;
+    m->is_matrix_type    = NULL;
+    m->is_matrix_ptr     = NULL;
+    m->is_proj_value     = NULL;
+    m->is_view_value     = NULL;
     m->value_capacity = 0;
 }
 
@@ -474,11 +479,13 @@ static void do_scan(SpvMod *m, bool p2)
                         uint32_t b = w[i + 4];
                         uint8_t proj_a = PROJ(a);
                         uint8_t proj_b = PROJ(b);
+                        uint8_t view_a = VIEW(a);
+                        uint8_t view_b = VIEW(b);
                         if ((proj_a || proj_b) &&
-                            (op == SpvOpMatrixTimesVector || op == SpvOpMatrixTimesMatrix))
+                            (op == SpvOpMatrixTimesVector ||
+                             op == SpvOpMatrixTimesMatrix))
                         {
                             uint8_t proj = proj_a ? proj_a : proj_b;
-                            /* THIS is the member that actually reaches MVP */
                             m->proj_member_mask |= 1u << (proj - 1);
                             m->proj_mtv_count++;
                             STEREO_LOG(
@@ -492,8 +499,8 @@ static void do_scan(SpvMod *m, bool p2)
                         }
                         if (proj_a || proj_b)
                             SETPROJ(w[i + 2], proj_a ? proj_a : proj_b);
-                        if (VIEW(a) || VIEW(b))
-                            SETVIEW(w[i + 2], 1);
+                        if (view_a || view_b)
+                            SETVIEW(w[i + 2], view_a ? view_a : view_b);
                         SETMAT(w[i + 2], 1);
                     }
                 }
@@ -924,6 +931,9 @@ add_pipeline_info(
 typedef struct {
     SpvMod *m;
     bool have_view;
+    /* Provenance */
+    bool has_projection_path;
+    bool has_view_path;
     uint32_t uv4;
     uint32_t uint_;
     uint32_t bt;
@@ -1285,7 +1295,7 @@ bool spirv_patch_stereo_vertex(
             dbg &&
             (dbg->is_quad ||
              dbg->vertex_binding_count == 0) &&
-            m.dot_count <= 2 &&
+            !m.has_matrix_ops &&
             m.has_direct_position_write &&
             !m.has_emit_vertex &&
             m.exec_model == SpvExecVertex;
@@ -1942,7 +1952,6 @@ fs_binding_is_stereo_attachment(
         s->vars[vi].set;
     uint32_t type =
         s->vars[vi].type;
-
     /*
      * Deferred framebuffer attachments upgraded to arrayLayers=2.
      *
@@ -1966,7 +1975,6 @@ fs_binding_is_stereo_attachment(
         (binding <= 4) ||
         (s->vars[vi].storage ==
              SpvStorageClassInput);
-
     STEREO_LOG(
         "FS_BINDING_FALLBACK var=%u set=%u binding=%u storage=%u stereo=%u",
         var,
@@ -1974,7 +1982,6 @@ fs_binding_is_stereo_attachment(
         binding,
         s->vars[vi].storage,
         stereo);
-
     STEREO_LOG(
         "FS_BINDING_CLASSIFY var=%u set=%u binding=%u type=%u stereo=%u",
         var,
@@ -1982,7 +1989,6 @@ fs_binding_is_stereo_attachment(
         binding,
         type,
         stereo);
-
     return stereo;
 }
 
@@ -3570,8 +3576,20 @@ fs_prescan(
     /*
      * Dump the final ownership graph after fixups.
      */
-    fs_dump_scan_summary(
-        s);
+    fs_dump_scan_summary(s);
+    for (uint32_t l = 0; l < s->n_load; ++l)
+    {
+        const FsLoadInfo *load = &s->loads[l];
+        int vi = fs_var_index(s, load->owner_var);
+        STEREO_LOG(
+            "FS_FINAL_LOAD load=%u owner=%u set=%u binding=%u storage=%u type=%u",
+            load->id,
+            load->owner_var,
+            (vi >= 0) ? s->vars[vi].set : 0xffffffffu,
+            (vi >= 0) ? s->vars[vi].binding : 0xffffffffu,
+            (vi >= 0) ? s->vars[vi].storage : 0xffffffffu,
+            (vi >= 0) ? s->vars[vi].type : 0xffffffffu);
+    }
     for (uint32_t v = 0; v < s->n_var; ++v)
     {
         if (s->vars[v].id == 15)
@@ -4055,7 +4073,6 @@ bool spirv_patch_stereo_fs(
     for (uint32_t i = 0; i < s.n_var; ++i)
     {
         const FsVariableInfo *var = &s.vars[i];
-
         if (var->binding != 0xffffffffu)
         {
             STEREO_LOG(
@@ -4067,9 +4084,7 @@ bool spirv_patch_stereo_fs(
         }
     }
     if (s.n_img == 0 || !s.float_id) return false;
-
     uint32_t n_patches = fs_count_patches(&s, in, in_c);
-
     /* Allocate new IDs above current bound */
     uint32_t nid           = in[3];
     uint32_t new_int_id    = s.int_id        ? s.int_id        : nid++;
@@ -4080,23 +4095,18 @@ bool spirv_patch_stereo_fs(
     bool     is_new_vi     = (s.vi_var_id == 0);
     uint32_t samp_nid      = nid;
     uint32_t new_bound     = samp_nid + n_patches * 5 + 8;
-
     SpvBuf ob;
     if (!sb_init(&ob, in_c + 60 + (size_t)n_patches * 28)) return false;
-
     bool mv_added   = s.has_mv_cap;
     bool types_done = false;
     bool ep_done    = false;
     bool in_func    = false;
-
     /* Header */
     sb_push_n(&ob, in, 5);
     ob.w[3] = new_bound;
-
     for (size_t i = 5; i < in_c; ) {
         uint32_t op = in[i] & 0xffff, wc = in[i] >> 16;
         if (!wc || i + wc > in_c) break;
-
         if (in_func &&
             op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSparseTexelsResident)
@@ -4109,14 +4119,12 @@ bool spirv_patch_stereo_fs(
                 (wc >= 2) ? in[i + 1] : 0,
                 (wc >= 3) ? in[i + 2] : 0);
         }
-
         /* Add MultiView capability before first non-capability instruction */
         if (!mv_added && op != 17) {
             uint32_t mv[] = { (2u<<16)|17, 4439 };
             sb_push_n(&ob, mv, 2);
             mv_added = true;
         }
-
         /* Modify OpEntryPoint: append new_vi_id to interface if we're adding it */
         if (op == 15 && !ep_done) {
             ep_done = true;
@@ -4308,13 +4316,11 @@ bool spirv_patch_stereo_fs(
                 "FS_SAMPLE_PATCH_APPLY image=%u descriptor=%u",
                 in[i+3],
                 descriptor_var);
-
             uint32_t id_lv  = samp_nid++;
             uint32_t id_cvt = samp_nid++;
             uint32_t id_u   = samp_nid++;
             uint32_t id_v   = samp_nid++;
             uint32_t id_c3  = samp_nid++;
-
             /* OpLoad %int %vi → id_lv */
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
@@ -4330,7 +4336,6 @@ bool spirv_patch_stereo_fs(
             /* OpCompositeConstruct %v3float id_u id_v id_cvt → id_c3 */
             { uint32_t w[]={(6u<<16)|80, new_v3f_id, id_c3, id_u, id_v, id_cvt};
               sb_push_n(&ob,w,6); }
-
             /* Emit modified sample instruction: word[4] = new coord */
             sb_push(&ob, in[i]);          /* opcode */
             sb_push(&ob, in[i+1]);        /* result type */
@@ -4447,26 +4452,20 @@ bool spirv_patch_stereo_fs(
             uint32_t id_x  = samp_nid++;
             uint32_t id_y  = samp_nid++;
             uint32_t id_c3 = samp_nid++;
-
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
-
             { uint32_t w[]={(5u<<16)|81, new_int_id, id_x, coord_id, 0};
               sb_push_n(&ob,w,5); }
-
             { uint32_t w[]={(5u<<16)|81, new_int_id, id_y, coord_id, 1};
               sb_push_n(&ob,w,5); }
-
             { uint32_t w[]={(6u<<16)|80, new_v3i_id, id_c3,
                             id_x, id_y, id_lv};
               sb_push_n(&ob,w,6); }
-
             sb_push(&ob, in[i]);
             sb_push(&ob, in[i+1]);
             sb_push(&ob, in[i+2]);
             sb_push(&ob, in[i+3]);
             sb_push(&ob, id_c3);
-
             if (wc > 5)
                 sb_push_n(&ob, &in[i+5], wc - 5);
             STEREO_LOG(
@@ -4476,11 +4475,9 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
-
         sb_push_n(&ob, &in[i], wc);
         i += wc;
     }
-
     ob.w[3] = samp_nid + 1;
     *out   = ob.w;
     *out_c = ob.n;
