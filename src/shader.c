@@ -4621,21 +4621,16 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
     if (!sd->stereo.enabled) return VK_SUCCESS;
     const uint32_t *spv = (const uint32_t *)pCI->pCode;
     size_t wc = pCI->codeSize / 4;
-    bool patchable = is_patchable_spv(spv, wc);
+    uint64_t h = hash_spv(spv, wc);
     STEREO_LOG(
-        "CACHE_DECISION module=%p words=%zu patchable=%u",
+        "CREATE_SHADER module=%p hash=%016llx words=%zu patchable=%u",
         (void *)*pSM,
+        (unsigned long long)h,
         wc,
-        patchable);
-    if (patchable)
+        is_patchable_spv(spv, wc));
+    if (is_patchable_spv(spv, wc))
     {
         cache_add(sd, *pSM, spv, wc);
-        uint64_t h = hash_spv(spv, wc);
-        STEREO_LOG(
-            "CACHE_INSERT module=%p hash=%016llx words=%zu",
-            (void *)*pSM,
-            (unsigned long long)h,
-            wc);
     }
     return VK_SUCCESS;
 }
