@@ -5352,6 +5352,13 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                                 for (uint32_t k = 0; k < sd->shader_cache_count; ++k)
                                 {
                                     STEREO_LOG(
+                                        "CACHE_HANDLE[%u] module=%p hash=%016llx",
+                                        k,
+                                        (void *)sd->shader_cache[k].handle,
+                                        (unsigned long long)hash_spv(
+                                            sd->shader_cache[k].spv,
+                                            sd->shader_cache[k].words));
+                                    STEREO_LOG(
                                         "CACHE_ENTRY[%u] module=%p hash=%016llx words=%zu",
                                         k,
                                         (void *)sd->shader_cache[k].handle,
