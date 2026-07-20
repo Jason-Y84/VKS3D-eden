@@ -5289,8 +5289,29 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                         {
                             FsScan fs_probe = {0};
                             fs_prescan(&fs_probe, fs_cache->spv, fs_cache->words);
+                            STEREO_LOG(
+                                "FS_SCAN_RESULT vars=%u",
+                                fs_probe.n_var);
+                            for (uint32_t dbg = 0;
+                                 dbg < fs_probe.n_var;
+                                 ++dbg)
+                            {
+                                STEREO_LOG(
+                                    "FS_VAR_SCAN id=%u storage=%u set=%u binding=%u proj=%u",
+                                    fs_probe.vars[dbg].id,
+                                    fs_probe.vars[dbg].storage,
+                                    fs_probe.vars[dbg].set,
+                                    fs_probe.vars[dbg].binding,
+                                    fs_probe.vars[dbg].is_projection_ubo);
+                            }
                             for (uint32_t fv = 0; fv < fs_probe.n_var; ++fv)
                             {
+                                STEREO_LOG(
+                                    "FS_PROJ_TEST id=%u proj=%u binding=%u set=%u",
+                                    fs_probe.vars[fv].id,
+                                    fs_probe.vars[fv].is_projection_ubo,
+                                    fs_probe.vars[fv].binding,
+                                    fs_probe.vars[fv].set);
                                 if (fs_probe.vars[fv].is_projection_ubo)
                                 {
                                     /*
