@@ -4923,17 +4923,19 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             }
             uint64_t spv_hash =
                 hash_spv(fs_cache->spv, fs_cache->words);
+            uint32_t pipeline_has_mv =
+                (rpi != NULL) ? (uint32_t)rpi->has_multiview : 0;
             STEREO_LOG(
                 "FS_PATCH_DECISION "
                 "pipe=%u "
                 "is_quad=%u "
-                "multiview=%u "
+                "pipeline_mv=%u "
                 "has_fs=%u "
                 "cache=%p "
                 "stageFlags=0x%x",
                 p,
                 is_quad,
-                multiview,
+                pipeline_has_mv,
                 (fs_s != ~0u),
                 (void *)fs_cache,
                 ci->pStages[fs_s].stage);
@@ -4987,13 +4989,13 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "FS_PATCH_DECISION "
                 "pipe=%u "
                 "is_quad=%u "
-                "multiview=%u "
+                "pipeline_mv=%u "
                 "has_fs=%u "
                 "cache=%p "
                 "stageFlags=0x%x",
                 p,
                 is_quad,
-                multiview,
+                pipeline_has_mv,
                 (fs_s != ~0u),
                 (void *)fs_cache,
                 ci->pStages[fs_s].stage);
