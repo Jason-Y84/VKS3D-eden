@@ -3156,6 +3156,10 @@ fs_scan_image_operation(
     case SpvOpImageFetch:
     case SpvOpImageRead:
     case SpvOpImageWrite:
+        STEREO_LOG(
+            "FS_IMAGE_WRITE image=%u value=%u",
+            ins[3],
+            ins[4]);
         break;
     default:
         return;
@@ -4241,6 +4245,12 @@ bool spirv_patch_stereo_fs(
                         s.vars[v].storage,
                         s.vars[v].set,
                         s.vars[v].binding);
+                    STEREO_LOG(
+                        "FS_IMAGE_PATCH_USER_TYPE "
+                        "var=%u "
+                        "type=%u",
+                        s.vars[v].id,
+                        s.vars[v].type);
                 }
             }
             STEREO_LOG(
@@ -4361,6 +4371,21 @@ bool spirv_patch_stereo_fs(
                     descriptor_var,
                     (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
                     (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
+                if (vi >= 0)
+                {
+                    STEREO_LOG(
+                        "FS_DESCRIPTOR_TYPE "
+                        "descriptor=%u "
+                        "type=%u "
+                        "storage=%u "
+                        "set=%u "
+                        "binding=%u",
+                        descriptor_var,
+                        s.vars[vi].type,
+                        s.vars[vi].storage,
+                        s.vars[vi].set,
+                        s.vars[vi].binding);
+                }
                 STEREO_LOG(
                     "FS_SAMPLE_BINDING_DETAIL image=%u descriptor=%u binding=%u",
                     in[i+3],
@@ -4985,20 +5010,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             STEREO_LOG(
                 "PATCHING_FS hash=%016llx",
                 (unsigned long long)spv_hash);
-            STEREO_LOG(
-                "FS_PATCH_DECISION "
-                "pipe=%u "
-                "is_quad=%u "
-                "pipeline_mv=%u "
-                "has_fs=%u "
-                "cache=%p "
-                "stageFlags=0x%x",
-                p,
-                is_quad,
-                pipeline_has_mv,
-                (fs_s != ~0u),
-                (void *)fs_cache,
-                ci->pStages[fs_s].stage);
             STEREO_LOG(
                 "CALLING spirv_patch_stereo_fs hash=%016llx words=%zu",
                 (unsigned long long)spv_hash,
