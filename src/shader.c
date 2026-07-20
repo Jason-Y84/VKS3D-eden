@@ -3193,6 +3193,13 @@ fs_scan_image_operation(
         fs_binding_is_stereo_attachment(
             s,
             li->owner_var);
+    STEREO_LOG(
+        "FS_SAMPLE_CLASSIFIED image=%u owner=%u binding=%u stereo=%u op=%s",
+        image_id,
+        li->owner_var,
+        s->vars[var].binding,
+        stereo,
+        spv_op_name(op));
     li->binding =
         s->vars[var].binding;
     STEREO_LOG(
@@ -4056,6 +4063,10 @@ fs_count_patches(
                     "FS_FETCH_NO_DESCRIPTOR image=%u",
                     w[i + 3]);
             }
+            STEREO_LOG(
+                "FS_FETCH_CLASSIFY image=%u descriptor=%u",
+                w[i + 3],
+                descriptor_var);
             if (fs_binding_is_stereo_attachment(
                     s,
                     descriptor_var))
