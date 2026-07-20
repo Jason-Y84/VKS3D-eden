@@ -5280,36 +5280,38 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                             (tmp_mod[p] != VK_NULL_HANDLE &&
                              st->module == tmp_mod[p]);
                         /*
-                         * If the pipeline did not already get projection info from the
-                         * vertex/tess path, probe the fragment shader itself.
-                         * This is the FS-only SSAO / post-process path.
+                         * Always probe the fragment shader too.
+                         * VS/TES may already have filled proj info, but FS can carry
+                         * its own projection UBO for SSAO / post-process paths.
                          */
-                        if (!info->has_proj_ubo)
+                        StereoShaderCache *fs_cache = cache_find(sd, st->module);
+                        if (fs_cache && fs_cache->spv && fs_cache->words)
                         {
-                            StereoShaderCache *fs_cache = cache_find(sd, st->module);
-                            if (fs_cache && fs_cache->spv && fs_cache->words)
+                            FsScan fs_probe = {0};
+                            fs_prescan(&fs_probe, fs_cache->spv, fs_cache->words);
+                            for (uint32_t fv = 0; fv < fs_probe.n_var; ++fv)
                             {
-                                FsScan fs_probe = {0};
-                                fs_prescan(&fs_probe, fs_cache->spv, fs_cache->words);
-                                for (uint32_t fv = 0; fv < fs_probe.n_var; ++fv)
+                                if (fs_probe.vars[fv].is_projection_ubo)
                                 {
-                                    if (fs_probe.vars[fv].is_projection_ubo)
-                                    {
-                                        info->has_proj_ubo     = VK_TRUE;
-                                        info->proj_set         = fs_probe.vars[fv].set;
-                                        info->proj_binding     = fs_probe.vars[fv].binding;
-                                        info->proj_member_mask = 1u << 0;
-                                        info->proj_var         = fs_probe.vars[fv].id;
-                                        STEREO_LOG(
-                                            "FS_PIPE_PROJ pipe=%p module=%p var=%u set=%u binding=%u mask=0x%X",
-                                            (void *)pP[p],
-                                            (void *)st->module,
-                                            info->proj_var,
-                                            info->proj_set,
-                                            info->proj_binding,
-                                            info->proj_member_mask);
-                                        break;
-                                    }
+                                    /*
+                                     * Prefer an FS projection UBO if it is found.
+                                     * This should override VS-derived projection info
+                                     * for fragment-only reconstruction shaders.
+                                     */
+                                    info->has_proj_ubo     = VK_TRUE;
+                                    info->proj_set         = fs_probe.vars[fv].set;
+                                    info->proj_binding     = fs_probe.vars[fv].binding;
+                                    info->proj_member_mask = 1u;
+                                    info->proj_var         = fs_probe.vars[fv].id;
+                                    STEREO_LOG(
+                                        "FS_PIPE_PROJ pipe=%p module=%p var=%u set=%u binding=%u mask=0x%X",
+                                        (void *)pP[p],
+                                        (void *)st->module,
+                                        info->proj_var,
+                                        info->proj_set,
+                                        info->proj_binding,
+                                        info->proj_member_mask);
+                                    break;
                                 }
                             }
                         }
