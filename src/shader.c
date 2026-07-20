@@ -3228,7 +3228,6 @@ fs_scan_instruction(
 {
     if (!s || !ins)
         return;
-
     /*
      * Diagnostic: log every image operation encountered during
      * the prescan so we know exactly which SPIR-V instructions
@@ -3250,131 +3249,215 @@ fs_scan_instruction(
             (wc >= 3) ? ins[2] : 0,
             (wc >= 4) ? ins[3] : 0);
         break;
-
     default:
         break;
     }
-
     switch (op)
     {
-        /*
-         * Type declarations.
-         *
-         * These must be scanned before variables because
-         * later resource classification depends on knowing
-         * image/sampled-image relationships.
-         */
-        case SpvOpTypeFloat:
-        case SpvOpTypeInt:
-        case SpvOpTypeVector:
-        case SpvOpTypeImage:
-        case SpvOpTypeSampledImage:
-        case SpvOpTypePointer:
-            fs_scan_type_instruction(
-                s,
-                ins,
-                op,
-                wc);
-            break;
-        /*
-         * Decorations may appear before OpVariable.
-         *
-         * Cache them first and apply them when the variable
-         * is encountered.
-         */
-        case SpvOpDecorate:
-            fs_process_decoration(
-                s,
-                ins,
-                wc);
-            break;
-        /*
-         * Descriptor/resource declarations.
-         */
-        case SpvOpVariable:
-            fs_scan_variable_instruction(
-                s,
-                ins,
-                wc);
-            break;
-        /*
-         * Function metadata.
-         */
-        case SpvOpFunction:
-            fs_scan_function(
-                s,
-                ins,
-                wc);
-            break;
-        case SpvOpFunctionParameter:
-            fs_scan_function_parameter(
-                s,
-                ins,
-                wc);
-            break;
-        case SpvOpFunctionEnd:
-            s->in_function = false;
-            s->current_function_id = 0;
-            s->current_param_index = 0;
+    /*
+     * Type declarations.
+     *
+     * These must be scanned before variables because
+     * later resource classification depends on knowing
+     * image/sampled-image relationships.
+     */
+    case SpvOpTypeFloat:
+    case SpvOpTypeInt:
+    case SpvOpTypeVector:
+    case SpvOpTypeImage:
+    case SpvOpTypeSampledImage:
+    case SpvOpTypePointer:
+        fs_scan_type_instruction(
+            s,
+            ins,
+            op,
+            wc);
+        break;
+    /*
+     * Decorations may appear before OpVariable.
+     *
+     * Cache them first and apply them when the variable
+     * is encountered.
+     */
+    case SpvOpDecorate:
+        fs_process_decoration(
+            s,
+            ins,
+            wc);
+        break;
+    /*
+     * Descriptor/resource declarations.
+     */
+    case SpvOpVariable:
+        fs_scan_variable_instruction(
+            s,
+            ins,
+            wc);
+        break;
+    /*
+     * Function metadata.
+     */
+    case SpvOpFunction:
+        fs_scan_function(
+            s,
+            ins,
+            wc);
+        break;
+    case SpvOpFunctionParameter:
+        fs_scan_function_parameter(
+            s,
+            ins,
+            wc);
+        break;
+    case SpvOpFunctionEnd:
+        s->in_function = false;
+        s->current_function_id = 0;
+        s->current_param_index = 0;
+        STEREO_LOG(
+            "FS_FUNCTION_END");
+        break;
+    case SpvOpFunctionCall:
+        STEREO_LOG(
+            "FS_FUNCTION_CALL wc=%u resultType=%u result=%u function=%u",
+            wc,
+            wc > 1 ? ins[1] : 0,
+            wc > 2 ? ins[2] : 0,
+            wc > 3 ? ins[3] : 0);
+        fs_scan_function_call(
+            s,
+            ins,
+            wc);
+        break;
+    /*
+     * Resource ownership tracking.
+     *
+     * Keep SSA ownership for:
+     *  - direct loads
+     *  - pointer arithmetic / access chains
+     *  - simple forwarding ops
+     *
+     * This is required so a later OpLoad from an access chain can still
+     * be traced back to the originating uniform variable.
+     */
+    case SpvOpAccessChain:
+    case SpvOpInBoundsAccessChain:
+    case SpvOpPtrAccessChain:
+    {
+        if (wc >= 4)
+        {
+            uint32_t result_id = ins[2];
+            uint32_t base_id   = ins[3];
+            uint32_t owner     = base_id;
+            if (!fs_resolve_load_owner(s, base_id, &owner))
+            {
+                if (fs_var_index(s, base_id) >= 0)
+                    owner = base_id;
+            }
+            fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
-                "FS_FUNCTION_END");
-            break;
-        case SpvOpFunctionCall:
+                "FS_CHAIN result=%u base=%u owner=%u op=%s",
+                result_id,
+                base_id,
+                owner,
+                spv_op_name(op));
+        }
+        break;
+    }
+    case SpvOpCopyObject:
+    case SpvOpBitcast:
+    {
+        if (wc >= 4)
+        {
+            uint32_t result_id = ins[2];
+            uint32_t source_id = ins[3];
+            uint32_t owner     = source_id;
+            if (!fs_resolve_load_owner(s, source_id, &owner))
+            {
+                if (fs_var_index(s, source_id) >= 0)
+                    owner = source_id;
+            }
+            fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
-                "FS_FUNCTION_CALL wc=%u resultType=%u result=%u function=%u",
-                wc,
-                wc > 1 ? ins[1] : 0,
-                wc > 2 ? ins[2] : 0,
-                wc > 3 ? ins[3] : 0);
-            fs_scan_function_call(
-                s,
-                ins,
-                wc);
-            break;
-        /*
-         * Resource ownership tracking.
-         */
-        case SpvOpLoad:
-            fs_scan_load_instruction(
-                s,
-                ins,
-                wc);
-            break;
-        case SpvOpSampledImage:
-            fs_track_sampled_image(
-                s,
-                ins,
-                wc);
-            break;
-        case SpvOpImage:
-        case SpvOpCopyObject:
-            fs_track_image_propagation(
-                s,
-                ins,
-                op,
-                wc);
-            break;
-        /*
-         * Final image consumers.
-         *
-         * This is where depth/normal attachment analysis
-         * will eventually feed projection correction.
-         */
-        case SpvOpImageSampleImplicitLod:
-        case SpvOpImageSampleExplicitLod:
-        case SpvOpImageSampleDrefImplicitLod:
-        case SpvOpImageSampleDrefExplicitLod:
-        case SpvOpImageFetch:
-        case SpvOpImageRead:
-        case SpvOpImageWrite:
-            fs_scan_image_operation(
-                s,
-                ins,
-                op,
-                wc);
-            break;
-        default:
-            break;
+                "FS_PROPAGATE_OBJECT op=%s src=%u dst=%u owner=%u",
+                spv_op_name(op),
+                source_id,
+                result_id,
+                owner);
+        }
+        break;
+    }
+    case SpvOpCompositeExtract:
+    {
+        if (wc >= 5)
+        {
+            uint32_t result_id = ins[2];
+            uint32_t source_id = ins[3];
+            uint32_t owner     = source_id;
+            if (!fs_resolve_load_owner(s, source_id, &owner))
+            {
+                if (fs_var_index(s, source_id) >= 0)
+                    owner = source_id;
+            }
+            fs_add_load_mapping(s, result_id, owner);
+        }
+        break;
+    }
+    case SpvOpVectorShuffle:
+    {
+        if (wc >= 6)
+        {
+            uint32_t result_id = ins[2];
+            uint32_t source_id = ins[3];
+            uint32_t owner     = source_id;
+            if (!fs_resolve_load_owner(s, source_id, &owner))
+            {
+                if (fs_var_index(s, source_id) >= 0)
+                    owner = source_id;
+            }
+            fs_add_load_mapping(s, result_id, owner);
+        }
+        break;
+    }
+    case SpvOpLoad:
+        fs_scan_load_instruction(
+            s,
+            ins,
+            wc);
+        break;
+    case SpvOpSampledImage:
+        fs_track_sampled_image(
+            s,
+            ins,
+            wc);
+        break;
+    case SpvOpImage:
+        fs_track_image_propagation(
+            s,
+            ins,
+            op,
+            wc);
+        break;
+    /*
+     * Final image consumers.
+     *
+     * This is where depth/normal attachment analysis
+     * will eventually feed projection correction.
+     */
+    case SpvOpImageSampleImplicitLod:
+    case SpvOpImageSampleExplicitLod:
+    case SpvOpImageSampleDrefImplicitLod:
+    case SpvOpImageSampleDrefExplicitLod:
+    case SpvOpImageFetch:
+    case SpvOpImageRead:
+    case SpvOpImageWrite:
+        fs_scan_image_operation(
+            s,
+            ins,
+            op,
+            wc);
+        break;
+    default:
+        break;
     }
 }
 /*
