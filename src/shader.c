@@ -4592,12 +4592,18 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
     const uint32_t *spv=(const uint32_t*)pCI->pCode;
     size_t wc=pCI->codeSize/4;
     if (is_patchable_spv(spv,wc)) cache_add(sd,*pSM,spv,wc);
-    uint64_t h = hash_spv(words, word_count);
-    STEREO_LOG(
-        "CACHE_INSERT module=%p hash=%016llx words=%zu",
-        (void *)module,
-        (unsigned long long)h,
-        word_count);
+    const uint32_t *spv = (const uint32_t *)pCI->pCode;
+    size_t wc = pCI->codeSize / 4;
+    if (is_patchable_spv(spv, wc))
+    {
+        cache_add(sd, *pSM, spv, wc);
+        uint64_t h = hash_spv(spv, wc);
+        STEREO_LOG(
+            "CACHE_INSERT module=%p hash=%016llx words=%zu",
+            (void *)*pSM,
+            (unsigned long long)h,
+            wc);
+    }
     return VK_SUCCESS;
 }
 
