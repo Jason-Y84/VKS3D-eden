@@ -4559,9 +4559,12 @@ static bool is_patchable_spv(const uint32_t *w, size_t c)
 static StereoShaderCache *
 cache_find(StereoDevice *sd, VkShaderModule mod)
 {
-    for (StereoShaderCache *e = sd->cache; e; e = e->next)
+    if (!sd)
+        return NULL;
+    for (uint32_t i = 0; i < sd->shader_cache_count; i++)
     {
-        if (e->module == mod)
+        StereoShaderCache *e = &sd->shader_cache[i];
+        if (e->handle == mod)
         {
             STEREO_LOG(
                 "CACHE_FIND_HIT module=%p hash=%016llx words=%zu",
