@@ -4435,6 +4435,14 @@ bool spirv_patch_stereo_fs(
             { uint32_t w[]={(6u<<16)|80, new_v3f_id, id_c3, id_u, id_v, id_cvt};
               sb_push_n(&ob,w,6); }
             /* Emit modified sample instruction: word[4] = new coord */
+            STEREO_LOG(
+                "FS_SAMPLE_REWRITE image=%u descriptor=%u coord2d=%u coord3d=%u op=%s",
+                in[i + 3],
+                descriptor_var,
+                coord_id,
+                id_c3,
+                spv_op_name(op));
+
             sb_push(&ob, in[i]);          /* opcode */
             sb_push(&ob, in[i+1]);        /* result type */
             sb_push(&ob, in[i+2]);        /* result id */
