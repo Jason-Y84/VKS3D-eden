@@ -4881,46 +4881,59 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
          * Geometry pipelines (has vertex input) use Path A/B VS patching. */
         bool is_quad = !ci->pVertexInputState ||
                        ci->pVertexInputState->vertexBindingDescriptionCount == 0;
-        if (is_quad && ci->stageCount > 0) {
+        if (is_quad && ci->stageCount > 0)
+        {
             /* Find FS stage */
             uint32_t fs_s = ~0u;
             for (uint32_t s2 = 0; s2 < ci->stageCount; s2++)
+            {
                 if (ci->pStages[s2].stage == VK_SHADER_STAGE_FRAGMENT_BIT)
-                    { fs_s = s2; break; }
-            if (fs_s == ~0u) {
+                {
+                    fs_s = s2;
+                    break;
+                }
+            }
+            if (fs_s == ~0u)
+            {
                 STEREO_LOG("Pipe %u: quad but no FS stage", p);
                 continue;
             }
-            /*
-             * Log fullscreen quad FS identity.
-             * Used to identify SSAO/deferred/post-process shaders.
-             */
-            StereoShaderCache *fs_dbg =
+            StereoShaderCache *fs_cache =
                 cache_find(sd, ci->pStages[fs_s].module);
-            if (fs_dbg) {
+            if (!fs_cache)
+            {
                 STEREO_LOG(
-                    "QUAD_FS_SHADER p=%u hash=%016llx words=%zu module=%p",
-                    p,
-                    (unsigned long long)hash_spv(fs_dbg->spv, fs_dbg->words),
-                    fs_dbg->words,
-                    (void*)ci->pStages[fs_s].module);
-            } else {
-                STEREO_LOG(
-                    "QUAD_FS_SHADER p=%u module=%p NOT_CACHED",
-                    p,
-                    (void*)ci->pStages[fs_s].module);
-            }
-            StereoShaderCache *e = cache_find(sd, ci->pStages[fs_s].module);
-            if (!e) {
-                STEREO_LOG("Pipe %u: quad FS not cached (stageCount=%u)", p, ci->stageCount);
+                    "PIPE_MODULE_MISS stage=0x%x module=%p renderPass=%p pipeline=%u",
+                    ci->pStages[fs_s].stage,
+                    (void *)ci->pStages[fs_s].module,
+                    (void *)ci->renderPass,
+                    p);
+                for (uint32_t k = 0; k < sd->shader_cache_count; ++k)
+                {
+                    STEREO_LOG(
+                        "CACHE_HANDLE[%u] module=%p hash=%016llx words=%zu",
+                        k,
+                        (void *)sd->shader_cache[k].handle,
+                        (unsigned long long)hash_spv(
+                            sd->shader_cache[k].spv,
+                            sd->shader_cache[k].words),
+                        sd->shader_cache[k].words);
+                }
                 continue;
             }
-            uint64_t spv_hash = hash_spv(e->spv, e->words);
+            uint64_t spv_hash =
+                hash_spv(fs_cache->spv, fs_cache->words);
+            STEREO_LOG(
+                "QUAD_FS_SHADER p=%u hash=%016llx words=%zu module=%p",
+                p,
+                (unsigned long long)spv_hash,
+                fs_cache->words,
+                (void *)ci->pStages[fs_s].module);
             STEREO_LOG(
                 "SHADER_MODULE stage=FS hash=%016llx words=%zu module=%p",
                 (unsigned long long)spv_hash,
-                e->words,
-                (void*)ci->pStages[fs_s].module);
+                fs_cache->words,
+                (void *)ci->pStages[fs_s].module);
             STEREO_LOG(
                 "PATCH hash=%016llx words=%zu module=%p vs_stage=%u",
                 (unsigned long long)spv_hash,
