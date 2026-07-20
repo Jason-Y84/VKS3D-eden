@@ -1159,14 +1159,14 @@ stereo_CmdBindDescriptorSets(
                         info->proj_member_mask,
                         info->proj_var);
                     /*
-                     * Only replace the descriptor if the shader uses
-                     * ONLY the projection matrix member.
-                     *
-                     * Any additional members (mask != 0x4) mean the shader
-                     * also consumes other data from the same UBO, so replacing
-                     * the entire descriptor corrupts those values.
+                     * Keep the old VS/TES case, and also allow the FS-only
+                     * projection UBO path (binding 4, single-member block).
                      */
-                    if (info->proj_member_mask == (1u << 2))
+                    bool rewrite_proj =
+                        (info->proj_binding == 4 &&
+                         info->proj_member_mask == 1u) ||
+                        (info->proj_member_mask == (1u << 2));
+                    if (rewrite_proj)
                     {
                         stereo_write_ubo(sd);
                         stereo_overwrite_projection_binding(

@@ -4605,7 +4605,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                (N > 0 ? (void*)pCI[0].renderPass : NULL),
                (N > 0 ? pCI[0].stageCount : 0),
                (N > 0 ? pCI[0].pNext : NULL));
-
     STEREO_LOG(
         "PIPE_CREATE_BEGIN N=%u multiview=%d enabled=%d",
         N,
@@ -4613,7 +4612,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         sd->stereo.enabled);
     if (!sd->stereo.enabled)
         return sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,pCI,pAlloc,pP);
-
     VkShaderModule                   *tmp_mod = calloc(N, sizeof(VkShaderModule));
     VkPipelineShaderStageCreateInfo **tst     = calloc(N, sizeof(void*));
     VkGraphicsPipelineCreateInfo     *infos   = malloc(N * sizeof(*infos));
@@ -4645,7 +4643,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
     static int  dump_n = 0;
     float lo=sd->stereo.left_eye_offset, ro=sd->stereo.right_eye_offset,
           conv=sd->stereo.convergence;
-
     STEREO_LOG(
         "[PATCH] lo=%f ro=%f flip=%d",
         lo,
@@ -4726,7 +4723,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             if (st==VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
                 { has_tes=true; tes_stage=s; }
         }
-
         /* ── Determine if this pipeline's render pass has multiview ──────
          * gl_ViewIndex is 0 in non-multiview passes.  Patching VS/TES there
          * bakes in left_eye_offset for ALL draws → deferred G-buffer / shadow
@@ -4763,7 +4759,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             (unsigned)has_tes,
             (!ci->pVertexInputState ||
              ci->pVertexInputState->vertexBindingDescriptionCount == 0));
-
         for (uint32_t fs_dbg_i = 0; fs_dbg_i < ci->stageCount; fs_dbg_i++) {
             if (ci->pStages[fs_dbg_i].stage == VK_SHADER_STAGE_FRAGMENT_BIT) {
                 StereoShaderCache *fs_dbg =
@@ -4781,7 +4776,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 }
             }
         }
-
         /* ── PATCH 3: Pipeline multiview FIXED (NO pipeline struct exists) ─────────────── */
         /* Multiview is render-pass driven ONLY.
          * Pipeline pNext must NOT contain VkPipelineMultiviewCreateInfo (invalid Vulkan API). */
@@ -4802,7 +4796,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 /* VK 1.3 dynamic rendering: keep infos[p].renderPass as-is */
             }
         }
-
         if (!in_mv_rp)
         {
             STEREO_LOG(
@@ -4812,27 +4805,23 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 has_vs,
                 has_tes,
                 ci->stageCount);
-
             /* IMPORTANT:
              * Do NOT patch renderpass-based multiview logic for clearly mono pipelines
              * BUT still allow FS quad / UI heuristics to run later
              */
             goto PIPE_DECISION_CONTINUE;
         }
-
         /* Substitute multiview render pass for pipeline compilation.
          * Pipelines must be compiled against the MV render pass so the driver
          * enables multiview optimisation and gl_ViewIndex receives the real
          * per-view index (0 or 1).  Render-pass compatibility rules allow these
          * pipelines to be used with both MV and non-MV framebuffers since
          * viewMask is not part of the compatibility criteria. */
-
         if (rpi && rpi->mv_handle && rpi->has_multiview && in_mv_rp)
         {
             /* Render-pass path only; dynamic rendering has no renderPass to swap. */
             infos[p].renderPass = rpi->mv_handle;
         }
-
         /* ── Full-screen quad detection ──────────────────────────────────
          * Pipelines with no vertex input bindings are full-screen quads used
          * by deferred lighting, SSAO, bloom, TAA, etc.  Their FS samples from
@@ -4844,7 +4833,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
          * Geometry pipelines (has vertex input) use Path A/B VS patching. */
         bool is_quad = !ci->pVertexInputState ||
                        ci->pVertexInputState->vertexBindingDescriptionCount == 0;
-
         if (is_quad && ci->stageCount > 0) {
             /* Find FS stage */
             uint32_t fs_s = ~0u;
@@ -4957,7 +4945,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 sc2);
             continue;
         }
-
         /* ── Path A: patch existing TES ──────────────────────────────── */
         if (has_tes && tes_stage!=~0u) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[tes_stage].module);
@@ -4997,7 +4984,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     0,
                     0
                 };
-
                 if (!spirv_patch_stereo_vertex(
                         &sd->stereo,
                         e->spv, e->words,
@@ -5007,7 +4993,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                         &dbgA))
                 {
                 STEREO_LOG("TES patch failed");
-
                 if (dump && patched && pc2) {
                     uint64_t spv_hash = hash_spv(e->spv, e->words);
                     char dp[512];
@@ -5067,7 +5052,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 p);
             continue;
         }
-
         STEREO_LOG(
         "PATHB_GATE p=%u in_mv=%d has_vs=%d has_tcs=%d vs_stage=%u",
         p,
@@ -5145,7 +5129,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 false,
                 false
             };
-
             if (!spirv_patch_stereo_vertex(
                     &sd->stereo,
                     e->spv, e->words,
@@ -5195,11 +5178,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 p);
             continue;
         }
-
         STEREO_LOG("Pipe %u: no patchable VS/TES stage (stageCount=%u has_vs=%d has_tes=%d has_tcs=%d) — not patched",
                    p, ci->stageCount, has_vs, has_tes, has_tcs);
     }
-
     PIPE_DECISION_CONTINUE:
     /* ── PATCH 5: RenderPass-based multiview binding ─────────────── */
     for (uint32_t p = 0; p < N; p++) {
@@ -5259,20 +5240,15 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         {
             StereoPipelineInfo *info =
                 add_pipeline_info(sd);
-
             if (info)
             {
                 info->pipeline = pP[p];
-
                 info->original_renderpass =
                     pCI[p].renderPass;
-
                 info->mv_renderpass =
                     infos[p].renderPass;
-
                 info->stage_count =
                     infos[p].stageCount;
-
                 info->is_quad =
                     (!pCI[p].pVertexInputState ||
                      pCI[p].pVertexInputState->vertexBindingDescriptionCount == 0);
@@ -5280,19 +5256,16 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 info->vertex_binding_count =
                     pCI[p].pVertexInputState ?
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
-
                 info->view_mask = 0; /* default */
                 info->has_proj_ubo          = dbg_out[p].has_proj_ubo;
                 info->proj_set              = dbg_out[p].proj_set;
                 info->proj_binding          = dbg_out[p].proj_binding;
                 info->proj_member_mask      = dbg_out[p].proj_member_mask;
                 info->proj_var              = dbg_out[p].proj_var;
-
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
                     const VkPipelineShaderStageCreateInfo *st =
                         &infos[p].pStages[s];
-
                     if (st->stage == VK_SHADER_STAGE_VERTEX_BIT)
                     {
                         info->vs_module = st->module;
@@ -5300,17 +5273,49 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                             (tmp_mod[p] != VK_NULL_HANDLE &&
                              st->module == tmp_mod[p]);
                     }
-
                     if (st->stage == VK_SHADER_STAGE_FRAGMENT_BIT)
                     {
                         info->fs_module = st->module;
                         info->patched_fs =
                             (tmp_mod[p] != VK_NULL_HANDLE &&
                              st->module == tmp_mod[p]);
+                        /*
+                         * If the pipeline did not already get projection info from the
+                         * vertex/tess path, probe the fragment shader itself.
+                         * This is the FS-only SSAO / post-process path.
+                         */
+                        if (!info->has_proj_ubo)
+                        {
+                            StereoShaderCache *fs_cache = cache_find(sd, st->module);
+                            if (fs_cache && fs_cache->spv && fs_cache->words)
+                            {
+                                FsScan fs_probe = {0};
+                                fs_prescan(&fs_probe, fs_cache->spv, fs_cache->words);
+                                for (uint32_t fv = 0; fv < fs_probe.n_var; ++fv)
+                                {
+                                    if (fs_probe.vars[fv].is_projection_ubo)
+                                    {
+                                        info->has_proj_ubo     = VK_TRUE;
+                                        info->proj_set         = fs_probe.vars[fv].set;
+                                        info->proj_binding     = fs_probe.vars[fv].binding;
+                                        info->proj_member_mask = 1u << 0;
+                                        info->proj_var         = fs_probe.vars[fv].id;
+                                        STEREO_LOG(
+                                            "FS_PIPE_PROJ pipe=%p module=%p var=%u set=%u binding=%u mask=0x%X",
+                                            (void *)pP[p],
+                                            (void *)st->module,
+                                            info->proj_var,
+                                            info->proj_set,
+                                            info->proj_binding,
+                                            info->proj_member_mask);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-
             STEREO_LOG(
                 "PIPE_INFO pipe=%p rp=%p orig_rp=%p stages=%u",
                 (void*)pP[p],
