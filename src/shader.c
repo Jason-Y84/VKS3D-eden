@@ -4927,11 +4927,13 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "FS_PATCH_DECISION "
                 "pipe=%u "
                 "is_quad=%u "
+                "multiview=%u "
                 "has_fs=%u "
                 "cache=%p "
                 "stageFlags=0x%x",
                 p,
                 is_quad,
+                multiview,
                 (fs_s != ~0u),
                 (void *)fs_cache,
                 ci->pStages[fs_s].stage);
@@ -4985,11 +4987,13 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "FS_PATCH_DECISION "
                 "pipe=%u "
                 "is_quad=%u "
+                "multiview=%u "
                 "has_fs=%u "
                 "cache=%p "
                 "stageFlags=0x%x",
                 p,
                 is_quad,
+                multiview,
                 (fs_s != ~0u),
                 (void *)fs_cache,
                 ci->pStages[fs_s].stage);
