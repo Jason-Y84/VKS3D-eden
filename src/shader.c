@@ -4603,19 +4603,15 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
     VkResult res=sd->real.CreateShaderModule(sd->real_device,pCI,pAlloc,pSM);
     if (res!=VK_SUCCESS) return res;
     if (!sd->stereo.enabled) return VK_SUCCESS;
-    const uint32_t *spv=(const uint32_t*)pCI->pCode;
-    size_t wc=pCI->codeSize/4;
-    if (is_patchable_spv(spv,wc)) cache_add(sd,*pSM,spv,wc);
     const uint32_t *spv = (const uint32_t *)pCI->pCode;
     size_t wc = pCI->codeSize / 4;
     if (is_patchable_spv(spv, wc))
     {
         cache_add(sd, *pSM, spv, wc);
-        uint64_t h = hash_spv(spv, wc);
         STEREO_LOG(
             "CACHE_INSERT module=%p hash=%016llx words=%zu",
             (void *)*pSM,
-            (unsigned long long)h,
+            (unsigned long long)hash_spv(spv, wc),
             wc);
     }
     return VK_SUCCESS;
