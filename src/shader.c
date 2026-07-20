@@ -4592,6 +4592,12 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
     const uint32_t *spv=(const uint32_t*)pCI->pCode;
     size_t wc=pCI->codeSize/4;
     if (is_patchable_spv(spv,wc)) cache_add(sd,*pSM,spv,wc);
+    uint64_t h = hash_spv(words, word_count);
+    STEREO_LOG(
+        "CACHE_INSERT module=%p hash=%016llx words=%zu",
+        (void *)module,
+        (unsigned long long)h,
+        word_count);
     return VK_SUCCESS;
 }
 
@@ -5302,8 +5308,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                         else
                         {
                             STEREO_LOG(
-                                "FS_PIPE_MODULE_MISS module=%p",
-                                (void *)st->module);
+                                "PIPE_MODULE_MISS stage=0x%x module=%p renderPass=%p pipeline=%u",
+                                st->stage,
+                                (void *)st->module,
+                                (void *)pCI[p].renderPass,
+                                p);
                         }
                     }
                 }
