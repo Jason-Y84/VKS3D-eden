@@ -1828,6 +1828,7 @@ typedef struct
     uint32_t set;
     uint32_t binding;
     uint32_t location;
+    bool     is_projection_ubo;
 } FsVariableInfo;
 
 typedef struct
@@ -2432,12 +2433,11 @@ fs_process_decoration(
 {
     if (!s || !ins || wc < 4)
         return;
-    uint32_t target =
-        ins[1];
-    uint32_t decoration =
-        ins[2];
-    uint32_t value =
-        ins[3];
+
+    uint32_t target     = ins[1];
+    uint32_t decoration = ins[2];
+    uint32_t value      = ins[3];
+
     if (target == 15)
     {
         STEREO_LOG(
@@ -2445,31 +2445,23 @@ fs_process_decoration(
             decoration,
             value);
     }
-    //STEREO_LOG(
-    //    "FS_DECORATE target=%u decoration=%u literal=%u",
-    //    target,
-    //    decoration,
-    //    value);
+
     if (decoration == SpvDecorationBuiltIn &&
         value == SpvBuiltInViewIndex)
     {
-        s->vi_var_id =
-            target;
+        s->vi_var_id = target;
         STEREO_LOG(
             "FS_VIEWINDEX_FOUND id=%u",
             target);
         return;
     }
+
     if (decoration == SpvDecorationLocation)
     {
-        int index =
-            fs_var_index(
-                s,
-                target);
+        int index = fs_var_index(s, target);
         if (index >= 0)
         {
-            s->vars[index].location =
-                value;
+            s->vars[index].location = value;
             STEREO_LOG(
                 "FS_LOCATION_APPLY var=%u location=%u",
                 target,
@@ -2477,11 +2469,13 @@ fs_process_decoration(
         }
         return;
     }
+
     if (decoration != SpvDecorationBinding &&
         decoration != SpvDecorationDescriptorSet)
     {
         return;
     }
+
     int index = -1;
     for (uint32_t i = 0; i < s->n_dec; ++i)
     {
@@ -2491,6 +2485,7 @@ fs_process_decoration(
             break;
         }
     }
+
     if (index < 0)
     {
         if (s->n_dec >= FS_MAX_VARS)
@@ -2500,75 +2495,42 @@ fs_process_decoration(
                 target);
             return;
         }
-        index =
-            (int)s->n_dec++;
-        FsDecorationInfo *dec =
-            &s->decorations[index];
-        memset(
-            dec,
-            0,
-            sizeof(*dec));
-        dec->target =
-            target;
-        dec->set =
-            0xffffffffu;
-        dec->binding =
-            0xffffffffu;
-        dec->location =
-            0xffffffffu;
+
+        index = (int)s->n_dec++;
+        FsDecorationInfo *dec = &s->decorations[index];
+        memset(dec, 0, sizeof(*dec));
+        dec->target   = target;
+        dec->set      = 0xffffffffu;
+        dec->binding  = 0xffffffffu;
+        dec->location = 0xffffffffu;
     }
-    FsDecorationInfo *dec =
-        &s->decorations[index];
+
+    FsDecorationInfo *dec = &s->decorations[index];
     if (decoration == SpvDecorationBinding)
-    {
-        dec->binding =
-            value;
-        //STEREO_LOG(
-        //    "FS_BIND_CACHE target=%u binding=%u",
-        //    target,
-        //    value);
-    }
+        dec->binding = value;
     else
-    {
-        dec->set =
-            value;
-        //STEREO_LOG(
-        //    "FS_SET_CACHE target=%u set=%u",
-        //    target,
-        //    value);
-    }
-    /*
-     * OpDecorate may appear after OpVariable.
-     *
-     * Update the already-created variable immediately.
-     */
-    int var_index =
-        fs_var_index(
-            s,
-            target);
+        dec->set = value;
+
+    int var_index = fs_var_index(s, target);
     if (var_index >= 0)
     {
-        FsVariableInfo *var =
-            &s->vars[var_index];
+        FsVariableInfo *var = &s->vars[var_index];
         if (decoration == SpvDecorationBinding)
-        {
-            var->binding =
-                value;
-            //STEREO_LOG(
-            //    "FS_BIND_APPLY_EXISTING var=%u binding=%u",
-            //    var->id,
-            //    var->binding);
-        }
+            var->binding = value;
         else
+            var->set = value;
+
+        if (var->storage == SpvStorageClassUniform &&
+            var->binding == 4u)
         {
-            var->set =
-                value;
-            //STEREO_LOG(
-            //    "FS_SET_APPLY_EXISTING var=%u set=%u",
-            //    var->id,
-            //    var->set);
+            var->is_projection_ubo = true;
+            STEREO_LOG(
+                "FS_PROJECTION_UBO_DECORATED var=%u set=%u binding=%u",
+                var->id,
+                var->set,
+                var->binding);
         }
-    }   
+    }
 }
 /*═══════════════════════════════════════════════════════════════════════
  * Pass 2: Descriptor variables and decorations.
@@ -2589,6 +2551,7 @@ fs_scan_variable_instruction(
 {
     if (!s || !ins || wc < 4)
         return;
+
     if (s->n_var >= FS_MAX_VARS)
     {
         STEREO_LOG(
@@ -2596,62 +2559,48 @@ fs_scan_variable_instruction(
             ins[2]);
         return;
     }
-    FsVariableInfo *var =
-        &s->vars[s->n_var++];
-    memset(
-        var,
-        0,
-        sizeof(*var));
-    var->id =
-        ins[2];
-    var->type =
-        ins[1];
-    var->storage =
-        ins[3];
-    var->set =
-        0xffffffffu;
-    var->binding =
-        0xffffffffu;
-    var->location =
-        0xffffffffu;
-    //STEREO_LOG(
-    //    "FS_VAR_TYPE var=%u type=%u storage=%u set=%u binding=%u",
-    //    var->id,
-    //    var->type,
-    //    var->storage,
-    //    var->set,
-    //    var->binding);
+
+    FsVariableInfo *var = &s->vars[s->n_var++];
+    memset(var, 0, sizeof(*var));
+
+    var->id       = ins[2];
+    var->type     = ins[1];
+    var->storage  = ins[3];
+    var->set      = 0xffffffffu;
+    var->binding  = 0xffffffffu;
+    var->location = 0xffffffffu;
+    var->is_projection_ubo = false;
+
     /*
      * Decorations may legally appear before OpVariable.
-     *
-     * Apply cached DescriptorSet, Binding, and Location values
-     * now that the variable exists.
+     * Apply cached DescriptorSet, Binding, and Location values now.
      */
     for (uint32_t i = 0; i < s->n_dec; ++i)
     {
-        FsDecorationInfo *dec =
-            &s->decorations[i];
+        FsDecorationInfo *dec = &s->decorations[i];
         if (dec->target != var->id)
             continue;
+
         if (dec->set != 0xffffffffu)
-            var->set =
-                dec->set;
+            var->set = dec->set;
         if (dec->binding != 0xffffffffu)
-            var->binding =
-                dec->binding;
+            var->binding = dec->binding;
         if (dec->location != 0xffffffffu)
-            var->location =
-                dec->location;
-        //STEREO_LOG(
-        //    "FS_DECORATION_APPLY var=%u set=%u binding=%u location=%u",
-        //    var->id,
-        //    var->set,
-        //    var->binding,
-        //    var->location);
+            var->location = dec->location;
     }
-    /*
-     * Targeted debug for unresolved MSAA resource.
-     */
+
+    if (var->storage == SpvStorageClassUniform &&
+        var->binding == 4u)
+    {
+        var->is_projection_ubo = true;
+        STEREO_LOG(
+            "FS_PROJECTION_UBO var=%u type=%u set=%u binding=%u",
+            var->id,
+            var->type,
+            var->set,
+            var->binding);
+    }
+
     if (var->id == 15)
     {
         STEREO_LOG(
@@ -2662,6 +2611,7 @@ fs_scan_variable_instruction(
             var->binding,
             var->location);
     }
+
     if (var->storage == SpvStorageClassUniform ||
         var->storage == SpvStorageClassUniformConstant)
     {
@@ -2673,22 +2623,6 @@ fs_scan_variable_instruction(
             var->set,
             var->binding);
     }
-    //else
-    //{
-    //    STEREO_LOG(
-    //        "FS_VAR_ADD id=%u type=%u storage=%u",
-    //        var->id,
-    //        var->type,
-    //        var->storage);
-    //}
-    //STEREO_LOG(
-    //    "FS_VAR_FINALIZE id=%u type=%u storage=%u set=%u binding=%u location=%u",
-    //    var->id,
-    //    var->type,
-    //    var->storage,
-    //    var->set,
-    //    var->binding,
-    //    var->location);
 }
 /*
  * Register an OpVariable instruction.
@@ -2853,12 +2787,16 @@ fs_scan_load_instruction(
 {
     if (wc < 4)
         return;
+
     uint32_t result_type = ins[1];
     uint32_t result_id   = ins[2];
     uint32_t source_id   = ins[3];
+
     if (!fs_is_image_related_type(s, result_type))
         return;
+
     uint32_t owner = 0;
+
     if (!fs_resolve_load_owner(s, source_id, &owner))
     {
         owner = source_id;
@@ -2867,36 +2805,34 @@ fs_scan_load_instruction(
             result_id,
             source_id);
     }
+
     fs_add_load_mapping(
         s,
         result_id,
         owner);
-    /* ---------- NEW ---------- */
+
     FsLoadInfo *li = &s->loads[s->n_load - 1];
     li->from_projection = false;
-    li->from_view       = false;
-    int var = fs_var_index(s, owner);
-    if (var >= 0)
+    li->from_view = false;
+
+    int owner_var_index = fs_var_index(s, owner);
+    if (owner_var_index >= 0)
     {
-        /*
-         * Temporary heuristic:
-         * binding 0 is almost always the projection/camera UBO.
-         * We'll replace this with full provenance next.
-         */
-        if (s->vars[var].binding == 0)
+        FsVariableInfo *owner_var = &s->vars[owner_var_index];
+        if (owner_var->is_projection_ubo)
             li->from_projection = true;
     }
-    /* ------------------------- */
-    var = fs_var_index(s, source_id);
-    if (var >= 0)
+
+    int src_var = fs_var_index(s, source_id);
+    if (src_var >= 0)
     {
         STEREO_LOG(
             "FS_LOAD_SOURCE result=%u sourceVar=%u set=%u binding=%u type=%u proj=%u",
             result_id,
             source_id,
-            s->vars[var].set,
-            s->vars[var].binding,
-            s->vars[var].type,
+            s->vars[src_var].set,
+            s->vars[src_var].binding,
+            s->vars[src_var].type,
             li->from_projection);
     }
     else
@@ -2906,6 +2842,7 @@ fs_scan_load_instruction(
             result_id,
             source_id);
     }
+
     STEREO_LOG(
         "FS_LOAD_REGISTER result=%u owner=%u type=%u proj=%u",
         result_id,
