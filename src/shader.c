@@ -4934,9 +4934,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 p,
                 is_quad,
                 multiview,
-                (fs_stage != ~0u),
+                (fs_s != ~0u),
                 (void *)fs_cache,
-                ci->pStages[fs_stage].stage);
+                ci->pStages[fs_s].stage);
             STEREO_LOG(
                 "QUAD_FS_SHADER p=%u hash=%016llx words=%zu module=%p",
                 p,
