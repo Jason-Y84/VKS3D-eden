@@ -1159,13 +1159,14 @@ stereo_CmdBindDescriptorSets(
                         info->proj_member_mask,
                         info->proj_var);
                     /*
-                     * Keep the old VS/TES case, and also allow the FS-only
-                     * projection UBO path (binding 4, single-member block).
+                     * Prefer the fragment shader projection UBO when present.
+                     * VS/TES-derived proj info can be left in place for geometry,
+                     * but FS-only SSAO/reconstruction needs binding 4.
                      */
                     bool rewrite_proj =
-                        (info->proj_binding == 4 &&
-                         info->proj_member_mask == 1u) ||
-                        (info->proj_member_mask == (1u << 2));
+                        (info->proj_binding == 4) ||
+                        (info->proj_binding == 0 &&
+                         info->proj_member_mask == (1u << 2));
                     if (rewrite_proj)
                     {
                         stereo_write_ubo(sd);
