@@ -2785,20 +2785,22 @@ fs_scan_load_instruction(
     const uint32_t *ins,
     uint32_t wc)
 {
-    if (wc < 4)
+    if (!s || !ins || wc < 4)
         return;
 
     uint32_t result_type = ins[1];
     uint32_t result_id   = ins[2];
     uint32_t source_id   = ins[3];
 
-    if (!fs_is_image_related_type(s, result_type))
-        return;
-
     uint32_t owner = 0;
+    bool have_owner = fs_resolve_load_owner(s, source_id, &owner);
 
-    if (!fs_resolve_load_owner(s, source_id, &owner))
+    if (!have_owner)
     {
+        /*
+         * The source may be a function parameter or another SSA value
+         * that will be fixed up later.
+         */
         owner = source_id;
         STEREO_LOG(
             "FS_LOAD_DEFERRED result=%u source=%u",
@@ -2806,21 +2808,43 @@ fs_scan_load_instruction(
             source_id);
     }
 
-    fs_add_load_mapping(
-        s,
-        result_id,
-        owner);
-
-    FsLoadInfo *li = &s->loads[s->n_load - 1];
-    li->from_projection = false;
-    li->from_view = false;
-
     int owner_var_index = fs_var_index(s, owner);
+    bool from_projection_ubo =
+        (owner_var_index >= 0 &&
+         s->vars[owner_var_index].is_projection_ubo);
+
+    bool image_related =
+        fs_is_image_related_type(s, result_type);
+
+    /*
+     * Keep tracking normal image-related loads as before.
+     * Also keep projection UBO loads even when they are not image-related,
+     * because the FS uses them for convergence/projection reconstruction.
+     */
+    if (!image_related && !from_projection_ubo)
+        return;
+
+    if (s->n_load >= FS_MAX_LOADS)
+    {
+        STEREO_LOG(
+            "FS_LOAD_OVERFLOW result=%u",
+            result_id);
+        return;
+    }
+
+    FsLoadInfo *li = &s->loads[s->n_load++];
+    memset(li, 0, sizeof(*li));
+
+    li->id            = result_id;
+    li->source_id     = source_id;
+    li->owner_var     = owner;
+    li->binding       = 0xffffffffu;
+    li->from_projection = from_projection_ubo;
+    li->from_view       = false;
+
     if (owner_var_index >= 0)
     {
-        FsVariableInfo *owner_var = &s->vars[owner_var_index];
-        if (owner_var->is_projection_ubo)
-            li->from_projection = true;
+        li->binding = s->vars[owner_var_index].binding;
     }
 
     int src_var = fs_var_index(s, source_id);
@@ -2841,6 +2865,17 @@ fs_scan_load_instruction(
             "FS_LOAD_SOURCE_UNKNOWN result=%u source=%u",
             result_id,
             source_id);
+    }
+
+    if (from_projection_ubo)
+    {
+        STEREO_LOG(
+            "FS_PROJECTION_LOAD result=%u owner=%u set=%u binding=%u type=%u",
+            result_id,
+            owner,
+            (owner_var_index >= 0) ? s->vars[owner_var_index].set : 0xffffffffu,
+            (owner_var_index >= 0) ? s->vars[owner_var_index].binding : 0xffffffffu,
+            (owner_var_index >= 0) ? s->vars[owner_var_index].type : 0xffffffffu);
     }
 
     STEREO_LOG(
