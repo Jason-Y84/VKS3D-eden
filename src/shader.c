@@ -1979,7 +1979,7 @@ uint32_t var)
             var);
         return false;
     }
-    FsVariableInfo *v = &s->vars[vi];
+    const FsVariableInfo *v = &s->vars[vi];
     STEREO_LOG(
         "FS_BINDING_INFO var=%u type=%u storage=%u set=%u binding=%u",
         v->id,
