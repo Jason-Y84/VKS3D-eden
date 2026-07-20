@@ -4937,20 +4937,28 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             STEREO_LOG(
                 "PATCH hash=%016llx words=%zu module=%p vs_stage=%u",
                 (unsigned long long)spv_hash,
-                e->words,
-                (void*)(has_vs ? ci->pStages[vs_stage].module : VK_NULL_HANDLE),
+                fs_cache->words,
+                (void *)(has_vs ? ci->pStages[vs_stage].module : VK_NULL_HANDLE),
                 vs_stage);
-            if (dump) {
+            if (dump)
+            {
                 char dp[512];
+
                 _snprintf(
                     dp,
-                    sizeof(dp)-1,
+                    sizeof(dp) - 1,
                     "%s\\%016llx-fs.spv",
                     dump,
                     (unsigned long long)spv_hash);
+
                 FILE *f = fopen(dp, "wb");
-                if (f) {
-                    fwrite(e->spv,4,e->words,f);
+                if (f)
+                {
+                    fwrite(
+                        fs_cache->spv,
+                        4,
+                        fs_cache->words,
+                        f);
                     fclose(f);
                 }
             }
@@ -4961,8 +4969,15 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             STEREO_LOG(
                 "PATCHING_FS hash=%016llx",
                 (unsigned long long)spv_hash);
-            if (!spirv_patch_stereo_fs(e->spv, e->words, &patched, &pc2)) {
-                STEREO_LOG("Pipe %u: FS patch skipped (no 2D samplers — material-only?)", p);
+            if (!spirv_patch_stereo_fs(
+                    fs_cache->spv,
+                    fs_cache->words,
+                    &patched,
+                    &pc2))
+            {
+                STEREO_LOG(
+                    "Pipe %u: FS patch skipped (no 2D samplers — material-only?)",
+                    p);
                 continue;
             }
             if (dump) {
