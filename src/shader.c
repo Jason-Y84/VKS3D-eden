@@ -4118,6 +4118,11 @@ bool spirv_patch_stereo_fs(
     uint32_t **out, size_t *out_c)
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC) return false;
+    uint64_t h = hash_spv(in, in_c);
+    STEREO_LOG(
+        "FS_PATCH_MODULE hash=%016llx words=%zu",
+        (unsigned long long)h,
+        in_c);
     FsScan s;
     fs_prescan(&s, in, in_c);
     for (uint32_t i = 0; i < s.n_var; ++i)
@@ -5285,56 +5290,20 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                          * its own projection UBO for SSAO / post-process paths.
                          */
                         StereoShaderCache *fs_cache = cache_find(sd, st->module);
-                        if (fs_cache && fs_cache->spv && fs_cache->words)
+                        if (fs_cache)
                         {
-                            FsScan fs_probe = {0};
-                            fs_prescan(&fs_probe, fs_cache->spv, fs_cache->words);
+                            uint64_t h = hash_spv(fs_cache->spv, fs_cache->words);
                             STEREO_LOG(
-                                "FS_SCAN_RESULT vars=%u",
-                                fs_probe.n_var);
-                            for (uint32_t dbg = 0;
-                                 dbg < fs_probe.n_var;
-                                 ++dbg)
-                            {
-                                STEREO_LOG(
-                                    "FS_VAR_SCAN id=%u storage=%u set=%u binding=%u proj=%u",
-                                    fs_probe.vars[dbg].id,
-                                    fs_probe.vars[dbg].storage,
-                                    fs_probe.vars[dbg].set,
-                                    fs_probe.vars[dbg].binding,
-                                    fs_probe.vars[dbg].is_projection_ubo);
-                            }
-                            for (uint32_t fv = 0; fv < fs_probe.n_var; ++fv)
-                            {
-                                STEREO_LOG(
-                                    "FS_PROJ_TEST id=%u proj=%u binding=%u set=%u",
-                                    fs_probe.vars[fv].id,
-                                    fs_probe.vars[fv].is_projection_ubo,
-                                    fs_probe.vars[fv].binding,
-                                    fs_probe.vars[fv].set);
-                                if (fs_probe.vars[fv].is_projection_ubo)
-                                {
-                                    /*
-                                     * Prefer an FS projection UBO if it is found.
-                                     * This should override VS-derived projection info
-                                     * for fragment-only reconstruction shaders.
-                                     */
-                                    info->has_proj_ubo     = VK_TRUE;
-                                    info->proj_set         = fs_probe.vars[fv].set;
-                                    info->proj_binding     = fs_probe.vars[fv].binding;
-                                    info->proj_member_mask = 1u;
-                                    info->proj_var         = fs_probe.vars[fv].id;
-                                    STEREO_LOG(
-                                        "FS_PIPE_PROJ pipe=%p module=%p var=%u set=%u binding=%u mask=0x%X",
-                                        (void *)pP[p],
-                                        (void *)st->module,
-                                        info->proj_var,
-                                        info->proj_set,
-                                        info->proj_binding,
-                                        info->proj_member_mask);
-                                    break;
-                                }
-                            }
+                                "FS_PIPE_MODULE module=%p hash=%016llx words=%zu",
+                                (void *)st->module,
+                                (unsigned long long)h,
+                                fs_cache->words);
+                        }
+                        else
+                        {
+                            STEREO_LOG(
+                                "FS_PIPE_MODULE_MISS module=%p",
+                                (void *)st->module);
                         }
                     }
                 }
