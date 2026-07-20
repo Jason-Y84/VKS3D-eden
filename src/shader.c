@@ -481,6 +481,19 @@ static void do_scan(SpvMod *m, bool p2)
                         uint8_t proj_b = PROJ(b);
                         uint8_t view_a = VIEW(a);
                         uint8_t view_b = VIEW(b);
+                        if (op == SpvOpMatrixTimesVector || op == SpvOpMatrixTimesMatrix)
+                        {
+                            STEREO_LOG(
+                                "FS_MATRIX_MUL op=%s result=%u a=%u b=%u proj_a=%u proj_b=%u view_a=%u view_b=%u",
+                                spv_op_name(op),
+                                w[i + 2],
+                                a,
+                                b,
+                                proj_a,
+                                proj_b,
+                                view_a,
+                                view_b);
+                        }
                         if ((proj_a || proj_b) &&
                             (op == SpvOpMatrixTimesVector ||
                              op == SpvOpMatrixTimesMatrix))
