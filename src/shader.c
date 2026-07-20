@@ -265,6 +265,9 @@ spv_resolve_u32_constant(const SpvMod *m, uint32_t id, uint32_t *value)
     return false;
 }
 
+static const char *
+spv_op_name(uint32_t op);
+
 static void do_scan(SpvMod *m, bool p2)
 {
     const uint32_t *w=m->words;
@@ -5338,36 +5341,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                                 (void *)st->module,
                                 (unsigned long long)h,
                                 fs_cache->words);
-                        }
-                        else
-                        {
-                            StereoShaderCache *hit = cache_find(sd, ci->pStages[fs_s].module);
-                            if (!hit)
-                            {
-                                STEREO_LOG(
-                                    "PIPE_MODULE_MISS stage=0x%x module=%p rp=%p",
-                                    ci->pStages[fs_s].stage,
-                                    (void *)ci->pStages[fs_s].module,
-                                    (void *)ci->renderPass);
-                                for (uint32_t k = 0; k < sd->shader_cache_count; ++k)
-                                {
-                                    STEREO_LOG(
-                                        "CACHE_HANDLE[%u] module=%p hash=%016llx",
-                                        k,
-                                        (void *)sd->shader_cache[k].handle,
-                                        (unsigned long long)hash_spv(
-                                            sd->shader_cache[k].spv,
-                                            sd->shader_cache[k].words));
-                                    STEREO_LOG(
-                                        "CACHE_ENTRY[%u] module=%p hash=%016llx words=%zu",
-                                        k,
-                                        (void *)sd->shader_cache[k].handle,
-                                        (unsigned long long)hash_spv(
-                                            sd->shader_cache[k].spv,
-                                            sd->shader_cache[k].words),
-                                        sd->shader_cache[k].words);
-                                }
-                            }
                         }
                     }
                 }
