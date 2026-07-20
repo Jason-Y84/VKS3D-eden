@@ -1961,6 +1961,30 @@ fs_dec_index(
     return -1;
 }
 
+/* Resolve:
+ * OpTypePointer -> OpTypeSampledImage -> OpTypeImage
+ */
+static uint32_t
+fs_resolve_image_type(
+    const FsScan *s,
+    uint32_t type)
+{
+    if (!s)
+        return 0;
+
+    /* Pointer -> pointee */
+    int pi = fs_pointer_type_index(s, type);
+    if (pi >= 0)
+        type = s->ptr_types[pi].target_type;
+
+    /* SampledImage -> Image */
+    int si = fs_sampled_image_type_index(s, type);
+    if (si >= 0)
+        type = s->sampled_image_types[si].image_type;
+
+    return type;
+}
+
 /*
  * Returns true only for descriptors backed by upgraded stereo render
  * targets. Material textures, lookup tables and other resources remain
@@ -1993,6 +2017,15 @@ fs_binding_is_stereo_attachment(
         s->vars[vi].set;
     uint32_t type =
         s->vars[vi].type;
+    uint32_t image_type =
+        fs_resolve_image_type(
+            s,
+            type);
+    STEREO_LOG(
+        "FS_TYPE_RESOLVE var=%u ptr=%u image=%u",
+        var,
+        type,
+        image_type);
     /*
      * Deferred framebuffer attachments upgraded to arrayLayers=2.
      *
