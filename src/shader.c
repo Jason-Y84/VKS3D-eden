@@ -452,6 +452,14 @@ static void do_scan(SpvMod *m, bool p2)
                 }
                 break;
             case SpvOpTypeArray:
+                if (wc >= 4)
+                {
+                    STEREO_LOG(
+                        "FS_TYPE_ARRAY id=%u elem=%u len=%u",
+                        w[i + 1],
+                        w[i + 2],
+                        w[i + 3]);
+                }
                 break;
             case SpvOpTypeRuntimeArray:
                 break;
@@ -2404,11 +2412,11 @@ fs_scan_type_instruction(
         break;
     }
     case SpvOpTypePointer:
-        //STEREO_LOG(
-        //    "FS_TYPE_POINTER id=%u storage=%u target=%u",
-        //    (wc >= 2) ? ins[1] : 0,
-        //    (wc >= 3) ? ins[2] : 0,
-        //    (wc >= 4) ? ins[3] : 0);
+        STEREO_LOG(
+            "FS_TYPE_POINTER id=%u storage=%u target=%u",
+            (wc >= 2) ? ins[1] : 0,
+            (wc >= 3) ? ins[2] : 0,
+            (wc >= 4) ? ins[3] : 0);
         if (wc >= 4 &&
             ins[2] == SpvStorageClassInput &&
             s->int_id &&
