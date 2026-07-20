@@ -4556,10 +4556,24 @@ static bool is_patchable_spv(const uint32_t *w, size_t c)
     return false;
 }
 
-static StereoShaderCache *cache_find(StereoDevice *sd, VkShaderModule h)
+static StereoShaderCache *
+cache_find(StereoDevice *sd, VkShaderModule mod)
 {
-    for (uint32_t i=0;i<sd->shader_cache_count;i++)
-        if (sd->shader_cache[i].handle==h) return &sd->shader_cache[i];
+    for (StereoShaderCache *e = sd->cache; e; e = e->next)
+    {
+        if (e->module == mod)
+        {
+            STEREO_LOG(
+                "CACHE_FIND_HIT module=%p hash=%016llx words=%zu",
+                (void *)mod,
+                (unsigned long long)hash_spv(e->spv, e->words),
+                e->words);
+            return e;
+        }
+    }
+    STEREO_LOG(
+        "CACHE_FIND_MISS module=%p",
+        (void *)mod);
     return NULL;
 }
 
