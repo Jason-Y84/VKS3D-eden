@@ -1789,10 +1789,13 @@ void spirv_patched_free(uint32_t *w) { free(w); }
 
 typedef struct
 {
-    uint32_t id;          /* OpLoad result id */
-    uint32_t source_id;   /* Original source SSA id */
-    uint32_t owner_var;   /* Descriptor variable owning this resource */
-    uint32_t binding;     /* Cached binding after fixup */
+    uint32_t id;           /* OpLoad result id */
+    uint32_t source_id;    /* Original source SSA id */
+    uint32_t owner_var;    /* Descriptor variable owning this resource */
+    uint32_t binding;      /* Cached binding after fixup */
+    /* ---- Projection provenance ---- */
+    bool     from_projection;
+    bool     from_view;
 } FsLoadInfo;
 
 typedef struct
@@ -2850,53 +2853,14 @@ fs_scan_load_instruction(
 {
     if (wc < 4)
         return;
-    uint32_t result_type =
-        ins[1];
-    uint32_t result_id =
-        ins[2];
-    uint32_t source_id =
-        ins[3];
-    /*
-     * Only track loads that produce image-related objects.
-     *
-     * We intentionally avoid tracking every OpLoad because
-     * large deferred shaders contain hundreds of unrelated
-     * loads (UBOs, push constants, storage buffers, etc.).
-     *
-     * Projection correction later needs to answer:
-     *
-     *   "Which descriptor produced this sampled image?"
-     *
-     * so resource ownership is the only information needed here.
-     */
-    if (!fs_is_image_related_type(
-            s,
-            result_type))
-    {
+    uint32_t result_type = ins[1];
+    uint32_t result_id   = ins[2];
+    uint32_t source_id   = ins[3];
+    if (!fs_is_image_related_type(s, result_type))
         return;
-    }
     uint32_t owner = 0;
-    /*
-     * Direct descriptor variable load:
-     *
-     *   %img = OpLoad %image_type %descriptor
-     *
-     * Resolve immediately if possible.
-     */
-    if (!fs_resolve_load_owner(
-            s,
-            source_id,
-            &owner))
+    if (!fs_resolve_load_owner(s, source_id, &owner))
     {
-        /*
-         * The source may be a function parameter.
-         *
-         * It will be fixed later by
-         *
-         * fs_fixup_function_parameters()
-         *
-         * after all calls and parameters are known.
-         */
         owner = source_id;
         STEREO_LOG(
             "FS_LOAD_DEFERRED result=%u source=%u",
@@ -2907,19 +2871,33 @@ fs_scan_load_instruction(
         s,
         result_id,
         owner);
-    int var =
-        fs_var_index(
-            s,
-            source_id);
+    /* ---------- NEW ---------- */
+    FsLoadInfo *li = &s->loads[s->n_load - 1];
+    li->from_projection = false;
+    li->from_view       = false;
+    int var = fs_var_index(s, owner);
+    if (var >= 0)
+    {
+        /*
+         * Temporary heuristic:
+         * binding 0 is almost always the projection/camera UBO.
+         * We'll replace this with full provenance next.
+         */
+        if (s->vars[var].binding == 0)
+            li->from_projection = true;
+    }
+    /* ------------------------- */
+    var = fs_var_index(s, source_id);
     if (var >= 0)
     {
         STEREO_LOG(
-            "FS_LOAD_SOURCE result=%u sourceVar=%u set=%u binding=%u type=%u",
+            "FS_LOAD_SOURCE result=%u sourceVar=%u set=%u binding=%u type=%u proj=%u",
             result_id,
             source_id,
             s->vars[var].set,
             s->vars[var].binding,
-            s->vars[var].type);
+            s->vars[var].type,
+            li->from_projection);
     }
     else
     {
@@ -2929,10 +2907,11 @@ fs_scan_load_instruction(
             source_id);
     }
     STEREO_LOG(
-        "FS_LOAD_REGISTER result=%u owner=%u type=%u",
+        "FS_LOAD_REGISTER result=%u owner=%u type=%u proj=%u",
         result_id,
         owner,
-        result_type);
+        result_type,
+        li->from_projection);
 }
 /*
  * Track OpFunctionCall relationships.
@@ -3234,19 +3213,22 @@ fs_scan_image_operation(
     li->binding =
         s->vars[var].binding;
     STEREO_LOG(
-        "FS_IMAGE_SAMPLE op=%s image=%u owner=%u set=%u binding=%u stereo=%u",
+        "FS_IMAGE_SAMPLE op=%s image=%u owner=%u set=%u binding=%u stereo=%u proj=%u view=%u",
         spv_op_name(op),
         image_id,
         li->owner_var,
         s->vars[var].set,
         s->vars[var].binding,
-        stereo);
+        stereo,
+        li->from_projection,
+        li->from_view);
     if (stereo)
     {
         STEREO_LOG(
-            "FS_STEREO_RESOURCE image=%u binding=%u",
+            "FS_STEREO_RESOURCE image=%u binding=%u proj=%u",
             image_id,
-            s->vars[var].binding);
+            s->vars[var].binding,
+            li->from_projection);
     }
 }
 /*
