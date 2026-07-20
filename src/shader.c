@@ -1968,67 +1968,50 @@ fs_dec_index(
  */
 static bool
 fs_binding_is_stereo_attachment(
-    const FsScan *s,
-    uint32_t var)
+const FsScan *s,
+uint32_t var)
 {
     int vi = fs_var_index(s, var);
     if (vi < 0)
-        return false;
-    /*
-     * Input attachments have no descriptor set/binding.
-     * They are still stereo render targets.
-     */
-    if (s->vars[vi].storage ==
-            SpvStorageClassInput)
     {
         STEREO_LOG(
-            "FS_BINDING_INPUT_ATTACHMENT var=%u type=%u stereo=1",
-            var,
-            s->vars[vi].type);
+            "FS_BINDING_LOOKUP_FAIL var=%u",
+            var);
+        return false;
+    }
+    FsVariableInfo *v = &s->vars[vi];
+    STEREO_LOG(
+        "FS_BINDING_INFO var=%u type=%u storage=%u set=%u binding=%u",
+        v->id,
+        v->type,
+        v->storage,
+        v->set,
+        v->binding);
+    /*
+     * Input attachments are framebuffer attachments.
+     */
+    if (v->storage == SpvStorageClassInput)
+    {
+        STEREO_LOG(
+            "FS_BINDING_INPUT_ATTACHMENT var=%u stereo=1",
+            var);
         return true;
     }
-    uint32_t binding =
-        s->vars[vi].binding;
-    uint32_t set =
-        s->vars[vi].set;
-    uint32_t type =
-        s->vars[vi].type;
     /*
-     * Deferred framebuffer attachments upgraded to arrayLayers=2.
+     * Deferred rendering attachments:
      *
-     * binding 0 = position/depth
+     * binding 0 = depth/position
      * binding 1 = normal
      * binding 2 = albedo
      * binding 3 = specular
-     * binding 4 = SSAO / deferred intermediate
-     *
-     * Higher bindings are assumed to be material textures,
-     * lookup tables, noise textures or post-processing resources.
-     */
-    /*
-     * MSAA resolve/composition shaders often use
-     * input attachments instead of descriptor images.
-     *
-     * Input attachments have no DescriptorSet/Binding
-     * decorations, so binding will be UINT_MAX.
+     * binding 4 = SSAO/deferred intermediate
      */
     bool stereo =
-        (binding <= 4) ||
-        (s->vars[vi].storage ==
-             SpvStorageClassInput);
+        (v->binding <= 4);
     STEREO_LOG(
-        "FS_BINDING_FALLBACK var=%u set=%u binding=%u storage=%u stereo=%u",
+        "FS_BINDING_RESULT var=%u binding=%u stereo=%u",
         var,
-        set,
-        binding,
-        s->vars[vi].storage,
-        stereo);
-    STEREO_LOG(
-        "FS_BINDING_CLASSIFY var=%u set=%u binding=%u type=%u stereo=%u",
-        var,
-        set,
-        binding,
-        type,
+        v->binding,
         stereo);
     return stereo;
 }
