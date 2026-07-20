@@ -4924,6 +4924,20 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             uint64_t spv_hash =
                 hash_spv(fs_cache->spv, fs_cache->words);
             STEREO_LOG(
+                "FS_PATCH_DECISION "
+                "pipe=%u "
+                "is_quad=%u "
+                "multiview=%u "
+                "has_fs=%u "
+                "cache=%p "
+                "stageFlags=0x%x",
+                p,
+                is_quad,
+                multiview,
+                (fs_stage != ~0u),
+                (void *)fs_cache,
+                ci->pStages[fs_stage].stage);
+            STEREO_LOG(
                 "QUAD_FS_SHADER p=%u hash=%016llx words=%zu module=%p",
                 p,
                 (unsigned long long)spv_hash,
@@ -4969,6 +4983,24 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             STEREO_LOG(
                 "PATCHING_FS hash=%016llx",
                 (unsigned long long)spv_hash);
+            STEREO_LOG(
+                "FS_PATCH_DECISION "
+                "pipe=%u "
+                "is_quad=%u "
+                "multiview=%u "
+                "has_fs=%u "
+                "cache=%p "
+                "stageFlags=0x%x",
+                p,
+                is_quad,
+                multiview,
+                (fs_s != ~0u),
+                (void *)fs_cache,
+                ci->pStages[fs_s].stage);
+            STEREO_LOG(
+                "CALLING spirv_patch_stereo_fs hash=%016llx words=%zu",
+                (unsigned long long)spv_hash,
+                fs_cache->words);
             if (!spirv_patch_stereo_fs(
                     fs_cache->spv,
                     fs_cache->words,
@@ -4980,6 +5012,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     p);
                 continue;
             }
+            STEREO_LOG(
+                "spirv_patch_stereo_fs returned=%u patchedWords=%zu",
+                patched ? 1 : 0,
+                pc2);
             if (dump) {
                 char dp[512];
                 _snprintf(
