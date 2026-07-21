@@ -4661,6 +4661,27 @@ bool spirv_patch_stereo_fs(
         sb_push_n(&ob, &in[i], wc);
         i += wc;
     }
+    for (size_t j = 5; j < ob.n; )
+    {
+        uint32_t wc = ob.w[j] >> 16;
+        uint32_t op = ob.w[j] & 0xffff;
+        if (!wc || j + wc > ob.n)
+            break;
+        if (op == SpvOpTypeImage && wc >= 9)
+        {
+            STEREO_LOG(
+                "FS_OUTPUT_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3],
+                ob.w[j + 4],
+                ob.w[j + 5],
+                ob.w[j + 6],
+                ob.w[j + 7],
+                ob.w[j + 8]);
+        }
+        j += wc;
+    }
     ob.w[3] = samp_nid + 1;
     *out   = ob.w;
     *out_c = ob.n;
