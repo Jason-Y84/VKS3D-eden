@@ -3296,7 +3296,7 @@ fs_scan_image_operation(
     STEREO_LOG(
         "FS_IMAGE_OWNER image=%u owner=%u",
         (wc >= 4) ? ins[3] : 0,
-        owner_var);
+        li->owner_var);
 }
 /*
  * Instruction dispatchers
