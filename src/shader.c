@@ -4483,6 +4483,8 @@ bool spirv_patch_stereo_fs(
                 descriptor_var);
             fs_dump_descriptor_chain(
                 &s,
+                in,
+                in_c,
                 descriptor_var);
             uint32_t id_lv  = samp_nid++;
             uint32_t id_cvt = samp_nid++;
@@ -4626,6 +4628,8 @@ bool spirv_patch_stereo_fs(
                 in[i+4]);
             fs_dump_descriptor_chain(
                 &s,
+                in,
+                in_c,
                 descriptor_var);
             uint32_t id_lv = samp_nid++;
             uint32_t id_x  = samp_nid++;
