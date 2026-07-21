@@ -4303,9 +4303,8 @@ bool spirv_patch_stereo_fs(
             i += wc; continue;
         }
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
-        if (op == 25 && wc >= 9 &&
-            (fs_image_index(&s, in[i+1]) >= 0 ||
-             fs_type_is_input_attachment(&s, in[i+1])) &&
+        if (op == SpvOpTypeImage && wc >= 9 &&
+            in[i+3] == SpvDim2D &&
             in[i+5] == 0)
         {
             STEREO_LOG(
