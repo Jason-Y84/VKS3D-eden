@@ -1099,6 +1099,39 @@ stereo_UpdateDescriptorSets(
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd)
         return;
+    for (uint32_t i = 0; i < descriptorWriteCount; i++)
+    {
+        const VkWriteDescriptorSet *w = &pDescriptorWrites[i];
+        if (!w->pImageInfo)
+            continue;
+        if (w->descriptorType != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER &&
+            w->descriptorType != VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE &&
+            w->descriptorType != VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+            continue;
+        for (uint32_t j = 0; j < w->descriptorCount; j++)
+        {
+            VkImageView view = w->pImageInfo[j].imageView;
+            bool upgraded = false;
+            for (uint32_t k = 0;
+                 k < sd->upgraded_view_count;
+                 k++)
+            {
+                if (sd->upgraded_views[k] == view)
+                {
+                    upgraded = true;
+                    break;
+                }
+            }
+            STEREO_LOG(
+                "DESC_IMAGE_WRITE "
+                "binding=%u "
+                "view=%p "
+                "upgraded=%u",
+                w->dstBinding,
+                (void *)(uintptr_t)view,
+                upgraded ? 1 : 0);
+        }
+    }
     sd->real.UpdateDescriptorSets(
         sd->real_device,
         descriptorWriteCount,
