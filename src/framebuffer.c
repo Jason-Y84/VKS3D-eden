@@ -1082,10 +1082,17 @@ static void stereo_overwrite_projection_binding(
     };
     sd->real.UpdateDescriptorSets(sd->real_device, 1, &w, 0, NULL);
     STEREO_LOG(
-        "PROJ_DESC_REWRITE set=%p binding=%u buffer=%p",
+        "PROJ_DESC_REWRITE "
+        "set=%p "
+        "binding=%u "
+        "buffer=%p "
+        "offset=%llu "
+        "range=%llu",
         (void *)(uintptr_t)set,
         binding,
-        (void *)sd->stereo_ubo);
+        (void *)(uintptr_t)sd->stereo_ubo,
+        (unsigned long long)bi.offset,
+        (unsigned long long)bi.range);
 }
 
 VKAPI_ATTR void VKAPI_CALL
