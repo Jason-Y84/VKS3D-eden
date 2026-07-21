@@ -3510,11 +3510,22 @@ fs_scan_instruction(
             wc);
         break;
     case SpvOpSampledImage:
+    {
+        if (wc >= 5)
+        {
+            STEREO_LOG(
+                "FS_SAMPLED_IMAGE_OP resultType=%u result=%u image=%u sampler=%u",
+                ins[1],
+                ins[2],
+                ins[3],
+                ins[4]);
+        }
         fs_track_sampled_image(
             s,
             ins,
             wc);
         break;
+    }
     case SpvOpImage:
         fs_track_image_propagation(
             s,
@@ -4481,6 +4492,20 @@ bool spirv_patch_stereo_fs(
                 "FS_SAMPLE_PATCH_APPLY image=%u descriptor=%u",
                 in[i+3],
                 descriptor_var);
+            int image_type = -1;
+            int sampled_type = -1;
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].id == descriptor_var)
+                {
+                    sampled_type = s.vars[v].type;
+                    break;
+                }
+            }
+            STEREO_LOG(
+                "FS_DESCRIPTOR_TYPES descriptor=%u sampledType=%d",
+                descriptor_var,
+                sampled_type);
             fs_dump_descriptor_chain(
                 &s,
                 in,
