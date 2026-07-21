@@ -1174,6 +1174,18 @@ stereo_CmdBindDescriptorSets(
     {
         VkPipeline pipe = lookup_bound_pipeline(sd, commandBuffer);
         StereoPipelineInfo *info = find_pipeline_info(sd, pipe);
+        STEREO_LOG(
+            "BIND_DESC "
+            "cmd=%p "
+            "pipe=%p "
+            "info=%p "
+            "firstSet=%u "
+            "setCount=%u",
+            (void *)commandBuffer,
+            (void *)pipe,
+            (void *)info,
+            firstSet,
+            descriptorSetCount);
         if (info &&
             info->has_proj_ubo &&
             info->proj_set != UINT32_MAX &&
