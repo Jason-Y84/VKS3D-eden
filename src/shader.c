@@ -4451,27 +4451,6 @@ bool spirv_patch_stereo_fs(
             {
                 descriptor_var =
                     s.loads[load].owner_var;
-                int ti = fs_type_index(&s, s.vars[vi].type);
-                if (ti >= 0)
-                {
-                    uint32_t imageType = s.types[ti].element_type;
-
-                    int iti = fs_type_index(&s, imageType);
-
-                    if (iti >= 0)
-                    {
-                        STEREO_LOG(
-                            "FS_SAMPLE_IMAGE_TYPE "
-                            "descriptor=%u "
-                            "ptrType=%u "
-                            "sampledImageType=%u "
-                            "arrayed=%u",
-                            descriptor_var,
-                            s.vars[vi].type,
-                            imageType,
-                            s.types[iti].arrayed);
-                    }
-                }
                 int vi =
                     fs_var_index(
                         &s,
@@ -4621,27 +4600,6 @@ bool spirv_patch_stereo_fs(
             {
                 descriptor_var =
                     s.loads[load].owner_var;
-                int ti = fs_type_index(&s, s.vars[vi].type);
-                if (ti >= 0)
-                {
-                    uint32_t imageType = s.types[ti].element_type;
-
-                    int iti = fs_type_index(&s, imageType);
-
-                    if (iti >= 0)
-                    {
-                        STEREO_LOG(
-                            "FS_SAMPLE_IMAGE_TYPE "
-                            "descriptor=%u "
-                            "ptrType=%u "
-                            "sampledImageType=%u "
-                            "arrayed=%u",
-                            descriptor_var,
-                            s.vars[vi].type,
-                            imageType,
-                            s.types[iti].arrayed);
-                    }
-                }
                 image_known = true;
                 //STEREO_LOG(
                 //    "FS_FETCH_MATCH image=%u loadIndex=%d load=%u var=%u",
