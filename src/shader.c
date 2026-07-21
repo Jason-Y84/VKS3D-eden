@@ -4543,19 +4543,31 @@ bool spirv_patch_stereo_fs(
               sb_push_n(&ob,w,6); }
             /* Emit modified sample instruction: word[4] = new coord */
             STEREO_LOG(
-                "FS_SAMPLE_REWRITE image=%u descriptor=%u coord2d=%u coord3d=%u op=%s",
+                "FS_SAMPLE_REWRITE "
+                "result=%u "
+                "sampledImage=%u "
+                "descriptor=%u "
+                "coord2d=%u "
+                "coord3d=%u "
+                "opcode=%s",
+                in[i + 2],
                 in[i + 3],
                 descriptor_var,
                 coord_id,
                 id_c3,
                 spv_op_name(op));
-
             sb_push(&ob, in[i]);          /* opcode */
             sb_push(&ob, in[i+1]);        /* result type */
             sb_push(&ob, in[i+2]);        /* result id */
             sb_push(&ob, in[i+3]);        /* sampled image (unchanged) */
             sb_push(&ob, id_c3);          /* new 3D coordinate */
             if (wc > 5) sb_push_n(&ob, &in[i+5], wc-5); /* image operands */
+            STEREO_LOG(
+                "FS_SAMPLE_WRITTEN "
+                "result=%u "
+                "coord=%u",
+                in[i + 2],
+                id_c3);
             i += wc; continue;
         }
         if (in_func && op == 86 && wc >= 3)
