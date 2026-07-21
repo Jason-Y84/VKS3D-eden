@@ -3203,6 +3203,12 @@ fs_scan_image_operation(
     uint32_t op,
     uint32_t wc)
 {
+    STEREO_LOG(
+        "FS_IMAGE_SCAN op=%s imageOperand=%u resultType=%u result=%u",
+        spv_op_name(op),
+        (wc >= 4) ? ins[3] : 0,
+        (wc >= 2) ? ins[1] : 0,
+        (wc >= 3) ? ins[2] : 0);
     if (!s || wc < 5)
         return;
     switch (op)
@@ -3287,6 +3293,10 @@ fs_scan_image_operation(
             s->vars[var].binding,
             li->from_projection);
     }
+    STEREO_LOG(
+        "FS_IMAGE_OWNER image=%u owner=%u",
+        (wc >= 4) ? ins[3] : 0,
+        owner_var);
 }
 /*
  * Instruction dispatchers
