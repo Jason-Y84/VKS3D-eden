@@ -5183,6 +5183,20 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "spirv_patch_stereo_fs returned=%u patchedWords=%zu",
                 patched ? 1 : 0,
                 pc2);
+            STEREO_LOG(
+                "FS_PATCH_RETURN ptr=%p words=%zu hash=%016llx",
+                (void *)patched,
+                pc2,
+                (unsigned long long)hash_spv(
+                    patched,
+                    pc2));
+            STEREO_LOG(
+                "FS_DUMP words=%zu ptr=%p hash=%016llx",
+                pc2,
+                (void *)patched,
+                (unsigned long long)hash_spv(
+                    patched,
+                    pc2));
             if (dump) {
                 char dp[512];
                 _snprintf(
