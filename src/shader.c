@@ -1947,32 +1947,67 @@ fs_var_index(
 static void
 fs_dump_descriptor_chain(
     const FsScan *s,
+    const uint32_t *spv,
+    size_t word_count,
     uint32_t descriptor_var)
 {
     int vi = fs_var_index(s, descriptor_var);
     if (vi < 0)
         return;
-    uint32_t type = s->vars[vi].type;
+    uint32_t type_id = s->vars[vi].type;
     STEREO_LOG(
         "FS_RESOURCE descriptor=%u varType=%u",
         descriptor_var,
-        type);
-    int ti = fs_type_index(s, type);
-    while (ti >= 0)
+        type_id);
+    for (size_t i = 5; i < word_count; )
     {
-        const FsTypeInfo *t = &s->types[ti];
-        STEREO_LOG(
-            "FS_RESOURCE_TYPE id=%u opcode=%s element=%u sampled=%u depth=%u arrayed=%u storage=%u",
-            t->id,
-            spv_op_name(t->opcode),
-            t->element_type,
-            t->sampled_type,
-            t->depth,
-            t->arrayed,
-            t->storage);
-        if (!t->element_type)
+        uint32_t wc = spv[i] >> 16;
+        uint32_t op = spv[i] & 0xffff;
+        if (!wc || i + wc > word_count)
             break;
-        ti = fs_type_index(s, t->element_type);
+        if ((op == SpvOpTypePointer ||
+             op == SpvOpTypeSampledImage ||
+             op == SpvOpTypeImage) &&
+            spv[i + 1] == type_id)
+        {
+            STEREO_LOG(
+                "FS_RESOURCE_TYPE id=%u op=%s",
+                type_id,
+                spv_op_name(op));
+            if (op == SpvOpTypePointer && wc >= 4)
+            {
+                STEREO_LOG(
+                    "FS_POINTER elementType=%u storage=%u",
+                    spv[i + 3],
+                    spv[i + 2]);
+                type_id = spv[i + 3];
+                i = 5;
+                continue;
+            }
+            if (op == SpvOpTypeSampledImage && wc >= 3)
+            {
+                STEREO_LOG(
+                    "FS_SAMPLED_IMAGE imageType=%u",
+                    spv[i + 2]);
+                type_id = spv[i + 2];
+                i = 5;
+                continue;
+            }
+            if (op == SpvOpTypeImage && wc >= 9)
+            {
+                STEREO_LOG(
+                    "FS_IMAGE_TYPE sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+                    spv[i + 2],
+                    spv[i + 3],
+                    spv[i + 4],
+                    spv[i + 5],
+                    spv[i + 6],
+                    spv[i + 7],
+                    spv[i + 8]);
+                break;
+            }
+        }
+        i += wc;
     }
 }
 
