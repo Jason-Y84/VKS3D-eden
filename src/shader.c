@@ -4248,7 +4248,14 @@ bool spirv_patch_stereo_fs(
                 var->type);
         }
     }
-    if (s.n_img == 0 || !s.float_id) return false;
+    if (s.n_img == 0 || !s.float_id)
+    {
+        STEREO_LOG(
+            "FS_PATCH_REJECT images=%u float_id=%u",
+            s.n_img,
+            s.float_id);
+        return false;
+    }
     uint32_t n_patches = fs_count_patches(&s, in, in_c);
     /* Allocate new IDs above current bound */
     uint32_t nid           = in[3];
