@@ -1944,6 +1944,38 @@ fs_var_index(
     return -1;
 }
 
+static void
+fs_dump_descriptor_chain(
+    const FsScan *s,
+    uint32_t descriptor_var)
+{
+    int vi = fs_var_index(s, descriptor_var);
+    if (vi < 0)
+        return;
+    uint32_t type = s->vars[vi].type;
+    STEREO_LOG(
+        "FS_RESOURCE descriptor=%u varType=%u",
+        descriptor_var,
+        type);
+    int ti = fs_type_index(s, type);
+    while (ti >= 0)
+    {
+        const FsTypeInfo *t = &s->types[ti];
+        STEREO_LOG(
+            "FS_RESOURCE_TYPE id=%u opcode=%s element=%u sampled=%u depth=%u arrayed=%u storage=%u",
+            t->id,
+            spv_op_name(t->opcode),
+            t->element_type,
+            t->sampled_type,
+            t->depth,
+            t->arrayed,
+            t->storage);
+        if (!t->element_type)
+            break;
+        ti = fs_type_index(s, t->element_type);
+    }
+}
+
 static int
 fs_dec_index(
     const FsScan *s,
@@ -4414,6 +4446,9 @@ bool spirv_patch_stereo_fs(
                 "FS_SAMPLE_PATCH_APPLY image=%u descriptor=%u",
                 in[i+3],
                 descriptor_var);
+            fs_dump_descriptor_chain(
+                &s,
+                descriptor_var);
             uint32_t id_lv  = samp_nid++;
             uint32_t id_cvt = samp_nid++;
             uint32_t id_u   = samp_nid++;
@@ -4554,6 +4589,9 @@ bool spirv_patch_stereo_fs(
                 in[i+3],
                 descriptor_var,
                 in[i+4]);
+            fs_dump_descriptor_chain(
+                &s,
+                descriptor_var);
             uint32_t id_lv = samp_nid++;
             uint32_t id_x  = samp_nid++;
             uint32_t id_y  = samp_nid++;
