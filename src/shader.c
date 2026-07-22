@@ -448,7 +448,13 @@ static void do_scan(SpvMod *m, bool p2)
                     if (w[i + 1] < m->value_capacity)
                         SETTYPE(w[i + 1], matrix);
                     if (matrix)
+                    {
+                        STEREO_LOG(
+                            "PROJ_STRUCT type=%u (previous=%u)",
+                            w[i+1],
+                            m->proj_struct_type);
                         m->proj_struct_type = w[i+1];
+                    }
                 }
                 break;
             case SpvOpTypeArray:
@@ -644,7 +650,13 @@ static void do_scan(SpvMod *m, bool p2)
                 SETPTR(w[i + 1], 1);
                 }
                 if (w[i+3] == m->proj_struct_type)
+                {
+                    STEREO_LOG(
+                        "PROJ_PTR ptr=%u struct=%u",
+                        w[i+1],
+                        w[i+3]);
                     m->proj_ptr_type = w[i+1];
+                }
                 if (w[i + 2] == SpvStorageOutput &&
                 m->v4t &&
                 w[i + 3] == m->v4t)
@@ -670,6 +682,10 @@ static void do_scan(SpvMod *m, bool p2)
                 if (w[i+1] == m->proj_ptr_type &&
                     w[i+3] == SpvStorageClassUniform)
                 {
+                    STEREO_LOG(
+                        "PROJ_VAR var=%u ptr=%u",
+                        w[i+2],
+                        w[i+1]);
                     m->proj_var = w[i+2];
                 }
                 break;
