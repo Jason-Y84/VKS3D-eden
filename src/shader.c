@@ -5141,15 +5141,21 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             STEREO_LOG(
                 "FS_PATCH_DECISION "
                 "pipe=%u "
+                "rp=%p "
+                "subpass=%u "
                 "is_quad=%u "
                 "pipeline_mv=%u "
                 "has_fs=%u "
+                "fs_hash=%016llx "
                 "cache=%p "
                 "stageFlags=0x%x",
                 p,
+                (void *)ci->renderPass,
+                ci->subpass,
                 is_quad,
                 pipeline_has_mv,
                 (fs_s != ~0u),
+                (unsigned long long)spv_hash,
                 (void *)fs_cache,
                 ci->pStages[fs_s].stage);
             STEREO_LOG(
