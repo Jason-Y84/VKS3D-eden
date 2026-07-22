@@ -4262,6 +4262,13 @@ bool spirv_patch_stereo_fs(
         in_c);
     FsScan s;
     fs_prescan(&s, in, in_c);
+    for (uint32_t i = 0; i < s.n_img; ++i)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_TABLE imgType=%u sampledType=%u",
+            s.img[i].img_type,
+            s.img[i].sampled_type);
+    }
     for (uint32_t i = 0; i < s.n_var; ++i)
     {
         const FsVariableInfo *var = &s.vars[i];
