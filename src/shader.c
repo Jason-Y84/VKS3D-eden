@@ -4400,26 +4400,21 @@ bool spirv_patch_stereo_fs(
                 in[i+5],
                 ob.w[ob.n - wc + 5],
                 in[i+6]);
-            for (uint32_t v = 0; v < s.n_var; ++v)
+            for (uint32_t img = 0; img < s.n_img; ++img)
             {
-                if (s.vars[v].type == in[i+1])
+                if (s.images[img].id == in[i+1])
                 {
                     STEREO_LOG(
                         "FS_IMAGE_PATCH_USER "
-                        "var=%u "
+                        "type=%u "
+                        "owner=%u "
                         "set=%u "
-                        "binding=%u "
-                        "storage=%u",
-                        s.vars[v].id,
-                        s.vars[v].set,
-                        s.vars[v].binding,
-                        s.vars[v].storage);
-                    STEREO_LOG(
-                        "FS_IMAGE_PATCH_USER_TYPE "
-                        "var=%u "
-                        "type=%u",
-                        s.vars[v].id,
-                        s.vars[v].type);
+                        "binding=%u",
+                        s.images[img].id,
+                        s.images[img].owner_var,
+                        s.images[img].set,
+                        s.images[img].binding);
+                    break;
                 }
             }
             STEREO_LOG(
