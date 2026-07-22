@@ -5216,11 +5216,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             {
                 if (fm.proj_found)
                 {
-                    dbg_out[p].has_proj_ubo = true;
-                    dbg_out[p].proj_set = fm.proj_set;
-                    dbg_out[p].proj_binding = fm.proj_binding;
-                    dbg_out[p].proj_member_mask = fm.proj_member_mask;
-                    dbg_out[p].proj_var = fm.proj_var;
                     STEREO_LOG(
                         "FS_PROJ_OVERRIDE hash=%016llx set=%u binding=%u mask=0x%X var=%u",
                         (unsigned long long)hash_spv(fs_cache->spv,
