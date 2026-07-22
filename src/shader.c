@@ -1896,6 +1896,9 @@ typedef struct
     uint32_t depth;
     uint32_t arrayed;
     bool     patchable;
+    uint32_t owner_var;
+    uint32_t binding;
+    uint32_t set;
 } FsImageInfo;
 
 
@@ -3760,6 +3763,37 @@ fs_prescan(
      * Dump the final ownership graph after fixups.
      */
     fs_dump_scan_summary(s);
+    /*
+     * Resolve descriptor ownership for every image type.
+     * This lets the patcher later distinguish Position/Normal/Noise
+     * textures from only the OpTypeImage id.
+     */
+    for (uint32_t img = 0; img < s->n_img; ++img)
+    {
+        s->img[img].owner_var = UINT32_MAX;
+        s->img[img].binding   = UINT32_MAX;
+        s->img[img].set       = UINT32_MAX;
+        for (uint32_t v = 0; v < s->n_var; ++v)
+        {
+            if (s->vars[v].type == s->img[img].id)
+            {
+                s->img[img].owner_var = s->vars[v].id;
+                s->img[img].binding   = s->vars[v].binding;
+                s->img[img].set       = s->vars[v].set;
+                STEREO_LOG(
+                    "FS_IMAGE_OWNER "
+                    "imageType=%u "
+                    "owner=%u "
+                    "set=%u "
+                    "binding=%u",
+                    s->img[img].id,
+                    s->img[img].owner_var,
+                    s->img[img].set,
+                    s->img[img].binding);
+                break;
+            }
+        }
+    }
     for (uint32_t l = 0; l < s->n_load; ++l)
     {
         const FsLoadInfo *load = &s->loads[l];
