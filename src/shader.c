@@ -242,39 +242,6 @@ static void free_spv_provenance(SpvMod *m)
     m->value_capacity = 0;
 }
 
-static bool init_spv_analysis(
-    SpvMod *m,
-    const uint32_t *words,
-    size_t word_count)
-{
-    memset(m, 0, sizeof(*m));
-    m->words = words;
-    m->count = word_count;
-    m->bound = words[3];
-    m->value_capacity = m->bound + 64;
-    m->value_from_matrix =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    m->is_matrix_type =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    m->is_matrix_ptr =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    m->is_proj_value =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    m->is_view_value =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    if (!m->value_from_matrix ||
-        !m->is_matrix_type ||
-        !m->is_matrix_ptr ||
-        !m->is_proj_value ||
-        !m->is_view_value)
-    {
-        free_spv_provenance(m);
-        return false;
-    }
-    spv_scan(m);
-    return true;
-}
-
 static uint64_t hash_spv(const uint32_t *data, size_t words);
 
 static bool
@@ -836,6 +803,39 @@ static void spv_scan(SpvMod *m)
         m->emit_count,
         m->pos_var,
         m->pos_is_block);
+}
+
+static bool init_spv_analysis(
+    SpvMod *m,
+    const uint32_t *words,
+    size_t word_count)
+{
+    memset(m, 0, sizeof(*m));
+    m->words = words;
+    m->count = word_count;
+    m->bound = words[3];
+    m->value_capacity = m->bound + 64;
+    m->value_from_matrix =
+        calloc(m->value_capacity, sizeof(uint8_t));
+    m->is_matrix_type =
+        calloc(m->value_capacity, sizeof(uint8_t));
+    m->is_matrix_ptr =
+        calloc(m->value_capacity, sizeof(uint8_t));
+    m->is_proj_value =
+        calloc(m->value_capacity, sizeof(uint8_t));
+    m->is_view_value =
+        calloc(m->value_capacity, sizeof(uint8_t));
+    if (!m->value_from_matrix ||
+        !m->is_matrix_type ||
+        !m->is_matrix_ptr ||
+        !m->is_proj_value ||
+        !m->is_view_value)
+    {
+        free_spv_provenance(m);
+        return false;
+    }
+    spv_scan(m);
+    return true;
 }
 
 uint64_t hash_spv(const uint32_t *data, size_t words)
