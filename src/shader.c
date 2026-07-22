@@ -1035,6 +1035,11 @@ typedef struct StereoDebugCtx {
     uint32_t proj_var;
     bool has_matrix_ops;
     bool direct_position_write;
+    bool fs_has_proj_ubo;
+    uint32_t fs_proj_set;
+    uint32_t fs_proj_binding;
+    uint32_t fs_proj_member_mask;
+    uint32_t fs_proj_var;
 } StereoDebugCtx;
 
 static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
@@ -4890,6 +4895,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         dbg_out[i].proj_binding         = UINT32_MAX;
         dbg_out[i].proj_member_mask     = UINT32_MAX;
         dbg_out[i].proj_var             = UINT32_MAX;
+        dbg_out[i].fs_has_proj_ubo      = false;
+        dbg_out[i].fs_proj_set          = UINT32_MAX;
+        dbg_out[i].fs_proj_binding      = UINT32_MAX;
+        dbg_out[i].fs_proj_member_mask  = UINT32_MAX;
+        dbg_out[i].fs_proj_var          = UINT32_MAX;
     }
     if (!tmp_mod||!tst||!infos) {
         free(tmp_mod); free(tst); free(infos);
@@ -5216,6 +5226,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             {
                 if (fm.proj_found)
                 {
+                    dbg_out[p].fs_has_proj_ubo = true;
+                    dbg_out[p].fs_proj_set = fm.proj_set;
+                    dbg_out[p].fs_proj_binding = fm.proj_binding;
+                    dbg_out[p].fs_proj_member_mask = fm.proj_member_mask;
+                    dbg_out[p].fs_proj_var = fm.proj_var;
                     STEREO_LOG(
                         "FS_PROJ_OVERRIDE hash=%016llx set=%u binding=%u mask=0x%X var=%u",
                         (unsigned long long)hash_spv(fs_cache->spv,
@@ -5614,6 +5629,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 info->proj_binding          = dbg_out[p].proj_binding;
                 info->proj_member_mask      = dbg_out[p].proj_member_mask;
                 info->proj_var              = dbg_out[p].proj_var;
+                info->fs_has_proj_ubo       = dbg_out[p].fs_has_proj_ubo;
+                info->fs_proj_set           = dbg_out[p].fs_proj_set;
+                info->fs_proj_binding       = dbg_out[p].fs_proj_binding;
+                info->fs_proj_member_mask   = dbg_out[p].fs_proj_member_mask;
+                info->fs_proj_var           = dbg_out[p].fs_proj_var;
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
                     const VkPipelineShaderStageCreateInfo *st =
