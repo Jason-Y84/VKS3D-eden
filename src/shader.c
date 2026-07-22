@@ -5202,6 +5202,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "CALLING spirv_patch_stereo_fs hash=%016llx words=%zu",
                 (unsigned long long)spv_hash,
                 fs_cache->words);
+            STEREO_LOG(
+                "FS_PATCH_BEGIN hash=%016llx pipe=%u",
+                (unsigned long long)spv_hash,
+                p);
             if (!spirv_patch_stereo_fs(
                     fs_cache->spv,
                     fs_cache->words,
@@ -5213,6 +5217,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     p);
                 continue;
             }
+            STEREO_LOG(
+                "FS_PATCH_DONE hash=%016llx",
+                (unsigned long long)spv_hash);
             STEREO_LOG(
                 "spirv_patch_stereo_fs returned=%u patchedWords=%zu",
                 patched ? 1 : 0,
