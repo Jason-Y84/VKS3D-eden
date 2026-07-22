@@ -3765,31 +3765,32 @@ fs_prescan(
     fs_dump_scan_summary(s);
     /*
      * Resolve descriptor ownership for every image type.
-     * This lets the patcher later distinguish Position/Normal/Noise
-     * textures from only the OpTypeImage id.
+     * This allows spirv_patch_stereo_fs() to know which binding
+     * owns a given OpTypeImage.
      */
     for (uint32_t img = 0; img < s->n_img; ++img)
     {
-        s->img[img].owner_var = UINT32_MAX;
-        s->img[img].binding   = UINT32_MAX;
-        s->img[img].set       = UINT32_MAX;
+        FsImageInfo *image = &s->images[img];
+        image->owner_var = UINT32_MAX;
+        image->binding   = UINT32_MAX;
+        image->set       = UINT32_MAX;
         for (uint32_t v = 0; v < s->n_var; ++v)
         {
-            if (s->vars[v].type == s->img[img].id)
+            if (s->vars[v].type == image->id)
             {
-                s->img[img].owner_var = s->vars[v].id;
-                s->img[img].binding   = s->vars[v].binding;
-                s->img[img].set       = s->vars[v].set;
+                image->owner_var = s->vars[v].id;
+                image->binding   = s->vars[v].binding;
+                image->set       = s->vars[v].set;
                 STEREO_LOG(
                     "FS_IMAGE_OWNER "
                     "imageType=%u "
                     "owner=%u "
                     "set=%u "
                     "binding=%u",
-                    s->img[img].id,
-                    s->img[img].owner_var,
-                    s->img[img].set,
-                    s->img[img].binding);
+                    image->id,
+                    image->owner_var,
+                    image->set,
+                    image->binding);
                 break;
             }
         }
