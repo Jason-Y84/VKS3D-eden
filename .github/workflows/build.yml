@@ -11,12 +11,6 @@ on:
   push:
     Branches: $Branch
   workflow_dispatch:
-    inputs:
-      CommitHash:
-        description: 'Commit hash'
-        required: false
-        default: '${env:GITHUB_SHA}'
-        type: string
 
 jobs:
   Build:
@@ -46,7 +40,7 @@ jobs:
         git
         clone https://${{github.repository_owner}}:${{github.token}}@github.com/${{github.repository}}.git
         "${{github.workspace}}"
-        --revision ${{inputs.CommitHash}}
+        --revision ${env:GITHUB_SHA}
         --filter=blob:none
 
     - name: Get current commit hash and counts
