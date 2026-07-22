@@ -4301,8 +4301,8 @@ bool spirv_patch_stereo_fs(
     {
         STEREO_LOG(
             "FS_IMAGE_TABLE imgType=%u sampledType=%u",
-            image->img_type,
-            image->sampled_type);
+            s.img[i].img_type,
+            s.img[i].sampled_type);
     }
     for (uint32_t i = 0; i < s.n_var; ++i)
     {
