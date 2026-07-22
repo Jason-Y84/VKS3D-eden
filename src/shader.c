@@ -4363,11 +4363,15 @@ bool spirv_patch_stereo_fs(
                 if (s.vars[v].type == in[i+1])
                 {
                     STEREO_LOG(
-                        "FS_IMAGE_PATCH_USER var=%u storage=%u set=%u binding=%u",
+                        "FS_IMAGE_PATCH_USER "
+                        "var=%u "
+                        "set=%u "
+                        "binding=%u "
+                        "storage=%u",
                         s.vars[v].id,
-                        s.vars[v].storage,
                         s.vars[v].set,
-                        s.vars[v].binding);
+                        s.vars[v].binding,
+                        s.vars[v].storage);
                     STEREO_LOG(
                         "FS_IMAGE_PATCH_USER_TYPE "
                         "var=%u "
