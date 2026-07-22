@@ -1376,16 +1376,9 @@ bool spirv_patch_stereo_vertex(
         m.emit_count,
         m.has_viewindex_builtin);
     STEREO_LOG(
-        "PROJ_FINAL "
-        "hash=%016llx "
-        "found=%u "
-        "set=%u "
-        "binding=%u "
-        "mask=0x%X "
-        "access=%u "
-        "loads=%u "
-        "mtv=%u",
+        "PROJ_FINAL hash=%016llx exec=%u found=%u set=%u binding=%u mask=0x%X access=%u loads=%u mtv=%u",
         (unsigned long long)spv_hash,
+        m.exec_model,
         m.proj_found,
         m.proj_set,
         m.proj_binding,
