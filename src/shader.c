@@ -805,39 +805,6 @@ static void spv_scan(SpvMod *m)
         m->pos_is_block);
 }
 
-static bool init_spv_analysis(
-    SpvMod *m,
-    const uint32_t *words,
-    size_t word_count)
-{
-    memset(m, 0, sizeof(*m));
-    m->words = words;
-    m->count = word_count;
-    m->bound = words[3];
-    m->value_capacity = m->bound + 64;
-    m->value_from_matrix =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    m->is_matrix_type =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    m->is_matrix_ptr =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    m->is_proj_value =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    m->is_view_value =
-        calloc(m->value_capacity, sizeof(uint8_t));
-    if (!m->value_from_matrix ||
-        !m->is_matrix_type ||
-        !m->is_matrix_ptr ||
-        !m->is_proj_value ||
-        !m->is_view_value)
-    {
-        free_spv_provenance(m);
-        return false;
-    }
-    spv_scan(m);
-    return true;
-}
-
 uint64_t hash_spv(const uint32_t *data, size_t words)
 {
     uint64_t h = 1469598103934665603ULL; // FNV offset basis
@@ -1035,11 +1002,6 @@ typedef struct StereoDebugCtx {
     uint32_t proj_var;
     bool has_matrix_ops;
     bool direct_position_write;
-    bool fs_has_proj_ubo;
-    uint32_t fs_proj_set;
-    uint32_t fs_proj_binding;
-    uint32_t fs_proj_member_mask;
-    uint32_t fs_proj_var;
 } StereoDebugCtx;
 
 static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
@@ -1262,11 +1224,37 @@ bool spirv_patch_stereo_vertex(
         return false;
     int projection_mode =
         cfg ? cfg->projection : STEREO_PROJECTION_PARALLEL;
-
-    SpvMod m;
-    if (!init_spv_analysis(&m, in, in_c))
+    SpvMod m = {0};
+    m.words = in;
+    m.count = in_c;
+    m.bound = m.words[3];
+    m.value_capacity = m.bound + 64;
+    m.value_from_matrix =
+        calloc(m.value_capacity, sizeof(uint8_t));
+    m.is_matrix_type =
+        calloc(m.value_capacity, sizeof(uint8_t));
+    m.is_matrix_ptr =
+        calloc(m.value_capacity, sizeof(uint8_t));
+    m.is_proj_value =
+        calloc(m.value_capacity, sizeof(uint8_t));
+    m.is_view_value =
+        calloc(m.value_capacity, sizeof(uint8_t));
+    if (!m.value_from_matrix ||
+        !m.is_matrix_type ||
+        !m.is_matrix_ptr ||
+        !m.is_proj_value ||
+        !m.is_view_value)
+    {
+        free_spv_provenance(&m);
         return false;
-
+    }
+    /* Analyze shader structure before modification:
+     * - matrix provenance
+     * - gl_Position location
+     * - ViewIndex availability
+     * - entry point classification
+     */
+    spv_scan(&m);
     /*
      * Optional shader blacklist.
      * Used for debugging shaders that should remain untouched.
@@ -4895,11 +4883,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         dbg_out[i].proj_binding         = UINT32_MAX;
         dbg_out[i].proj_member_mask     = UINT32_MAX;
         dbg_out[i].proj_var             = UINT32_MAX;
-        dbg_out[i].fs_has_proj_ubo      = false;
-        dbg_out[i].fs_proj_set          = UINT32_MAX;
-        dbg_out[i].fs_proj_binding      = UINT32_MAX;
-        dbg_out[i].fs_proj_member_mask  = UINT32_MAX;
-        dbg_out[i].fs_proj_var          = UINT32_MAX;
     }
     if (!tmp_mod||!tst||!infos) {
         free(tmp_mod); free(tst); free(infos);
@@ -5219,29 +5202,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "CALLING spirv_patch_stereo_fs hash=%016llx words=%zu",
                 (unsigned long long)spv_hash,
                 fs_cache->words);
-            SpvMod fm;
-            if (init_spv_analysis(&fm,
-                                  fs_cache->spv,
-                                  fs_cache->words))
-            {
-                if (fm.proj_found)
-                {
-                    dbg_out[p].fs_has_proj_ubo = true;
-                    dbg_out[p].fs_proj_set = fm.proj_set;
-                    dbg_out[p].fs_proj_binding = fm.proj_binding;
-                    dbg_out[p].fs_proj_member_mask = fm.proj_member_mask;
-                    dbg_out[p].fs_proj_var = fm.proj_var;
-                    STEREO_LOG(
-                        "FS_PROJ_OVERRIDE hash=%016llx set=%u binding=%u mask=0x%X var=%u",
-                        (unsigned long long)hash_spv(fs_cache->spv,
-                                                     fs_cache->words),
-                        fm.proj_set,
-                        fm.proj_binding,
-                        fm.proj_member_mask,
-                        fm.proj_var);
-                }
-                free_spv_provenance(&fm);
-            }
             if (!spirv_patch_stereo_fs(
                     fs_cache->spv,
                     fs_cache->words,
@@ -5629,11 +5589,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 info->proj_binding          = dbg_out[p].proj_binding;
                 info->proj_member_mask      = dbg_out[p].proj_member_mask;
                 info->proj_var              = dbg_out[p].proj_var;
-                info->fs_has_proj_ubo       = dbg_out[p].fs_has_proj_ubo;
-                info->fs_proj_set           = dbg_out[p].fs_proj_set;
-                info->fs_proj_binding       = dbg_out[p].fs_proj_binding;
-                info->fs_proj_member_mask   = dbg_out[p].fs_proj_member_mask;
-                info->fs_proj_var           = dbg_out[p].fs_proj_var;
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
                     const VkPipelineShaderStageCreateInfo *st =

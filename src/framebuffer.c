@@ -1186,101 +1186,83 @@ stereo_CmdBindDescriptorSets(
             (void *)info,
             firstSet,
             descriptorSetCount);
-        if (info)
+        if (info &&
+            info->has_proj_ubo &&
+            info->proj_set != UINT32_MAX &&
+            info->proj_binding != UINT32_MAX &&
+            info->proj_member_mask != UINT32_MAX &&
+            info->proj_var != UINT32_MAX)
         {
-            /* Prefer FS projection metadata if present. */
-            VkBool32 has_proj =
-                info->fs_has_proj_ubo ?
-                info->fs_has_proj_ubo :
-                info->has_proj_ubo;
-            uint32_t proj_set =
-                info->fs_has_proj_ubo ?
-                info->fs_proj_set :
-                info->proj_set;
-            uint32_t proj_binding =
-                info->fs_has_proj_ubo ?
-                info->fs_proj_binding :
-                info->proj_binding;
-            uint32_t proj_mask =
-                info->fs_has_proj_ubo ?
-                info->fs_proj_member_mask :
-                info->proj_member_mask;
-            uint32_t proj_var =
-                info->fs_has_proj_ubo ?
-                info->fs_proj_var :
-                info->proj_var;
-            if (has_proj)
+            uint32_t target_set = info->proj_set;
+            STEREO_LOG(
+                "PROJ_PIPE pipe=%p set=%u binding=%u mask=0x%X var=%u",
+                (void *)pipe,
+                info->proj_set,
+                info->proj_binding,
+                info->proj_member_mask,
+                info->proj_var);
+            if (target_set >= firstSet &&
+                target_set < firstSet + descriptorSetCount)
             {
-                uint32_t target_set = proj_set;
-                STEREO_LOG(
-                    "PROJ_PIPE pipe=%p set=%u binding=%u mask=0x%X var=%u",
-                    (void *)pipe,
-                    proj_set,
-                    proj_binding,
-                    proj_mask,
-                    proj_var);
-                if (target_set >= firstSet &&
-                    target_set < firstSet + descriptorSetCount)
+                uint32_t rel = target_set - firstSet;
+                VkDescriptorSet ds = pDescriptorSets[rel];
+                if (ds != VK_NULL_HANDLE)
                 {
-                    uint32_t rel = target_set - firstSet;
-                    VkDescriptorSet ds = pDescriptorSets[rel];
-                    if (ds != VK_NULL_HANDLE)
+                    STEREO_LOG(
+                        "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u mask=0x%X var=%u",
+                        (void *)pipe,
+                        info->has_proj_ubo,
+                        info->proj_set,
+                        info->proj_binding,
+                        info->proj_member_mask,
+                        info->proj_var);
+                    /*
+                     * Prefer the fragment shader projection UBO when present.
+                     * VS/TES-derived proj info can be left in place for geometry,
+                     * but FS-only SSAO/reconstruction needs binding 4.
+                     */
+                    bool rewrite_proj =
+                        (info->proj_binding == 4) ||
+                        (info->proj_binding == 0 &&
+                         info->proj_member_mask == (1u << 2));
+                    if (rewrite_proj)
+                    {
+                        stereo_write_ubo(sd);
+                        stereo_overwrite_projection_binding(
+                            sd,
+                            ds,
+                            info->proj_binding);
+                        STEREO_LOG(
+                            "PROJ_DESC_REWRITE pipe=%p set=%u binding=%u ds=%p mask=0x%X",
+                            (void *)pipe,
+                            target_set,
+                            info->proj_binding,
+                            (void *)ds,
+                            info->proj_member_mask);
+                    }
+                    else
                     {
                         STEREO_LOG(
-                            "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u mask=0x%X var=%u",
+                            "PROJ_DESC_SKIP pipe=%p set=%u binding=%u ds=%p mask=0x%X",
                             (void *)pipe,
-                            has_proj,
-                            proj_set,
-                            proj_binding,
-                            proj_mask,
-                            proj_var);
-                        /*
-                         * Prefer the fragment shader projection UBO when present.
-                         * VS/TES-derived projection info remains available for geometry.
-                         */
-                        bool rewrite_proj =
-                            (proj_binding == 4) ||
-                            (proj_binding == 0 &&
-                             proj_mask == (1u << 2));
-                        if (rewrite_proj)
-                        {
-                            stereo_write_ubo(sd);
-                            stereo_overwrite_projection_binding(
-                                sd,
-                                ds,
-                                proj_binding);
-                            STEREO_LOG(
-                                "PROJ_DESC_REWRITE pipe=%p set=%u binding=%u ds=%p mask=0x%X",
-                                (void *)pipe,
-                                target_set,
-                                proj_binding,
-                                (void *)ds,
-                                proj_mask);
-                        }
-                        else
-                        {
-                            STEREO_LOG(
-                                "PROJ_DESC_SKIP pipe=%p set=%u binding=%u ds=%p mask=0x%X",
-                                (void *)pipe,
-                                target_set,
-                                proj_binding,
-                                (void *)ds,
-                                proj_mask);
-                        }
+                            target_set,
+                            info->proj_binding,
+                            (void *)ds,
+                            info->proj_member_mask);
                     }
                 }
             }
-            else
-            {
-                STEREO_LOG(
-                    "PROJ_REWRITE_SKIP pipe=%p has=%u set=%u binding=%u mask=0x%X var=%u",
-                    (void *)pipe,
-                    has_proj,
-                    proj_set,
-                    proj_binding,
-                    proj_mask,
-                    proj_var);
-            }
+        }
+        else if (info)
+        {
+            STEREO_LOG(
+                "PROJ_REWRITE_SKIP pipe=%p has=%u set=%u binding=%u mask=0x%X var=%u",
+                (void *)pipe,
+                info->has_proj_ubo,
+                info->proj_set,
+                info->proj_binding,
+                info->proj_member_mask,
+                info->proj_var);
         }
     }
     sd->real.CmdBindDescriptorSets(
