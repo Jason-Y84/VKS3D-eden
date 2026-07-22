@@ -1359,6 +1359,24 @@ bool spirv_patch_stereo_vertex(
         m.dot_count,
         m.emit_count,
         m.has_viewindex_builtin);
+    STEREO_LOG(
+        "PROJ_FINAL "
+        "hash=%016llx "
+        "found=%u "
+        "set=%u "
+        "binding=%u "
+        "mask=0x%X "
+        "access=%u "
+        "loads=%u "
+        "mtv=%u",
+        (unsigned long long)spv_hash,
+        m.proj_found,
+        m.proj_set,
+        m.proj_binding,
+        m.proj_member_mask,
+        m.proj_access_count,
+        m.proj_load_count,
+        m.proj_mtv_count);
     if (m.proj_found)
     {
         STEREO_LOG(
