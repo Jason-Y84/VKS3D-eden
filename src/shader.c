@@ -4300,9 +4300,15 @@ bool spirv_patch_stereo_fs(
     for (uint32_t i = 0; i < s.n_img; ++i)
     {
         STEREO_LOG(
-            "FS_IMAGE_TABLE imgType=%u sampledType=%u",
-            s.img[i].img_type,
-            s.img[i].sampled_type);
+            "FS_IMAGE_TABLE "
+            "type=%u "
+            "owner=%u "
+            "set=%u "
+            "binding=%u",
+            s.images[i].id,
+            s.images[i].owner_var,
+            s.images[i].set,
+            s.images[i].binding);
     }
     for (uint32_t i = 0; i < s.n_var; ++i)
     {
