@@ -3168,10 +3168,10 @@ fs_track_sampled_image(
     const uint32_t *ins,
     uint32_t wc)
 {
-    if (!s || !ins || wc < 5)
+    if (!s || wc < 5)
         return;
     /*
-     * Result type must be OpTypeSampledImage.
+     * Ignore non-sampled-image result types.
      */
     if (!fs_id_in(
             s->si_ids,
@@ -3183,46 +3183,14 @@ fs_track_sampled_image(
     uint32_t result_id  = ins[2];
     uint32_t image_id   = ins[3];
     uint32_t sampler_id = ins[4];
-    uint32_t owner = 0xffffffffu;
-    /*
-     * First try the normal load ownership path.
-     */
     int src =
         fs_find_load(
             s,
             image_id);
-    if (src >= 0)
-    {
-        owner =
-            s->loads[src].owner_var;
-    }
-    else
-    {
-        /*
-         * The image may itself be a propagated SSA value:
-         *
-         *   %image = OpAccessChain / OpCopyObject / OpBitcast
-         *
-         * Resolve through the ownership graph.
-         */
-        if (!fs_resolve_load_owner(
-                s,
-                image_id,
-                &owner))
-        {
-            if (fs_var_index(
-                    s,
-                    image_id) >= 0)
-            {
-                owner = image_id;
-            }
-        }
-    }
-    if (owner == 0xffffffffu)
+    if (src < 0)
     {
         STEREO_LOG(
-            "FS_SAMPLED_IMAGE_NO_OWNER "
-            "result=%u image=%u sampler=%u",
+            "FS_SAMPLED_IMAGE_NO_SOURCE result=%u image=%u sampler=%u",
             result_id,
             image_id,
             sampler_id);
@@ -3237,39 +3205,15 @@ fs_track_sampled_image(
     }
     FsLoadInfo *dst =
         &s->loads[s->n_load++];
-    memset(
-        dst,
-        0,
-        sizeof(*dst));
-    dst->id =
-        result_id;
-    dst->source_id =
-        image_id;
-    dst->owner_var =
-        owner;
-    dst->binding =
-        0xffffffffu;
-    int vi =
-        fs_var_index(
-            s,
-            owner);
-    if (vi >= 0)
-    {
-        dst->binding =
-            s->vars[vi].binding;
-    }
+    *dst = s->loads[src];
+    dst->id = result_id;
     STEREO_LOG(
-        "FS_SAMPLED_IMAGE_RESOLVE "
-        "result=%u "
-        "image=%u "
-        "sampler=%u "
-        "owner=%u "
-        "binding=%u",
+        "FS_SAMPLED_IMAGE result=%u image=%u sampler=%u owner=%u source=%u",
         result_id,
         image_id,
         sampler_id,
         dst->owner_var,
-        dst->binding);
+        dst->source_id);
 }
 /*
  * Scan image sampling/fetch/read/write instructions.
@@ -4579,9 +4523,6 @@ bool spirv_patch_stereo_fs(
                 in[i+2]);
             uint32_t coord_id = in[i+4];
             uint32_t descriptor_var = 0;
-            STEREO_LOG(
-                "FS_SAMPLE_LOOKUP sampledImage=%u",
-                in[i+3]);
             int load =
                 fs_find_load(
                     &s,
