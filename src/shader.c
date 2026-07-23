@@ -1099,6 +1099,26 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         };
         sb_push_n(out, w, 5);
     }
+    STEREO_LOG(
+        "VS_PATCH "
+        "mode=%d "
+        "posVar=%u "
+        "viewVar=%u "
+        "block=%u "
+        "member=%u "
+        "haveView=%u "
+        "convConst=%u "
+        "leftConst=%u "
+        "rightConst=%u",
+        c->projection_mode,
+        m->pos_var,
+        m->view_var,
+        m->pos_is_block,
+        m->pos_member_idx,
+        c->have_view,
+        c->cc,
+        c->cl,
+        c->cr);
     if (c->projection_mode == STEREO_PROJECTION_PARALLEL)
     {
         uint32_t w[] = {
