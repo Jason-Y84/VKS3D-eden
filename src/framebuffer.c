@@ -1231,8 +1231,14 @@ stereo_CmdBindDescriptorSets(
                      * VS/TES-derived proj info can be left in place for geometry,
                      * but FS-only SSAO/reconstruction needs binding 4.
                      */
+                    /*
+                     * Only rewrite true camera projection UBOs.
+                     *
+                     * FS reconstruction shaders frequently bind projection-like
+                     * matrices (SSAO/depth reconstruction), but those are not
+                     * compatible with StereoUBO layout.
+                     */
                     bool rewrite_proj =
-                        (info->proj_binding == 4) ||
                         (info->proj_binding == 0 &&
                          info->proj_member_mask == (1u << 2));
                     if (rewrite_proj)
