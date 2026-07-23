@@ -4327,6 +4327,10 @@ bool spirv_patch_stereo_fs(
     uint32_t **out, size_t *out_c)
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC) return false;
+    STEREO_LOG(
+        "FS_PATCH_ENTER hash=%016llx words=%zu",
+        (unsigned long long)hash_spv(in, in_c),
+        in_c);
     uint64_t h = hash_spv(in, in_c);
     STEREO_LOG(
         "FS_PATCH_MODULE hash=%016llx words=%zu",
@@ -4853,6 +4857,11 @@ bool spirv_patch_stereo_fs(
     *out_c = ob.n;
     STEREO_LOG("FS patched: %u 2D img types→arr, %u samples extended, bound %u→%u",
                s.n_img, n_patches, in[3], ob.w[3]);
+    STEREO_LOG(
+        "FS_PATCH_DONE hash=%016llx words=%zu new_words=%zu",
+        (unsigned long long)hash_spv(in, in_c),
+        in_c,
+        ob.n);
     return true;
 }
 
