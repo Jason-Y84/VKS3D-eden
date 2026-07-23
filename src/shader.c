@@ -527,8 +527,18 @@ static void do_scan(SpvMod *m, bool p2)
                                 m->proj_member_mask,
                                 m->proj_mtv_count);
                         }
-                        if (proj_a || proj_b)
-                            SETPROJ(w[i + 2], proj_a ? proj_a : proj_b);
+                        /* Do not automatically propagate projection provenance through
+                         * MatrixTimesVector.
+                         *
+                         * Many fragment shaders (SSAO, SSR, depth reconstruction) multiply
+                         * arbitrary vectors by the projection matrix without producing clip
+                         * coordinates.
+                         *
+                         * Let later consumers decide whether this multiplication is actually
+                         * part of a projection chain.
+                         */
+                        //if (proj_a || proj_b)
+                        //    SETPROJ(w[i + 2], proj_a ? proj_a : proj_b);
                         if (view_a || view_b)
                             SETVIEW(w[i + 2], view_a ? view_a : view_b);
                         SETMAT(w[i + 2], 1);
