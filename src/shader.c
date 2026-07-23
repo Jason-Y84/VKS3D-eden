@@ -1169,21 +1169,12 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             sb_push_n(out, w, 5);
         }
         {
-            /* EXPERIMENT:
-             * Disable convergence correction but keep the per-eye offset.
-             *
-             * Before:
-             *     nx = (px + eyeOffset) - convergence
-             *
-             * Temporary:
-             *     nx = (px + eyeOffset)
-             */
             uint32_t w[] = {
-                op_(SpvOpFAdd, 5),
+                op_(SpvOpFSub, 5),
                 m->ft,
                 nx,
                 tmp,
-                c->cf0    /* +0.0f */
+                convsel
             };
             sb_push_n(out, w, 5);
         }
