@@ -1896,6 +1896,7 @@ typedef struct
     uint32_t depth;
     uint32_t arrayed;
     bool     patchable;
+    uint32_t sampled_type;   /* OpTypeSampledImage id wrapping this image type */
     uint32_t owner_var;
     uint32_t binding;
     uint32_t set;
@@ -2440,10 +2441,11 @@ fs_scan_type_instruction(
             FsImageInfo *img =
                 &s->images[s->n_img++];
             memset(img, 0, sizeof(*img));
-            img->id        = type_id;
-            img->depth     = depth;
-            img->arrayed   = arrayed;
-            img->patchable = true;
+            img->id             = type_id;
+            img->depth          = depth;
+            img->arrayed        = arrayed;
+            img->patchable      = true;
+            img->sampled_type   = 0;
             //STEREO_LOG(
             //    "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
             //    img->id,
@@ -2473,6 +2475,11 @@ fs_scan_type_instruction(
         {
             if (s->images[i].id == ins[2])
             {
+                s->images[i].sampled_type = ins[1];
+                STEREO_LOG(
+                    "FS_TYPE_SAMPLED_IMAGE_MAP imageType=%u sampledType=%u",
+                    s->images[i].id,
+                    s->images[i].sampled_type);
                 found = true;
                 break;
             }
@@ -3776,7 +3783,8 @@ fs_prescan(
         image->set       = UINT32_MAX;
         for (uint32_t v = 0; v < s->n_var; ++v)
         {
-            if (s->vars[v].type == image->id)
+            if (image->sampled_type &&
+                s->vars[v].type == image->sampled_type)
             {
                 image->owner_var = s->vars[v].id;
                 image->binding   = s->vars[v].binding;
@@ -3784,10 +3792,12 @@ fs_prescan(
                 STEREO_LOG(
                     "FS_IMAGE_OWNER "
                     "imageType=%u "
+                    "sampledType=%u "
                     "owner=%u "
                     "set=%u "
                     "binding=%u",
                     image->id,
+                    image->sampled_type,
                     image->owner_var,
                     image->set,
                     image->binding);
@@ -4302,10 +4312,12 @@ bool spirv_patch_stereo_fs(
         STEREO_LOG(
             "FS_IMAGE_TABLE "
             "type=%u "
+            "sampledType=%u "
             "owner=%u "
             "set=%u "
             "binding=%u",
             s.images[i].id,
+            s.images[i].sampled_type,
             s.images[i].owner_var,
             s.images[i].set,
             s.images[i].binding);
