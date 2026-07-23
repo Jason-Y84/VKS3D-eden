@@ -1167,17 +1167,12 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             };
             sb_push_n(out, w, 5);
         }
-        {
-            uint32_t w[] = {
-                op_(SpvOpSelect, 6),
-                m->ft,
-                convsel,
-                isl,
-                convmag,
-                negconv
-            };
-            sb_push_n(out, w, 6);
-        }
+        /*
+         * EXPERIMENT:
+         * Apply the same convergence correction to both eyes.
+         * Keep eye separation (sel) unchanged.
+         */
+        convsel = negconv;
         {
             uint32_t w[] = {
                 op_(SpvOpFAdd, 5),
