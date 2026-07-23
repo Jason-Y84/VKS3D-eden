@@ -1238,8 +1238,7 @@ stereo_CmdBindDescriptorSets(
                      * matrices (SSAO/depth reconstruction), but those are not
                      * compatible with StereoUBO layout.
                      */
-                    bool rewrite_proj =
-                        info->has_proj_ubo;
+                    bool rewrite_proj = false;
                     if (rewrite_proj)
                     {
                         stereo_write_ubo(sd);
