@@ -2114,6 +2114,35 @@ uint32_t var)
     return stereo;
 }
 
+static bool
+fs_should_patch_sample(
+    const FsScan *s,
+    uint64_t spv_hash,
+    uint32_t descriptor_var)
+{
+    int vi = fs_var_index(s, descriptor_var);
+    if (vi < 0)
+        return false;
+
+    uint32_t binding = s->vars[vi].binding;
+
+    /*
+     * SSAO noise is a mono lookup texture.  In the SSAO generator shader
+     * (35d504ebec7cf2d7) it must not be arrayed or ViewIndex-shifted.
+     */
+    if (spv_hash == 0x35d504ebec7cf2d7ULL && binding == 2)
+    {
+        STEREO_LOG(
+            "FS_SAMPLE_SKIP_NOISE hash=%016llx descriptor=%u binding=%u",
+            (unsigned long long)spv_hash,
+            descriptor_var,
+            binding);
+        return false;
+    }
+
+    return fs_binding_is_stereo_attachment(s, descriptor_var);
+}
+
 /*
  * Human-readable SPIR-V opcode names used only for diagnostics.
  * Keep this table small and focused on image/texture operations that
@@ -4227,9 +4256,7 @@ fs_count_patches(
                 "FS_FETCH_CLASSIFY image=%u descriptor=%u",
                 w[i + 3],
                 descriptor_var);
-            if (fs_binding_is_stereo_attachment(
-                    s,
-                    descriptor_var))
+            if (fs_should_patch_sample(s, hash_spv(w, c), descriptor_var))
             {
                 uint32_t binding = 0xffffffffu;
                 int var =
@@ -4579,7 +4606,7 @@ bool spirv_patch_stereo_fs(
                     load,
                     descriptor_var);
             }
-            if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
+            if (!fs_should_patch_sample(&s, h, descriptor_var))
             {
                 STEREO_LOG(
                     "FS_SAMPLE_SKIP_MONO image=%u descriptor=%u",
