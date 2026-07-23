@@ -5294,6 +5294,56 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "CALLING spirv_patch_stereo_fs hash=%016llx words=%zu",
                 (unsigned long long)spv_hash,
                 fs_cache->words);
+            /*
+             * Analyze FS projection UBO usage.
+             *
+             * SSAO/reconstruction shaders often use the projection matrix
+             * only in the fragment stage, so VS metadata is insufficient.
+             */
+            {
+                SpvMod fm = {0};
+                fm.words = fs_cache->spv;
+                fm.count = fs_cache->words;
+                fm.bound = fm.words[3];
+                fm.value_capacity = fm.bound + 64;
+                fm.value_from_matrix =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                fm.is_matrix_type =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                fm.is_matrix_ptr =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                fm.is_proj_value =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                fm.is_view_value =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                if (fm.value_from_matrix &&
+                    fm.is_matrix_type &&
+                    fm.is_matrix_ptr &&
+                    fm.is_proj_value &&
+                    fm.is_view_value)
+                {
+                    spv_scan(&fm);
+                    if (fm.proj_found)
+                    {
+                        dbg_out[p].has_proj_ubo = true;
+                        dbg_out[p].proj_set = fm.proj_set;
+                        dbg_out[p].proj_binding = fm.proj_binding;
+                        dbg_out[p].proj_member_mask =
+                            fm.proj_member_mask;
+                        dbg_out[p].proj_var = fm.proj_var;
+                        STEREO_LOG(
+                            "FS_PROJ_FOUND hash=%016llx set=%u binding=%u mask=0x%X var=%u",
+                            (unsigned long long)hash_spv(
+                                fs_cache->spv,
+                                fs_cache->words),
+                            fm.proj_set,
+                            fm.proj_binding,
+                            fm.proj_member_mask,
+                            fm.proj_var);
+                    }
+                }
+                free_spv_provenance(&fm);
+            }
             STEREO_LOG(
                 "FS_PATCH_BEGIN hash=%016llx pipe=%u",
                 (unsigned long long)spv_hash,
