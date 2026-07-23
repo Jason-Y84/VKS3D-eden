@@ -1066,6 +1066,14 @@ static void stereo_overwrite_projection_binding(
     StereoUBO *ubo = (StereoUBO *)sd->stereo_ubo_map;
     if (!ubo)
         return;
+    STEREO_LOG(
+        "DESC_REWRITE_BEGIN "
+        "set=%p "
+        "binding=%u "
+        "ubo=%p",
+        (void *)(uintptr_t)set,
+        binding,
+        (void *)(uintptr_t)sd->stereo_ubo);
     VkDescriptorBufferInfo bi = {
         .buffer = sd->stereo_ubo,
         .offset = 0,
@@ -1082,17 +1090,13 @@ static void stereo_overwrite_projection_binding(
     };
     sd->real.UpdateDescriptorSets(sd->real_device, 1, &w, 0, NULL);
     STEREO_LOG(
-        "PROJ_DESC_REWRITE "
+        "DESC_REWRITE_DONE "
         "set=%p "
         "binding=%u "
-        "buffer=%p "
-        "offset=%llu "
-        "range=%llu",
+        "buffer=%p",
         (void *)(uintptr_t)set,
         binding,
-        (void *)(uintptr_t)sd->stereo_ubo,
-        (unsigned long long)bi.offset,
-        (unsigned long long)bi.range);
+        (void *)(uintptr_t)sd->stereo_ubo);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1206,6 +1210,12 @@ stereo_CmdBindDescriptorSets(
             {
                 uint32_t rel = target_set - firstSet;
                 VkDescriptorSet ds = pDescriptorSets[rel];
+                STEREO_LOG(
+                    "PIPE_PROJ_DS pipe=%p targetSet=%u rel=%u ds=%p",
+                    (void*)pipe,
+                    target_set,
+                    rel,
+                    (void*)ds);
                 if (ds != VK_NULL_HANDLE)
                 {
                     STEREO_LOG(
@@ -1228,12 +1238,16 @@ stereo_CmdBindDescriptorSets(
                     if (rewrite_proj)
                     {
                         stereo_write_ubo(sd);
+                        STEREO_LOG(
+                            "PIPE_PROJ_REWRITE_BEGIN binding=%u ds=%p",
+                            info->proj_binding,
+                            (void*)ds);
                         stereo_overwrite_projection_binding(
                             sd,
                             ds,
                             info->proj_binding);
                         STEREO_LOG(
-                            "PROJ_DESC_REWRITE pipe=%p set=%u binding=%u ds=%p mask=0x%X",
+                            "PIPE_PROJ_REWRITE_END pipe=%p set=%u binding=%u ds=%p mask=0x%X",
                             (void *)pipe,
                             target_set,
                             info->proj_binding,
@@ -1255,6 +1269,14 @@ stereo_CmdBindDescriptorSets(
         }
         else if (info)
         {
+            STEREO_LOG(
+                "PIPE_PROJ_META pipe=%p has_proj=%u set=%u binding=%u mask=0x%X var=%u",
+                (void*)pipe,
+                info->has_proj_ubo,
+                info->proj_set,
+                info->proj_binding,
+                info->proj_member_mask,
+                info->proj_var);
             STEREO_LOG(
                 "PROJ_REWRITE_SKIP pipe=%p has=%u set=%u binding=%u mask=0x%X var=%u",
                 (void *)pipe,
