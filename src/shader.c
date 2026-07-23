@@ -1099,86 +1099,13 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         };
         sb_push_n(out, w, 5);
     }
-    if (c->projection_mode == STEREO_PROJECTION_PARALLEL)
-    {
-        uint32_t w[] = {
-            op_(SpvOpFAdd, 5),
-            m->ft,
-            nx,
-            px,
-            sel
-        };
-        sb_push_n(out, w, 5);
-    }
-    else
-    {
-        uint32_t pw = (*nid)++;
-        uint32_t convmag = (*nid)++;
-        uint32_t negconv = (*nid)++;
-        uint32_t convsel = (*nid)++;
-        uint32_t tmp = (*nid)++;
-        {
-            uint32_t w[] = {
-                op_(SpvOpCompositeExtract, 5),
-                m->ft,
-                pw,
-                lp,
-                3u
-            };
-            sb_push_n(out, w, 5);
-        }
-        {
-            uint32_t w[] = {
-                op_(SpvOpFMul, 5),
-                m->ft,
-                convmag,
-                pw,
-                c->cc
-            };
-            sb_push_n(out, w, 5);
-        }
-        {
-            uint32_t w[] = {
-                op_(SpvOpFSub, 5),
-                m->ft,
-                negconv,
-                c->cf0,
-                convmag
-            };
-            sb_push_n(out, w, 5);
-        }
-        {
-            uint32_t w[] = {
-                op_(SpvOpSelect, 6),
-                m->ft,
-                convsel,
-                isl,
-                convmag,
-                negconv
-            };
-            sb_push_n(out, w, 6);
-        }
-        {
-            uint32_t w[] = {
-                op_(SpvOpFAdd, 5),
-                m->ft,
-                tmp,
-                px,
-                sel
-            };
-            sb_push_n(out, w, 5);
-        }
-        {
-            uint32_t w[] = {
-                op_(SpvOpFSub, 5),
-                m->ft,
-                nx,
-                tmp,
-                convsel
-            };
-            sb_push_n(out, w, 5);
-        }
-    }
+    /*
+     * DEBUG:
+     * Disable all stereo X-offset/convergence math while leaving
+     * multiview injection active. gl_ViewIndex still exists, but
+     * gl_Position.x is left unchanged.
+     */
+    nx = px;
     {
         uint32_t w[] = {
             op_(SpvOpCompositeInsert, 6),
