@@ -1239,8 +1239,7 @@ stereo_CmdBindDescriptorSets(
                      * compatible with StereoUBO layout.
                      */
                     bool rewrite_proj =
-                        (info->proj_binding == 0 &&
-                         info->proj_member_mask == (1u << 2));
+                        info->has_proj_ubo;
                     if (rewrite_proj)
                     {
                         stereo_write_ubo(sd);
