@@ -1239,6 +1239,13 @@ stereo_CmdBindDescriptorSets(
                      * compatible with StereoUBO layout.
                      */
                     bool rewrite_proj = false;
+                    STEREO_LOG(
+                        "PROJ_REWRITE_DECISION pipe=%p rewrite=%u binding=%u mask=0x%X set=%u",
+                        (void *)pipe,
+                        rewrite_proj ? 1 : 0,
+                        info->proj_binding,
+                        info->proj_member_mask,
+                        info->proj_set);
                     if (rewrite_proj)
                     {
                         stereo_write_ubo(sd);
