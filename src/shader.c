@@ -1449,6 +1449,14 @@ bool spirv_patch_stereo_vertex(
         m.proj_access_count,
         m.proj_load_count,
         m.proj_mtv_count);
+    STEREO_LOG(
+        "PROJ_DESCRIPTOR hash=%016llx struct=%u ptr=%u var=%u set=%u binding=%u",
+        (unsigned long long)spv_hash,
+        m.proj_struct_type,
+        m.proj_ptr_type,
+        m.proj_var,
+        m.proj_set,
+        m.proj_binding);
     if (m.proj_found)
     {
         STEREO_LOG(
