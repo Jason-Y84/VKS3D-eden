@@ -5019,6 +5019,7 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
         (unsigned long long)h,
         wc,
         is_patchable_spv(spv, wc));
+    const char *dump = stereo_getenv("VKS3D_DUMP_SPIRV");
     if (dump)
     {
         char dp[512];
