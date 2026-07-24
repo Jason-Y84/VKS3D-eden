@@ -1253,10 +1253,10 @@ stereo_CmdBindDescriptorSets(
                             "PIPE_PROJ_REWRITE_BEGIN binding=%u ds=%p",
                             info->proj_binding,
                             (void*)ds);
-                        //stereo_overwrite_projection_binding(
-                        //    sd,
-                        //    ds,
-                        //    info->proj_binding);
+                        stereo_overwrite_projection_binding(
+                            sd,
+                            ds,
+                            info->proj_binding);
                         STEREO_LOG(
                             "PIPE_PROJ_REWRITE_END pipe=%p set=%u binding=%u ds=%p mask=0x%X",
                             (void *)pipe,
