@@ -5361,14 +5361,22 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     dump,
                     (unsigned long long)spv_hash);
 
-                FILE *f = fopen(dp, "wb");
-                if (f)
+                FILE *f = fopen(dp, "rb");
+                if (!f)
                 {
-                    fwrite(
-                        fs_cache->spv,
-                        4,
-                        fs_cache->words,
-                        f);
+                    f = fopen(dp, "wb");
+                    if (f)
+                    {
+                        fwrite(
+                            fs_cache->spv,
+                            4,
+                            fs_cache->words,
+                            f);
+                        fclose(f);
+                    }
+                }
+                else
+                {
                     fclose(f);
                 }
             }
@@ -5519,8 +5527,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (unsigned long long)hash_spv(e->spv, e->words),
                 e->words,
                 (void*)ci->pStages[tes_stage].module);
-            if (dump) {
-                uint64_t spv_hash = hash_spv(e->spv, e->words);
+            if (dump)
+            {
                 char dp[512];
                 _snprintf(
                     dp,
@@ -5528,9 +5536,22 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     "%s\\%016llx-ts.spv",
                     dump,
                     (unsigned long long)spv_hash);
-                FILE *f = fopen(dp, "wb");
-                if (f) {
-                    fwrite(e->spv,4,e->words,f);
+                FILE *f = fopen(dp, "rb");
+                if (!f)
+                {
+                    f = fopen(dp, "wb");
+                    if (f)
+                    {
+                        fwrite(
+                            e->spv,
+                            4,
+                            e->words,
+                            f);
+                        fclose(f);
+                    }
+                }
+                else
+                {
                     fclose(f);
                 }
             }
@@ -5648,8 +5669,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 in_mv_rp,
                 (void*)ci->renderPass,
                 (ci->pDepthStencilState != NULL));
-            if (dump) {
-                uint64_t spv_hash = hash_spv(e->spv, e->words);
+            if (dump)
+            {
                 char dp[512];
                 _snprintf(
                     dp,
@@ -5657,9 +5678,22 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     "%s\\%016llx-vs.spv",
                     dump,
                     (unsigned long long)spv_hash);
-                FILE *f = fopen(dp, "wb");
-                if (f) {
-                    fwrite(e->spv, 4, e->words, f);
+                FILE *f = fopen(dp, "rb");
+                if (!f)
+                {
+                    f = fopen(dp, "wb");
+                    if (f)
+                    {
+                        fwrite(
+                            e->spv,
+                            4,
+                            e->words,
+                            f);
+                        fclose(f);
+                    }
+                }
+                else
+                {
                     fclose(f);
                 }
             }
