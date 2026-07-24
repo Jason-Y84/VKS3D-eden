@@ -5019,6 +5019,34 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
         (unsigned long long)h,
         wc,
         is_patchable_spv(spv, wc));
+    if (dump)
+    {
+        char dp[512];
+        _snprintf(
+            dp,
+            sizeof(dp) - 1,
+            "%s\\%016llx.spv",
+            dump,
+            (unsigned long long)h);
+        FILE *f = fopen(dp, "rb");
+        if (!f)
+        {
+            f = fopen(dp, "wb");
+            if (f)
+            {
+                fwrite(
+                    spv,
+                    4,
+                    wc,
+                    f);
+                fclose(f);
+            }
+        }
+        else
+        {
+            fclose(f);
+        }
+    }
     if (is_patchable_spv(spv, wc))
     {
         cache_add(sd, *pSM, spv, wc);
