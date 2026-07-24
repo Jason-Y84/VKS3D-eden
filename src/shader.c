@@ -5529,6 +5529,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (void*)ci->pStages[tes_stage].module);
             if (dump)
             {
+                uint64_t spv_hash=hash_spv(e->spv, e->words);
                 char dp[512];
                 _snprintf(
                     dp,
@@ -5671,6 +5672,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (ci->pDepthStencilState != NULL));
             if (dump)
             {
+                uint64_t spv_hash=hash_spv(e->spv, e->words);
                 char dp[512];
                 _snprintf(
                     dp,
