@@ -693,9 +693,10 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i+3] == SpvStorageClassUniform)
                 {
                     STEREO_LOG(
-                        "PROJ_VAR var=%u ptr=%u",
+                        "PROJ_VAR_CANDIDATE var=%u ptr=%u previous=%u",
                         w[i+2],
-                        w[i+1]);
+                        w[i+1],
+                        m->proj_var);
                     m->proj_var = w[i+2];
                 }
                 break;
