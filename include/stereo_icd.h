@@ -204,6 +204,7 @@ extern char g_dll_dir[512];
 extern char g_exe_dir[512];
 extern char g_global_ini[512];
 extern char g_local_ini[512];
+extern char *dump;
 
 /* -- Dispatch tables ------------------------------------------------------- */
 typedef struct RealInstanceDispatch {
