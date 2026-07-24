@@ -1259,6 +1259,16 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         np,
         nx,
         m->view_var);
+    STEREO_LOG(
+        "VIEWSPACE_PATCH "
+        "mode=%d "
+        "patching_outPos=%u "
+        "projection_found=%u "
+        "memberMask=0x%X",
+        c->projection_mode,
+        1,
+        m->proj_found,
+        c->dbg ? c->dbg->proj_member_mask : 0);
     {
         uint32_t w[] = {
             op_(SpvOpStore, 3),
