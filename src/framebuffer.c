@@ -1239,19 +1239,6 @@ stereo_CmdBindDescriptorSets(
                      * compatible with StereoUBO layout.
                      */
                     bool rewrite_proj = false;
-                    if (info->has_proj_ubo &&
-                        info->proj_member_mask != 0)
-                    {
-                        /*
-                         * Any confirmed projection UBO with matrix usage
-                         * is eligible for stereo replacement.
-                         *
-                         * Do not require a specific member mask because
-                         * shaders may access different rows/columns depending
-                         * on projection convention.
-                         */
-                        rewrite_proj = true;
-                    }
                     STEREO_LOG(
                         "PROJ_REWRITE_DECISION pipe=%p rewrite=%u binding=%u mask=0x%X set=%u",
                         (void *)pipe,
