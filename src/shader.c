@@ -4702,6 +4702,13 @@ bool spirv_patch_stereo_fs(
                 continue;
             }
             STEREO_LOG(
+                "FS_SAMPLE_PATCH_APPLY hash=%016llx image=%u descriptor=%u set=%u binding=%u",
+                (unsigned long long)h,
+                in[i+3],
+                descriptor_var,
+                (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
+                (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
+            STEREO_LOG(
                 "FS_SAMPLE_PATCH_APPLY image=%u descriptor=%u",
                 in[i+3],
                 descriptor_var);
@@ -4865,6 +4872,13 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
+            STEREO_LOG(
+                "FS_FETCH_PATCH hash=%016llx image=%u descriptor=%u set=%u binding=%u",
+                (unsigned long long)h,
+                in[i+3],
+                descriptor_var,
+                (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
+                (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
             STEREO_LOG(
                 "FS_FETCH_OPCODE opcode=%u image=%u coord=%u result=%u",
                 op,
