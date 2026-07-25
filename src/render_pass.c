@@ -142,9 +142,13 @@ stereo_CreateRenderPass(
     /* Step 2: classify */
     bool depth_only = is_depth_only_renderpass(pCreateInfo);
 
-    STEREO_LOG("RenderPass classify: depth_only=%d attachments=%u",
-               depth_only,
-               pCreateInfo->attachmentCount);
+    STEREO_LOG(
+        "RenderPass classify: depth_only=%d attachments=%u fmt0=%u",
+        depth_only,
+        pCreateInfo->attachmentCount,
+        pCreateInfo->attachmentCount ?
+            pCreateInfo->pAttachments[0].format :
+            0);
 
     bool mv_eligible =
         sd->stereo.enabled &&

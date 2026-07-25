@@ -138,6 +138,26 @@ typedef struct
     uint8_t *value_from_matrix;
     uint8_t *is_matrix_type;
     uint8_t *is_matrix_ptr;
+    /* Projection UBO discovery */
+    uint32_t proj_struct_type;
+    uint32_t proj_ptr_type;
+    uint32_t proj_var;
+    uint32_t proj_set;
+    uint32_t proj_binding;
+    uint32_t proj_member_mask;
+    VkBool32 proj_found;
+    /* projection load tracking */
+    uint32_t proj_access_count;
+    uint32_t proj_load_count;
+    uint32_t proj_mtv_count;
+    /* Projection provenance per SSA value */
+    uint8_t *is_proj_value;
+    uint8_t *is_view_value;
+    /* ---------- NEW ---------- */
+    /* Value was reconstructed from depth/screen-space rather than world-space. */
+    uint8_t *is_screen_value;
+    /* Number of reconstruction operations detected. */
+    uint32_t screen_reconstruct_count;
 } SpvMod;
 
 static inline bool valid_id(const SpvMod *m, uint32_t id)
@@ -178,6 +198,28 @@ static inline void set_matrix_type(SpvMod *m, uint32_t id, uint8_t value)
         m->is_matrix_type[id] = value;
 }
 
+static inline uint8_t proj_value(const SpvMod *m, uint32_t id)
+{
+    return valid_id(m, id) ? m->is_proj_value[id] : 0;
+}
+
+static inline void set_proj_value(SpvMod *m, uint32_t id, uint8_t value)
+{
+    if (valid_id(m, id))
+        m->is_proj_value[id] = value;
+}
+
+static inline uint8_t view_value(const SpvMod *m, uint32_t id)
+{
+    return (id < m->value_capacity) ? m->is_view_value[id] : 0;
+}
+
+static inline void set_view_value(SpvMod *m, uint32_t id, uint8_t v)
+{
+    if (id < m->value_capacity)
+        m->is_view_value[id] = v;
+}
+
 static inline uint8_t matrix_or2(const SpvMod *m,
                                  uint32_t a,
                                  uint32_t b)
@@ -190,14 +232,41 @@ static void free_spv_provenance(SpvMod *m)
     free(m->value_from_matrix);
     free(m->is_matrix_type);
     free(m->is_matrix_ptr);
-
+    free(m->is_proj_value);
+    free(m->is_view_value);
     m->value_from_matrix = NULL;
-    m->is_matrix_type = NULL;
-    m->is_matrix_ptr = NULL;
+    m->is_matrix_type    = NULL;
+    m->is_matrix_ptr     = NULL;
+    m->is_proj_value     = NULL;
+    m->is_view_value     = NULL;
     m->value_capacity = 0;
 }
 
 static uint64_t hash_spv(const uint32_t *data, size_t words);
+
+static bool
+spv_resolve_u32_constant(const SpvMod *m, uint32_t id, uint32_t *value)
+{
+    if (!m || !value || !m->words)
+        return false;
+    for (size_t i = 5; i < m->count; )
+    {
+        uint32_t op = m->words[i] & 0xffffu;
+        uint32_t wc = m->words[i] >> 16;
+        if (!wc || i + wc > m->count)
+            break;
+        if (op == SpvOpConstant && wc >= 4 && m->words[i + 2] == id)
+        {
+            *value = m->words[i + 3];
+            return true;
+        }
+        i += wc;
+    }
+    return false;
+}
+
+static const char *
+spv_op_name(uint32_t op);
 
 static void do_scan(SpvMod *m, bool p2)
 {
@@ -209,6 +278,10 @@ static void do_scan(SpvMod *m, bool p2)
     #define SETPTR(id,v)   set_matrix_ptr(m, (id), (v))
     #define TYPE(id)       matrix_type(m, (id))
     #define SETTYPE(id,v)  set_matrix_type(m, (id), (v))
+    #define PROJ(id)       proj_value(m, (id))
+    #define SETPROJ(id,v)  set_proj_value(m, (id), (v))
+    #define VIEW(id)       view_value(m, (id))
+    #define SETVIEW(id,v)  set_view_value(m, (id), (v))
     for (size_t i=5;i<m->count;) {
         uint32_t op=w[i]&0xffff, wc=w[i]>>16;
         if (!wc||i+wc>m->count) break;
@@ -227,6 +300,31 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETPTR(w[i + 2], PTR(w[i + 3]));
                 }
+                if (wc >= 5 &&
+                    w[i+3] == m->proj_var)
+                {
+                    uint32_t member_id = w[i + 4];
+                    uint32_t member_value = member_id;
+                    (void)spv_resolve_u32_constant(m, member_id, &member_value);
+                    m->proj_access_count++;
+                    m->proj_found = VK_TRUE;
+                    /* projection provenance */
+                    SETPROJ(w[i + 2], member_value + 1);
+                    /* separate view provenance */
+                    if (member_value == 2)
+                        SETVIEW(w[i + 2], 1);
+                    STEREO_LOG(
+                        "PROJ_ACCESS result=%u base=%u index_id=%u member=%u",
+                        w[i+2],
+                        w[i+3],
+                        member_id,
+                        member_value);
+                    STEREO_LOG(
+                        "PROJ_ACCESS result=%u member=%u count=%u",
+                        w[i+2],
+                        member_value,
+                        m->proj_access_count);
+                }
                 break;
             case SpvOpLoad:
                 if (wc >= 4 &&
@@ -237,6 +335,24 @@ static void do_scan(SpvMod *m, bool p2)
                         w[i + 2],
                         MAT(w[i + 3]) || PTR(w[i + 3]));
                 }
+                if (wc >= 4)
+                {
+                    if (PROJ(w[i + 3]))
+                    {
+                        SETPROJ(w[i + 2], PROJ(w[i + 3]));
+                        m->proj_load_count++;
+                        STEREO_LOG(
+                            "PROJ_LOAD id=%u src=%u count=%u proj=%u",
+                            w[i+2],
+                            w[i+3],
+                            m->proj_load_count,
+                            PROJ(w[i + 2]));
+                    }
+                    if (VIEW(w[i + 3]))
+                    {
+                        SETVIEW(w[i + 2], VIEW(w[i + 3]));
+                    }
+                }
                 break;
             case SpvOpCompositeExtract:
                 if (wc >= 5 &&
@@ -244,6 +360,10 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 3] < m->value_capacity)
                 {
                     SETMAT(w[i + 2], MAT(w[i + 3]));
+                    if (PROJ(w[i + 3]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 3]));
+                    if (VIEW(w[i + 3]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 3]));
                 }
                 break;
             case SpvOpVectorShuffle:
@@ -252,6 +372,10 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 3] < m->value_capacity)
                 {
                     SETMAT(w[i + 2], MAT(w[i + 3]));
+                    if (PROJ(w[i + 3]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 3]));
+                    if (VIEW(w[i + 3]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 3]));
                 }
                 break;
             case SpvOpCompositeConstruct:
@@ -259,16 +383,24 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 2] < m->value_capacity)
                 {
                     uint8_t matrix = 0;
+                    uint8_t proj = 0;
+                    uint8_t view = 0;
                     for (uint32_t k = 3; k < wc; ++k)
                     {
-                        if (w[i + k] < m->value_capacity &&
-                            MAT(w[i + k]))
-                        {
-                            matrix = 1;
-                            break;
-                        }
+                        uint32_t id = w[i + k];
+                        if (id >= m->value_capacity)
+                            continue;
+                        matrix |= MAT(id);
+                        if (!proj && PROJ(id))
+                            proj = PROJ(id);
+                        if (!view && VIEW(id))
+                            view = VIEW(id);
                     }
                     SETMAT(w[i + 2], matrix);
+                    if (proj)
+                        SETPROJ(w[i + 2], proj);
+                    if (view)
+                        SETVIEW(w[i + 2], view);
                 }
                 break;
             case SpvOpCapability:
@@ -294,6 +426,11 @@ static void do_scan(SpvMod *m, bool p2)
                 if(wc==4&&w[i+2]==32) m->it=w[i+1];
                 break;
             case SpvOpTypeMatrix:
+                if (wc >= 4)
+                {
+                    if (w[i + 1] < m->value_capacity)
+                        SETTYPE(w[i + 1], 1);
+                }
                 break;
             case SpvOpTypeStruct:
                 if (wc >= 3)
@@ -310,9 +447,25 @@ static void do_scan(SpvMod *m, bool p2)
                     }
                     if (w[i + 1] < m->value_capacity)
                         SETTYPE(w[i + 1], matrix);
+                    if (matrix)
+                    {
+                        STEREO_LOG(
+                            "PROJ_STRUCT type=%u (previous=%u)",
+                            w[i+1],
+                            m->proj_struct_type);
+                        m->proj_struct_type = w[i+1];
+                    }
                 }
                 break;
             case SpvOpTypeArray:
+                if (wc >= 4)
+                {
+                    STEREO_LOG(
+                        "FS_TYPE_ARRAY id=%u elem=%u len=%u",
+                        w[i + 1],
+                        w[i + 2],
+                        w[i + 3]);
+                }
                 break;
             case SpvOpTypeRuntimeArray:
                 break;
@@ -322,6 +475,10 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 3] < m->value_capacity)
                 {
                     SETMAT(w[i + 2], MAT(w[i + 3]));
+                    if (PROJ(w[i + 3]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 3]));
+                    if (VIEW(w[i + 3]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 3]));
                 }
                 break;
             case SpvOpMatrixTimesVector:
@@ -335,18 +492,57 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     if (w[i + 2] < m->value_capacity)
                     {
+                        uint32_t a = w[i + 3];
+                        uint32_t b = w[i + 4];
+                        uint8_t proj_a = PROJ(a);
+                        uint8_t proj_b = PROJ(b);
+                        uint8_t view_a = VIEW(a);
+                        uint8_t view_b = VIEW(b);
+                        if (op == SpvOpMatrixTimesVector || op == SpvOpMatrixTimesMatrix)
+                        {
+                            STEREO_LOG(
+                                "FS_MATRIX_MUL op=%s result=%u a=%u b=%u proj_a=%u proj_b=%u view_a=%u view_b=%u",
+                                spv_op_name(op),
+                                w[i + 2],
+                                a,
+                                b,
+                                proj_a,
+                                proj_b,
+                                view_a,
+                                view_b);
+                        }
+                        if ((proj_a || proj_b) &&
+                            (op == SpvOpMatrixTimesVector ||
+                             op == SpvOpMatrixTimesMatrix))
+                        {
+                            uint8_t proj = proj_a ? proj_a : proj_b;
+                            m->proj_member_mask |= 1u << (proj - 1);
+                            m->proj_mtv_count++;
+                            STEREO_LOG(
+                                "PROJ_MTV result=%u matrix=%u vector=%u member=%u mask=0x%X count=%u",
+                                w[i + 2],
+                                a,
+                                b,
+                                proj - 1,
+                                m->proj_member_mask,
+                                m->proj_mtv_count);
+                        }
+                        /* Do not automatically propagate projection provenance through
+                         * MatrixTimesVector.
+                         *
+                         * Many fragment shaders (SSAO, SSR, depth reconstruction) multiply
+                         * arbitrary vectors by the projection matrix without producing clip
+                         * coordinates.
+                         *
+                         * Let later consumers decide whether this multiplication is actually
+                         * part of a projection chain.
+                         */
+                        //if (proj_a || proj_b)
+                        //    SETPROJ(w[i + 2], proj_a ? proj_a : proj_b);
+                        if (view_a || view_b)
+                            SETVIEW(w[i + 2], view_a ? view_a : view_b);
                         SETMAT(w[i + 2], 1);
-                        // STEREO_LOG("MATRIX_MARK result=%u", w[i + 2]);
                     }
-                    /*
-                    else
-                    {
-                        STEREO_LOG(
-                            "MATRIX_CAP_FAIL result=%u cap=%u",
-                            w[i + 2],
-                            m->value_capacity);
-                    }
-                    */
                 }
                 break;
             case SpvOpCopyObject:
@@ -356,6 +552,10 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 3] < m->value_capacity)
                 {
                     SETMAT(w[i + 2], MAT(w[i + 3]));
+                    if (PROJ(w[i + 3]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 3]));
+                    if (VIEW(w[i + 3]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 3]));
                 }
                 break;
             case SpvOpExtInst:
@@ -363,12 +563,24 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 2] < m->value_capacity)
                 {
                     uint8_t matrix = 0;
+                    uint8_t proj = 0;
+                    uint8_t view = 0;
                     for (uint32_t k = 5; k < wc; ++k)
                     {
-                        if (w[i + k] < m->value_capacity)
-                            matrix |= MAT(w[i + k]);
+                        uint32_t id = w[i + k];
+                        if (id >= m->value_capacity)
+                            continue;
+                        matrix |= MAT(id);
+                        if (!proj && PROJ(id))
+                            proj = PROJ(id);
+                        if (!view && VIEW(id))
+                            view = VIEW(id);
                     }
                     SETMAT(w[i + 2], matrix);
+                    if (proj)
+                        SETPROJ(w[i + 2], proj);
+                    if (view)
+                        SETVIEW(w[i + 2], view);
                 }
                 break;
             case SpvOpFAdd:
@@ -381,6 +593,14 @@ static void do_scan(SpvMod *m, bool p2)
                     SETMAT(
                         w[i + 2],
                         matrix_or2(m, w[i + 4], w[i + 5]));
+                    if (PROJ(w[i + 4]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 4]));
+                    else if (PROJ(w[i + 5]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 5]));
+                    if (VIEW(w[i + 4]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 4]));
+                    else if (VIEW(w[i + 5]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 5]));
                 }
                 break;
             case SpvOpSelect:
@@ -390,6 +610,14 @@ static void do_scan(SpvMod *m, bool p2)
                     SETMAT(
                         w[i + 2],
                         matrix_or2(m, w[i + 4], w[i + 5]));
+                    if (PROJ(w[i + 4]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 4]));
+                    else if (PROJ(w[i + 5]))
+                        SETPROJ(w[i + 2], PROJ(w[i + 5]));
+                    if (VIEW(w[i + 4]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 4]));
+                    else if (VIEW(w[i + 5]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 5]));
                 }
                 break;
             case SpvOpFunctionCall:
@@ -399,11 +627,29 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 2] < m->value_capacity)
                 {
                     uint8_t matrix = 0;
+                    uint8_t proj = 0;
+                    uint8_t view = 0;
                     if (w[i + 3] < m->value_capacity)
+                    {
                         matrix |= MAT(w[i + 3]);
+                        if (PROJ(w[i + 3]))
+                            proj = PROJ(w[i + 3]);
+                        if (VIEW(w[i + 3]))
+                            view = VIEW(w[i + 3]);
+                    }
                     if (w[i + 4] < m->value_capacity)
+                    {
                         matrix |= MAT(w[i + 4]);
+                        if (!proj && PROJ(w[i + 4]))
+                            proj = PROJ(w[i + 4]);
+                        if (!view && VIEW(w[i + 4]))
+                            view = VIEW(w[i + 4]);
+                    }
                     SETMAT(w[i + 2], matrix);
+                    if (proj)
+                        SETPROJ(w[i + 2], proj);
+                    if (view)
+                        SETVIEW(w[i + 2], view);
                 }
                 break;
             case SpvOpTypePointer:
@@ -412,6 +658,14 @@ static void do_scan(SpvMod *m, bool p2)
                 if (TYPE(w[i + 3]))
                 {
                 SETPTR(w[i + 1], 1);
+                }
+                if (w[i+3] == m->proj_struct_type)
+                {
+                    STEREO_LOG(
+                        "PROJ_PTR ptr=%u struct=%u",
+                        w[i+1],
+                        w[i+3]);
+                    m->proj_ptr_type = w[i+1];
                 }
                 if (w[i + 2] == SpvStorageOutput &&
                 m->v4t &&
@@ -433,10 +687,33 @@ static void do_scan(SpvMod *m, bool p2)
                     w[i + 2] < m->value_capacity &&
                     PTR(w[i + 1]))
                 {
-                SETPTR(w[i + 2], 1);
+                    SETPTR(w[i + 2], 1);
+                }
+                if (w[i+1] == m->proj_ptr_type &&
+                    w[i+3] == SpvStorageClassUniform)
+                {
+                    STEREO_LOG(
+                        "PROJ_VAR_CANDIDATE var=%u ptr=%u previous=%u",
+                        w[i+2],
+                        w[i+1],
+                        m->proj_var);
+                    m->proj_var = w[i+2];
                 }
                 break;
             case SpvOpDecorate:
+                if (wc >= 4)
+                {
+                    if (w[i+2] == SpvDecorationDescriptorSet &&
+                        w[i+1] == m->proj_var)
+                    {
+                        m->proj_set = w[i+3];
+                    }
+                    if (w[i+2] == SpvDecorationBinding &&
+                        w[i+1] == m->proj_var)
+                    {
+                        m->proj_binding = w[i+3];
+                    }
+                }
                 if(wc>=4&&w[i+2]==SpvDecorationBuiltIn){
                     if(w[i+3]==SpvBuiltInPosition&&!m->pos_is_block)
                         m->pos_var=w[i+1];
@@ -526,6 +803,17 @@ static void spv_scan(SpvMod *m)
     do_scan(m, false);
     if (m->pos_is_block)
         do_scan(m, true);
+    STEREO_LOG(
+        "SCAN hash=%016llx exec=%u matrix=%u proj=%u dot=%u direct=%u emit=%u pos=%u block=%u",
+        (unsigned long long)hash_spv(m->words, m->count),
+        m->exec_model,
+        m->has_matrix_ops,
+        m->proj_found,
+        m->dot_count,
+        m->has_direct_position_write,
+        m->emit_count,
+        m->pos_var,
+        m->pos_is_block);
 }
 
 uint64_t hash_spv(const uint32_t *data, size_t words)
@@ -694,6 +982,9 @@ add_pipeline_info(
 typedef struct {
     SpvMod *m;
     bool have_view;
+    /* Provenance */
+    bool has_projection_path;
+    bool has_view_path;
     uint32_t uv4;
     uint32_t uint_;
     uint32_t bt;
@@ -705,7 +996,7 @@ typedef struct {
     uint32_t projection_mode;
     float lo_dbg;
     float ro_dbg;
-    const StereoDebugCtx *dbg;
+    StereoDebugCtx *dbg;
 } BodyCtx;
 
 typedef struct StereoDebugCtx {
@@ -715,6 +1006,13 @@ typedef struct StereoDebugCtx {
     uint32_t stage;
     uint32_t vertex_binding_count;
     uint32_t is_quad;
+    VkBool32 has_proj_ubo;
+    uint32_t proj_set;
+    uint32_t proj_binding;
+    uint32_t proj_member_mask;
+    uint32_t proj_var;
+    bool has_matrix_ops;
+    bool direct_position_write;
 } StereoDebugCtx;
 
 static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
@@ -812,6 +1110,58 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         };
         sb_push_n(out, w, 5);
     }
+    STEREO_LOG(
+        "VS_PATCH "
+        "mode=%d "
+        "posVar=%u "
+        "viewVar=%u "
+        "block=%u "
+        "member=%u "
+        "haveView=%u "
+        "convConst=%u "
+        "leftConst=%u "
+        "rightConst=%u",
+        c->projection_mode,
+        m->pos_var,
+        m->view_var,
+        m->pos_is_block,
+        m->pos_member_idx,
+        c->have_view,
+        c->cc,
+        c->cl,
+        c->cr);
+    STEREO_LOG(
+        "VS_PATCH_IDS "
+        "ch=%u "
+        "lp=%u "
+        "lv=%u "
+        "isl=%u "
+        "sel=%u "
+        "px=%u "
+        "nx=%u "
+        "np=%u "
+        "mode=%d "
+        "pos_var=%u "
+        "pptr=%u "
+        "view_var=%u "
+        "leftConst=%u "
+        "rightConst=%u "
+        "convConst=%u",
+        ch,
+        lp,
+        lv,
+        isl,
+        sel,
+        px,
+        nx,
+        np,
+        c->projection_mode,
+        m->pos_var,
+        pptr,
+        m->view_var,
+        c->cl,
+        c->cr,
+        c->cc);
     if (c->projection_mode == STEREO_PROJECTION_PARALLEL)
     {
         uint32_t w[] = {
@@ -852,7 +1202,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         }
         {
             uint32_t w[] = {
-                op_(131, 5),
+                op_(SpvOpFSub, 5),
                 m->ft,
                 negconv,
                 c->cf0,
@@ -883,7 +1233,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         }
         {
             uint32_t w[] = {
-                op_(131, 5),
+                op_(SpvOpFSub, 5),
                 m->ft,
                 nx,
                 tmp,
@@ -903,6 +1253,23 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         };
         sb_push_n(out, w, 6);
     }
+    STEREO_LOG(
+        "PROJ_WRITE pos_var=%u pptr=%u new_pos=%u x=%u view=%u",
+        m->pos_var,
+        pptr,
+        np,
+        nx,
+        m->view_var);
+    STEREO_LOG(
+        "VIEWSPACE_PATCH "
+        "mode=%d "
+        "patching_outPos=%u "
+        "projection_found=%u "
+        "memberMask=0x%X",
+        c->projection_mode,
+        1,
+        m->proj_found,
+        c->dbg ? c->dbg->proj_member_mask : 0);
     {
         uint32_t w[] = {
             op_(SpvOpStore, 3),
@@ -924,11 +1291,11 @@ bool spirv_patch_stereo_vertex(
     float ro,
     float conv,
     bool inj_vi,
-    const StereoDebugCtx *dbg)
+    StereoDebugCtx *dbg)
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC)
         return false;
-    const int projection_mode =
+    int projection_mode =
         cfg ? cfg->projection : STEREO_PROJECTION_PARALLEL;
     SpvMod m = {0};
     m.words = in;
@@ -941,25 +1308,62 @@ bool spirv_patch_stereo_vertex(
         calloc(m.value_capacity, sizeof(uint8_t));
     m.is_matrix_ptr =
         calloc(m.value_capacity, sizeof(uint8_t));
+    m.is_proj_value =
+        calloc(m.value_capacity, sizeof(uint8_t));
+    m.is_view_value =
+        calloc(m.value_capacity, sizeof(uint8_t));
     if (!m.value_from_matrix ||
         !m.is_matrix_type ||
-        !m.is_matrix_ptr)
+        !m.is_matrix_ptr ||
+        !m.is_proj_value ||
+        !m.is_view_value)
     {
         free_spv_provenance(&m);
         return false;
     }
-    spv_scan(&m);
     /* Analyze shader structure before modification:
      * - matrix provenance
      * - gl_Position location
      * - ViewIndex availability
      * - entry point classification
      */
-    uint64_t spv_hash = hash_spv(m.words, m.count);
+    spv_scan(&m);
     /*
      * Optional shader blacklist.
      * Used for debugging shaders that should remain untouched.
      */
+    uint64_t spv_hash = hash_spv(m.words, m.count);
+
+    //if (m.proj_found && m.proj_member_mask == 0x5)
+    //{
+    //    projection_mode = STEREO_PROJECTION_OFF_AXIS;
+    //    STEREO_LOG(
+    //        "PROJ_FIXUP forcing off-axis projection hash=%016llx mask=0x%X",
+    //        (unsigned long long)spv_hash,
+    //        m.proj_member_mask);
+    //}
+
+    /* Reject trivial passthrough vertex shaders.
+     * World geometry always contains matrix math.
+     * Fullscreen/UI shaders generally don't.
+     */
+    if (m.exec_model == SpvExecVertex)
+    {
+        if (!m.has_matrix_ops)
+        {
+            STEREO_LOG(
+                "PATCH_SKIP no_matrix hash=%016llx exec=%u dots=%u direct=%u emit=%u pos=%u block=%u",
+                (unsigned long long)spv_hash,
+                m.exec_model,
+                m.dot_count,
+                m.has_direct_position_write,
+                m.emit_count,
+                m.pos_var,
+                m.pos_is_block);
+            free_spv_provenance(&m);
+            return false;
+        }
+    }
     {
         static bool skip_list_init;
         static char skip_list[1024];
@@ -1004,7 +1408,7 @@ bool spirv_patch_stereo_vertex(
             dbg &&
             (dbg->is_quad ||
              dbg->vertex_binding_count == 0) &&
-            m.dot_count <= 2 &&
+            !m.has_matrix_ops &&
             m.has_direct_position_write &&
             !m.has_emit_vertex &&
             m.exec_model == SpvExecVertex;
@@ -1044,6 +1448,63 @@ bool spirv_patch_stereo_vertex(
         m.dot_count,
         m.emit_count,
         m.has_viewindex_builtin);
+    STEREO_LOG(
+        "PROJ_FINAL hash=%016llx exec=%u found=%u set=%u binding=%u mask=0x%X access=%u loads=%u mtv=%u",
+        (unsigned long long)spv_hash,
+        m.exec_model,
+        m.proj_found,
+        m.proj_set,
+        m.proj_binding,
+        m.proj_member_mask,
+        m.proj_access_count,
+        m.proj_load_count,
+        m.proj_mtv_count);
+    STEREO_LOG(
+        "PROJ_DESCRIPTOR hash=%016llx struct=%u ptr=%u var=%u set=%u binding=%u",
+        (unsigned long long)spv_hash,
+        m.proj_struct_type,
+        m.proj_ptr_type,
+        m.proj_var,
+        m.proj_set,
+        m.proj_binding);
+    if (m.proj_found)
+    {
+        STEREO_LOG(
+            "PROJ_UBO hash=%016llx set=%u binding=%u mask=0x%X var=%u",
+            (unsigned long long)spv_hash,
+            m.proj_set,
+            m.proj_binding,
+            m.proj_member_mask,
+            m.proj_var);
+    }
+    if (dbg)
+    {
+        dbg->has_matrix_ops = m.has_matrix_ops;
+        dbg->direct_position_write = m.has_direct_position_write;
+        dbg->has_proj_ubo = false;
+        if (m.proj_found)
+        {
+            dbg->has_proj_ubo = true;
+            dbg->proj_set = m.proj_set;
+            dbg->proj_binding = m.proj_binding;
+            dbg->proj_member_mask = m.proj_member_mask;
+            dbg->proj_var = m.proj_var;
+        }
+        STEREO_LOG(
+            "PROJ_DETECT hash=%016llx found=%u set=%u binding=%u mask=0x%X var=%u",
+            (unsigned long long)spv_hash,
+            m.proj_found,
+            dbg->proj_set,
+            dbg->proj_binding,
+            dbg->proj_member_mask,
+            dbg->proj_var);
+        STEREO_LOG(
+            "PROJ_TRACE access_count=%u load_count=%u mtv_count=%u mask=0x%X",
+            m.proj_access_count,
+            m.proj_load_count,
+            m.proj_mtv_count,
+            m.proj_member_mask);
+    }
     if (m.exec_model == SpvExecVertex)
     {
         if (!m.pos_var)
@@ -1247,20 +1708,22 @@ bool spirv_patch_stereo_vertex(
     }
     BodyCtx bc =
     {
-        &m,
-        have_view,
-        uv4,
-        uint_,
-        bt,
-        id_cz,
-        id_cf0,
-        id_cl,
-        id_cr,
-        id_cc,
-        projection_mode,
-        lo,
-        ro,
-        dbg
+        .m                   = &m,
+        .have_view           = have_view,
+        .has_projection_path = false,
+        .has_view_path       = false,
+        .uv4                 = uv4,
+        .uint_               = uint_,
+        .bt                  = bt,
+        .cz                  = id_cz,
+        .cf0                 = id_cf0,
+        .cl                  = id_cl,
+        .cr                  = id_cr,
+        .cc                  = id_cc,
+        .projection_mode     = projection_mode,
+        .lo_dbg              = lo,
+        .ro_dbg              = ro,
+        .dbg                 = dbg
     };
     /* Vertex/TessEval shaders:
      * inject after final position calculation.
@@ -1387,6 +1850,17 @@ bool spirv_patch_stereo_vertex(
             i += wcx;
             continue;
         }
+        STEREO_LOG(
+            "VS_PATCH_SUMMARY pipeline=%u projFound=%u viewBuiltin=%u projMode=%u "
+            "projVar=%u members=0x%X matrixOps=%u directPos=%u",
+            dbg ? dbg->pipeline_index : 0,
+            m.proj_found,
+            m.has_viewindex_builtin,
+            projection_mode,
+            dbg ? dbg->proj_var : 0,
+            dbg ? dbg->proj_member_mask : 0,
+            dbg ? dbg->has_matrix_ops : 0,
+            dbg ? dbg->direct_position_write : 0);
         if (is_gs &&
             opx == SpvOpEmitVertex)
         {
@@ -1447,10 +1921,13 @@ void spirv_patched_free(uint32_t *w) { free(w); }
 
 typedef struct
 {
-    uint32_t id;          /* OpLoad result id */
-    uint32_t source_id;   /* Original source SSA id */
-    uint32_t owner_var;   /* Descriptor variable owning this resource */
-    uint32_t binding;     /* Cached binding after fixup */
+    uint32_t id;           /* OpLoad result id */
+    uint32_t source_id;    /* Original source SSA id */
+    uint32_t owner_var;    /* Descriptor variable owning this resource */
+    uint32_t binding;      /* Cached binding after fixup */
+    /* ---- Projection provenance ---- */
+    bool     from_projection;
+    bool     from_view;
 } FsLoadInfo;
 
 typedef struct
@@ -1483,6 +1960,7 @@ typedef struct
     uint32_t set;
     uint32_t binding;
     uint32_t location;
+    bool     is_projection_ubo;
 } FsVariableInfo;
 
 typedef struct
@@ -1499,6 +1977,10 @@ typedef struct
     uint32_t depth;
     uint32_t arrayed;
     bool     patchable;
+    uint32_t sampled_type;   /* OpTypeSampledImage id wrapping this image type */
+    uint32_t owner_var;
+    uint32_t binding;
+    uint32_t set;
 } FsImageInfo;
 
 
@@ -1574,6 +2056,73 @@ fs_var_index(
     return -1;
 }
 
+static void
+fs_dump_descriptor_chain(
+    const FsScan *s,
+    const uint32_t *spv,
+    size_t word_count,
+    uint32_t descriptor_var)
+{
+    int vi = fs_var_index(s, descriptor_var);
+    if (vi < 0)
+        return;
+    uint32_t type_id = s->vars[vi].type;
+    STEREO_LOG(
+        "FS_RESOURCE descriptor=%u varType=%u",
+        descriptor_var,
+        type_id);
+    for (size_t i = 5; i < word_count; )
+    {
+        uint32_t wc = spv[i] >> 16;
+        uint32_t op = spv[i] & 0xffff;
+        if (!wc || i + wc > word_count)
+            break;
+        if ((op == SpvOpTypePointer ||
+             op == SpvOpTypeSampledImage ||
+             op == SpvOpTypeImage) &&
+            spv[i + 1] == type_id)
+        {
+            STEREO_LOG(
+                "FS_RESOURCE_TYPE id=%u op=%s",
+                type_id,
+                spv_op_name(op));
+            if (op == SpvOpTypePointer && wc >= 4)
+            {
+                STEREO_LOG(
+                    "FS_POINTER elementType=%u storage=%u",
+                    spv[i + 3],
+                    spv[i + 2]);
+                type_id = spv[i + 3];
+                i = 5;
+                continue;
+            }
+            if (op == SpvOpTypeSampledImage && wc >= 3)
+            {
+                STEREO_LOG(
+                    "FS_SAMPLED_IMAGE imageType=%u",
+                    spv[i + 2]);
+                type_id = spv[i + 2];
+                i = 5;
+                continue;
+            }
+            if (op == SpvOpTypeImage && wc >= 9)
+            {
+                STEREO_LOG(
+                    "FS_IMAGE_TYPE sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+                    spv[i + 2],
+                    spv[i + 3],
+                    spv[i + 4],
+                    spv[i + 5],
+                    spv[i + 6],
+                    spv[i + 7],
+                    spv[i + 8]);
+                break;
+            }
+        }
+        i += wc;
+    }
+}
+
 static int
 fs_dec_index(
     const FsScan *s,
@@ -1598,73 +2147,81 @@ fs_dec_index(
  */
 static bool
 fs_binding_is_stereo_attachment(
-    const FsScan *s,
-    uint32_t var)
+const FsScan *s,
+uint32_t var)
 {
     int vi = fs_var_index(s, var);
     if (vi < 0)
-        return false;
-    /*
-     * Input attachments have no descriptor set/binding.
-     * They are still stereo render targets.
-     */
-    if (s->vars[vi].storage ==
-            SpvStorageClassInput)
     {
         STEREO_LOG(
-            "FS_BINDING_INPUT_ATTACHMENT var=%u type=%u stereo=1",
-            var,
-            s->vars[vi].type);
+            "FS_BINDING_LOOKUP_FAIL var=%u",
+            var);
+        return false;
+    }
+    const FsVariableInfo *v = &s->vars[vi];
+    STEREO_LOG(
+        "FS_BINDING_INFO var=%u type=%u storage=%u set=%u binding=%u",
+        v->id,
+        v->type,
+        v->storage,
+        v->set,
+        v->binding);
+    /*
+     * Input attachments are framebuffer attachments.
+     */
+    if (v->storage == SpvStorageClassInput)
+    {
+        STEREO_LOG(
+            "FS_BINDING_INPUT_ATTACHMENT var=%u stereo=1",
+            var);
         return true;
     }
-    uint32_t binding =
-        s->vars[vi].binding;
-    uint32_t set =
-        s->vars[vi].set;
-    uint32_t type =
-        s->vars[vi].type;
-
     /*
-     * Deferred framebuffer attachments upgraded to arrayLayers=2.
+     * Deferred rendering attachments:
      *
-     * binding 0 = position/depth
+     * binding 0 = depth/position
      * binding 1 = normal
      * binding 2 = albedo
      * binding 3 = specular
-     * binding 4 = SSAO / deferred intermediate
-     *
-     * Higher bindings are assumed to be material textures,
-     * lookup tables, noise textures or post-processing resources.
-     */
-    /*
-     * MSAA resolve/composition shaders often use
-     * input attachments instead of descriptor images.
-     *
-     * Input attachments have no DescriptorSet/Binding
-     * decorations, so binding will be UINT_MAX.
+     * binding 4 = SSAO/deferred intermediate
      */
     bool stereo =
-        (binding <= 4) ||
-        (s->vars[vi].storage ==
-             SpvStorageClassInput);
-
+        (v->binding <= 4);
     STEREO_LOG(
-        "FS_BINDING_FALLBACK var=%u set=%u binding=%u storage=%u stereo=%u",
+        "FS_BINDING_RESULT var=%u binding=%u stereo=%u",
         var,
-        set,
-        binding,
-        s->vars[vi].storage,
+        v->binding,
         stereo);
-
-    STEREO_LOG(
-        "FS_BINDING_CLASSIFY var=%u set=%u binding=%u type=%u stereo=%u",
-        var,
-        set,
-        binding,
-        type,
-        stereo);
-
     return stereo;
+}
+
+static bool
+fs_should_patch_sample(
+    const FsScan *s,
+    uint64_t spv_hash,
+    uint32_t descriptor_var)
+{
+    int vi = fs_var_index(s, descriptor_var);
+    if (vi < 0)
+        return false;
+
+    uint32_t binding = s->vars[vi].binding;
+
+    /*
+     * SSAO noise is a mono lookup texture.  In the SSAO generator shader
+     * (35d504ebec7cf2d7) it must not be arrayed or ViewIndex-shifted.
+     */
+    if (spv_hash == 0x35d504ebec7cf2d7ULL && binding == 2)
+    {
+        STEREO_LOG(
+            "FS_SAMPLE_SKIP_NOISE hash=%016llx descriptor=%u binding=%u",
+            (unsigned long long)spv_hash,
+            descriptor_var,
+            binding);
+        return false;
+    }
+
+    return fs_binding_is_stereo_attachment(s, descriptor_var);
 }
 
 /*
@@ -1994,10 +2551,11 @@ fs_scan_type_instruction(
             FsImageInfo *img =
                 &s->images[s->n_img++];
             memset(img, 0, sizeof(*img));
-            img->id        = type_id;
-            img->depth     = depth;
-            img->arrayed   = arrayed;
-            img->patchable = true;
+            img->id             = type_id;
+            img->depth          = depth;
+            img->arrayed        = arrayed;
+            img->patchable      = true;
+            img->sampled_type   = 0;
             //STEREO_LOG(
             //    "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
             //    img->id,
@@ -2027,6 +2585,11 @@ fs_scan_type_instruction(
         {
             if (s->images[i].id == ins[2])
             {
+                s->images[i].sampled_type = ins[1];
+                STEREO_LOG(
+                    "FS_TYPE_SAMPLED_IMAGE_MAP imageType=%u sampledType=%u",
+                    s->images[i].id,
+                    s->images[i].sampled_type);
                 found = true;
                 break;
             }
@@ -2046,11 +2609,11 @@ fs_scan_type_instruction(
         break;
     }
     case SpvOpTypePointer:
-        //STEREO_LOG(
-        //    "FS_TYPE_POINTER id=%u storage=%u target=%u",
-        //    (wc >= 2) ? ins[1] : 0,
-        //    (wc >= 3) ? ins[2] : 0,
-        //    (wc >= 4) ? ins[3] : 0);
+        STEREO_LOG(
+            "FS_TYPE_POINTER id=%u storage=%u target=%u",
+            (wc >= 2) ? ins[1] : 0,
+            (wc >= 3) ? ins[2] : 0,
+            (wc >= 4) ? ins[3] : 0);
         if (wc >= 4 &&
             ins[2] == SpvStorageClassInput &&
             s->int_id &&
@@ -2091,12 +2654,11 @@ fs_process_decoration(
 {
     if (!s || !ins || wc < 4)
         return;
-    uint32_t target =
-        ins[1];
-    uint32_t decoration =
-        ins[2];
-    uint32_t value =
-        ins[3];
+
+    uint32_t target     = ins[1];
+    uint32_t decoration = ins[2];
+    uint32_t value      = ins[3];
+
     if (target == 15)
     {
         STEREO_LOG(
@@ -2104,31 +2666,23 @@ fs_process_decoration(
             decoration,
             value);
     }
-    //STEREO_LOG(
-    //    "FS_DECORATE target=%u decoration=%u literal=%u",
-    //    target,
-    //    decoration,
-    //    value);
+
     if (decoration == SpvDecorationBuiltIn &&
         value == SpvBuiltInViewIndex)
     {
-        s->vi_var_id =
-            target;
+        s->vi_var_id = target;
         STEREO_LOG(
             "FS_VIEWINDEX_FOUND id=%u",
             target);
         return;
     }
+
     if (decoration == SpvDecorationLocation)
     {
-        int index =
-            fs_var_index(
-                s,
-                target);
+        int index = fs_var_index(s, target);
         if (index >= 0)
         {
-            s->vars[index].location =
-                value;
+            s->vars[index].location = value;
             STEREO_LOG(
                 "FS_LOCATION_APPLY var=%u location=%u",
                 target,
@@ -2136,11 +2690,13 @@ fs_process_decoration(
         }
         return;
     }
+
     if (decoration != SpvDecorationBinding &&
         decoration != SpvDecorationDescriptorSet)
     {
         return;
     }
+
     int index = -1;
     for (uint32_t i = 0; i < s->n_dec; ++i)
     {
@@ -2150,6 +2706,7 @@ fs_process_decoration(
             break;
         }
     }
+
     if (index < 0)
     {
         if (s->n_dec >= FS_MAX_VARS)
@@ -2159,75 +2716,42 @@ fs_process_decoration(
                 target);
             return;
         }
-        index =
-            (int)s->n_dec++;
-        FsDecorationInfo *dec =
-            &s->decorations[index];
-        memset(
-            dec,
-            0,
-            sizeof(*dec));
-        dec->target =
-            target;
-        dec->set =
-            0xffffffffu;
-        dec->binding =
-            0xffffffffu;
-        dec->location =
-            0xffffffffu;
+
+        index = (int)s->n_dec++;
+        FsDecorationInfo *dec = &s->decorations[index];
+        memset(dec, 0, sizeof(*dec));
+        dec->target   = target;
+        dec->set      = 0xffffffffu;
+        dec->binding  = 0xffffffffu;
+        dec->location = 0xffffffffu;
     }
-    FsDecorationInfo *dec =
-        &s->decorations[index];
+
+    FsDecorationInfo *dec = &s->decorations[index];
     if (decoration == SpvDecorationBinding)
-    {
-        dec->binding =
-            value;
-        //STEREO_LOG(
-        //    "FS_BIND_CACHE target=%u binding=%u",
-        //    target,
-        //    value);
-    }
+        dec->binding = value;
     else
-    {
-        dec->set =
-            value;
-        //STEREO_LOG(
-        //    "FS_SET_CACHE target=%u set=%u",
-        //    target,
-        //    value);
-    }
-    /*
-     * OpDecorate may appear after OpVariable.
-     *
-     * Update the already-created variable immediately.
-     */
-    int var_index =
-        fs_var_index(
-            s,
-            target);
+        dec->set = value;
+
+    int var_index = fs_var_index(s, target);
     if (var_index >= 0)
     {
-        FsVariableInfo *var =
-            &s->vars[var_index];
+        FsVariableInfo *var = &s->vars[var_index];
         if (decoration == SpvDecorationBinding)
-        {
-            var->binding =
-                value;
-            //STEREO_LOG(
-            //    "FS_BIND_APPLY_EXISTING var=%u binding=%u",
-            //    var->id,
-            //    var->binding);
-        }
+            var->binding = value;
         else
+            var->set = value;
+
+        if (var->storage == SpvStorageClassUniform &&
+            var->binding == 4u)
         {
-            var->set =
-                value;
-            //STEREO_LOG(
-            //    "FS_SET_APPLY_EXISTING var=%u set=%u",
-            //    var->id,
-            //    var->set);
+            var->is_projection_ubo = true;
+            STEREO_LOG(
+                "FS_PROJECTION_UBO_DECORATED var=%u set=%u binding=%u",
+                var->id,
+                var->set,
+                var->binding);
         }
-    }   
+    }
 }
 /*═══════════════════════════════════════════════════════════════════════
  * Pass 2: Descriptor variables and decorations.
@@ -2248,6 +2772,7 @@ fs_scan_variable_instruction(
 {
     if (!s || !ins || wc < 4)
         return;
+
     if (s->n_var >= FS_MAX_VARS)
     {
         STEREO_LOG(
@@ -2255,62 +2780,48 @@ fs_scan_variable_instruction(
             ins[2]);
         return;
     }
-    FsVariableInfo *var =
-        &s->vars[s->n_var++];
-    memset(
-        var,
-        0,
-        sizeof(*var));
-    var->id =
-        ins[2];
-    var->type =
-        ins[1];
-    var->storage =
-        ins[3];
-    var->set =
-        0xffffffffu;
-    var->binding =
-        0xffffffffu;
-    var->location =
-        0xffffffffu;
-    //STEREO_LOG(
-    //    "FS_VAR_TYPE var=%u type=%u storage=%u set=%u binding=%u",
-    //    var->id,
-    //    var->type,
-    //    var->storage,
-    //    var->set,
-    //    var->binding);
+
+    FsVariableInfo *var = &s->vars[s->n_var++];
+    memset(var, 0, sizeof(*var));
+
+    var->id       = ins[2];
+    var->type     = ins[1];
+    var->storage  = ins[3];
+    var->set      = 0xffffffffu;
+    var->binding  = 0xffffffffu;
+    var->location = 0xffffffffu;
+    var->is_projection_ubo = false;
+
     /*
      * Decorations may legally appear before OpVariable.
-     *
-     * Apply cached DescriptorSet, Binding, and Location values
-     * now that the variable exists.
+     * Apply cached DescriptorSet, Binding, and Location values now.
      */
     for (uint32_t i = 0; i < s->n_dec; ++i)
     {
-        FsDecorationInfo *dec =
-            &s->decorations[i];
+        FsDecorationInfo *dec = &s->decorations[i];
         if (dec->target != var->id)
             continue;
+
         if (dec->set != 0xffffffffu)
-            var->set =
-                dec->set;
+            var->set = dec->set;
         if (dec->binding != 0xffffffffu)
-            var->binding =
-                dec->binding;
+            var->binding = dec->binding;
         if (dec->location != 0xffffffffu)
-            var->location =
-                dec->location;
-        //STEREO_LOG(
-        //    "FS_DECORATION_APPLY var=%u set=%u binding=%u location=%u",
-        //    var->id,
-        //    var->set,
-        //    var->binding,
-        //    var->location);
+            var->location = dec->location;
     }
-    /*
-     * Targeted debug for unresolved MSAA resource.
-     */
+
+    if (var->storage == SpvStorageClassUniform &&
+        var->binding == 4u)
+    {
+        var->is_projection_ubo = true;
+        STEREO_LOG(
+            "FS_PROJECTION_UBO var=%u type=%u set=%u binding=%u",
+            var->id,
+            var->type,
+            var->set,
+            var->binding);
+    }
+
     if (var->id == 15)
     {
         STEREO_LOG(
@@ -2321,6 +2832,7 @@ fs_scan_variable_instruction(
             var->binding,
             var->location);
     }
+
     if (var->storage == SpvStorageClassUniform ||
         var->storage == SpvStorageClassUniformConstant)
     {
@@ -2332,22 +2844,6 @@ fs_scan_variable_instruction(
             var->set,
             var->binding);
     }
-    //else
-    //{
-    //    STEREO_LOG(
-    //        "FS_VAR_ADD id=%u type=%u storage=%u",
-    //        var->id,
-    //        var->type,
-    //        var->storage);
-    //}
-    //STEREO_LOG(
-    //    "FS_VAR_FINALIZE id=%u type=%u storage=%u set=%u binding=%u location=%u",
-    //    var->id,
-    //    var->type,
-    //    var->storage,
-    //    var->set,
-    //    var->binding,
-    //    var->location);
 }
 /*
  * Register an OpVariable instruction.
@@ -2510,54 +3006,21 @@ fs_scan_load_instruction(
     const uint32_t *ins,
     uint32_t wc)
 {
-    if (wc < 4)
+    if (!s || !ins || wc < 4)
         return;
-    uint32_t result_type =
-        ins[1];
-    uint32_t result_id =
-        ins[2];
-    uint32_t source_id =
-        ins[3];
-    /*
-     * Only track loads that produce image-related objects.
-     *
-     * We intentionally avoid tracking every OpLoad because
-     * large deferred shaders contain hundreds of unrelated
-     * loads (UBOs, push constants, storage buffers, etc.).
-     *
-     * Projection correction later needs to answer:
-     *
-     *   "Which descriptor produced this sampled image?"
-     *
-     * so resource ownership is the only information needed here.
-     */
-    if (!fs_is_image_related_type(
-            s,
-            result_type))
-    {
-        return;
-    }
+
+    uint32_t result_type = ins[1];
+    uint32_t result_id   = ins[2];
+    uint32_t source_id   = ins[3];
+
     uint32_t owner = 0;
-    /*
-     * Direct descriptor variable load:
-     *
-     *   %img = OpLoad %image_type %descriptor
-     *
-     * Resolve immediately if possible.
-     */
-    if (!fs_resolve_load_owner(
-            s,
-            source_id,
-            &owner))
+    bool have_owner = fs_resolve_load_owner(s, source_id, &owner);
+
+    if (!have_owner)
     {
         /*
-         * The source may be a function parameter.
-         *
-         * It will be fixed later by
-         *
-         * fs_fixup_function_parameters()
-         *
-         * after all calls and parameters are known.
+         * The source may be a function parameter or another SSA value
+         * that will be fixed up later.
          */
         owner = source_id;
         STEREO_LOG(
@@ -2565,23 +3028,57 @@ fs_scan_load_instruction(
             result_id,
             source_id);
     }
-    fs_add_load_mapping(
-        s,
-        result_id,
-        owner);
-    int var =
-        fs_var_index(
-            s,
-            source_id);
-    if (var >= 0)
+
+    int owner_var_index = fs_var_index(s, owner);
+    bool from_projection_ubo =
+        (owner_var_index >= 0 &&
+         s->vars[owner_var_index].is_projection_ubo);
+
+    bool image_related =
+        fs_is_image_related_type(s, result_type);
+
+    /*
+     * Keep tracking normal image-related loads as before.
+     * Also keep projection UBO loads even when they are not image-related,
+     * because the FS uses them for convergence/projection reconstruction.
+     */
+    if (!image_related && !from_projection_ubo)
+        return;
+
+    if (s->n_load >= FS_MAX_LOADS)
     {
         STEREO_LOG(
-            "FS_LOAD_SOURCE result=%u sourceVar=%u set=%u binding=%u type=%u",
+            "FS_LOAD_OVERFLOW result=%u",
+            result_id);
+        return;
+    }
+
+    FsLoadInfo *li = &s->loads[s->n_load++];
+    memset(li, 0, sizeof(*li));
+
+    li->id            = result_id;
+    li->source_id     = source_id;
+    li->owner_var     = owner;
+    li->binding       = 0xffffffffu;
+    li->from_projection = from_projection_ubo;
+    li->from_view       = false;
+
+    if (owner_var_index >= 0)
+    {
+        li->binding = s->vars[owner_var_index].binding;
+    }
+
+    int src_var = fs_var_index(s, source_id);
+    if (src_var >= 0)
+    {
+        STEREO_LOG(
+            "FS_LOAD_SOURCE result=%u sourceVar=%u set=%u binding=%u type=%u proj=%u",
             result_id,
             source_id,
-            s->vars[var].set,
-            s->vars[var].binding,
-            s->vars[var].type);
+            s->vars[src_var].set,
+            s->vars[src_var].binding,
+            s->vars[src_var].type,
+            li->from_projection);
     }
     else
     {
@@ -2590,11 +3087,24 @@ fs_scan_load_instruction(
             result_id,
             source_id);
     }
+
+    if (from_projection_ubo)
+    {
+        STEREO_LOG(
+            "FS_PROJECTION_LOAD result=%u owner=%u set=%u binding=%u type=%u",
+            result_id,
+            owner,
+            (owner_var_index >= 0) ? s->vars[owner_var_index].set : 0xffffffffu,
+            (owner_var_index >= 0) ? s->vars[owner_var_index].binding : 0xffffffffu,
+            (owner_var_index >= 0) ? s->vars[owner_var_index].type : 0xffffffffu);
+    }
+
     STEREO_LOG(
-        "FS_LOAD_REGISTER result=%u owner=%u type=%u",
+        "FS_LOAD_REGISTER result=%u owner=%u type=%u proj=%u",
         result_id,
         owner,
-        result_type);
+        result_type,
+        li->from_projection);
 }
 /*
  * Track OpFunctionCall relationships.
@@ -2718,65 +3228,41 @@ fs_track_image_propagation(
     uint32_t op,
     uint32_t wc)
 {
-    if (wc < 4)
+    if (!s || wc < 4)
         return;
-    /*
-     * Only image-producing instructions can preserve
-     * descriptor ownership.
-     *
-     * Example:
-     *
-     *   %img0 = OpLoad %image %depthTexture
-     *   %img1 = OpImage %image %img0
-     *
-     * %img1 still refers to the same descriptor.
-     */
     bool propagate =
         (op == SpvOpImage) ||
-        (op == SpvOpCopyObject &&
-         fs_is_image_related_type(
-             s,
-             ins[1]));
+        (op == SpvOpCopyObject);
     if (!propagate)
         return;
-    uint32_t source =
-        ins[3];
-    uint32_t result =
-        ins[2];
-    uint32_t owner = 0;
-    STEREO_LOG(
-        "FS_PROPAGATE_TRY op=%s(%u) src=%u dst=%u",
-        spv_op_name(op),
-        op,
-        source,
-        result);
-    if (!fs_resolve_load_owner(
+    uint32_t result_id = ins[2];
+    uint32_t source_id = ins[3];
+    int src =
+        fs_find_load(
             s,
-            source,
-            &owner))
+            source_id);
+    if (src < 0)
     {
-        /*
-         * Keep unresolved IDs alive.
-         *
-         * They may refer to function parameters that are
-         * repaired later by fs_fixup_function_parameters().
-         */
-        owner = source;
-        STEREO_LOG(
-            "FS_PROPAGATE_DEFERRED src=%u dst=%u",
-            source,
-            result);
+        return;
     }
-    fs_add_load_mapping(
-        s,
-        result,
-        owner);
+    if (s->n_load >= FS_MAX_LOADS)
+    {
+        STEREO_LOG(
+            "FS_PROP_OVERFLOW result=%u",
+            result_id);
+        return;
+    }
+    FsLoadInfo *dst =
+        &s->loads[s->n_load++];
+    *dst = s->loads[src];
+    dst->id = result_id;
     STEREO_LOG(
-        "FS_IMAGE_PROPAGATE op=%s src=%u dst=%u owner=%u",
+        "FS_PROPAGATE op=%s src=%u dst=%u owner=%u source=%u",
         spv_op_name(op),
-        source,
-        result,
-        owner);
+        source_id,
+        result_id,
+        dst->owner_var,
+        dst->source_id);
 }
 /*
  * Track OpSampledImage ownership.
@@ -2799,18 +3285,10 @@ fs_track_sampled_image(
     const uint32_t *ins,
     uint32_t wc)
 {
-    if (wc < 5)
+    if (!s || wc < 5)
         return;
     /*
-     * OpSampledImage layout:
-     *
-     *   ins[1] = result type
-     *   ins[2] = result id
-     *   ins[3] = image id
-     *   ins[4] = sampler id
-     *
-     * The resulting sampled-image object must retain
-     * ownership of the original image descriptor.
+     * Ignore non-sampled-image result types.
      */
     if (!fs_id_in(
             s->si_ids,
@@ -2819,45 +3297,40 @@ fs_track_sampled_image(
     {
         return;
     }
-    uint32_t result =
-        ins[2];
-    uint32_t image =
-        ins[3];
-    uint32_t sampler =
-        ins[4];
-    STEREO_LOG(
-        "FS_SAMPLED_IMAGE result=%u image=%u sampler=%u",
-        result,
-        image,
-        sampler);
-    uint32_t owner = 0;
-    /*
-     * The image operand normally comes from a previous
-     * OpLoad or propagated image operation.
-     */
-    if (!fs_resolve_load_owner(
+    uint32_t result_id  = ins[2];
+    uint32_t image_id   = ins[3];
+    uint32_t sampler_id = ins[4];
+    int src =
+        fs_find_load(
             s,
-            image,
-            &owner))
+            image_id);
+    if (src < 0)
     {
-        /*
-         * Preserve the unresolved source ID.
-         *
-         * Function parameter forwarding may resolve it later.
-         */
-        owner = image;
         STEREO_LOG(
-            "FS_SAMPLED_IMAGE_OWNER_DEFERRED image=%u",
-            image);
+            "FS_SAMPLED_IMAGE_NO_SOURCE result=%u image=%u sampler=%u",
+            result_id,
+            image_id,
+            sampler_id);
+        return;
     }
-    fs_add_load_mapping(
-        s,
-        result,
-        owner);
+    if (s->n_load >= FS_MAX_LOADS)
+    {
+        STEREO_LOG(
+            "FS_SAMPLED_IMAGE_OVERFLOW result=%u",
+            result_id);
+        return;
+    }
+    FsLoadInfo *dst =
+        &s->loads[s->n_load++];
+    *dst = s->loads[src];
+    dst->id = result_id;
     STEREO_LOG(
-        "FS_SAMPLED_IMAGE_OWNER result=%u owner=%u",
-        result,
-        owner);
+        "FS_SAMPLED_IMAGE result=%u image=%u sampler=%u owner=%u source=%u",
+        result_id,
+        image_id,
+        sampler_id,
+        dst->owner_var,
+        dst->source_id);
 }
 /*
  * Scan image sampling/fetch/read/write instructions.
@@ -2877,131 +3350,100 @@ fs_scan_image_operation(
     uint32_t op,
     uint32_t wc)
 {
-    if (wc < 5)
+    STEREO_LOG(
+        "FS_IMAGE_SCAN op=%s imageOperand=%u resultType=%u result=%u",
+        spv_op_name(op),
+        (wc >= 4) ? ins[3] : 0,
+        (wc >= 2) ? ins[1] : 0,
+        (wc >= 3) ? ins[2] : 0);
+    if (!s || wc < 5)
         return;
     switch (op)
     {
-        case SpvOpImageSampleImplicitLod:
-        case SpvOpImageSampleExplicitLod:
-        case SpvOpImageSampleDrefImplicitLod:
-        case SpvOpImageSampleDrefExplicitLod:
-        case SpvOpImageFetch:
-        case SpvOpImageRead:
-        case SpvOpImageWrite:
-            break;
-        default:
-            return;
-    }
-    /*
-     * Image sampling instructions:
-     *
-     *   ins[1] = result type
-     *   ins[2] = result id
-     *   ins[3] = sampled image/image operand
-     *   ins[4] = coordinate
-     *
-     * At this stage we are not modifying shaders.
-     *
-     * We are building the resource map required later to
-     * detect:
-     *
-     *   depth texture sampling
-     *          |
-     *          v
-     *   view-space reconstruction
-     *          |
-     *          v
-     *   projection matrix usage
-     *
-     * which is needed for correct stereo SSAO/deferred effects.
-     */
-    uint32_t result =
-        ins[2];
-    uint32_t image =
-        ins[3];
-    uint32_t coord =
-        ins[4];
-    STEREO_LOG(
-        "FS_IMAGE_OP op=%s(%u) result=%u image=%u coord=%u",
-        spv_op_name(op),
-        op,
-        result,
-        image,
-        coord);
-    uint32_t owner = 0;
-    if (!fs_resolve_load_owner(
-            s,
-            image,
-            &owner))
-    {
-        /*
-         * The image may still be unresolved because it came
-         * through a helper function parameter.
-         *
-         * fs_fixup_function_parameters() will repair these
-         * after the complete module scan.
-         */
-        owner = image;
+    case SpvOpImageSampleImplicitLod:
+    case SpvOpImageSampleExplicitLod:
+    case SpvOpImageSampleDrefImplicitLod:
+    case SpvOpImageSampleDrefExplicitLod:
+    case SpvOpImageFetch:
+    case SpvOpImageRead:
+    case SpvOpImageWrite:
         STEREO_LOG(
-            "FS_IMAGE_OWNER_DEFERRED image=%u",
-            image);
+            "FS_IMAGE_WRITE image=%u value=%u",
+            ins[3],
+            ins[4]);
+        break;
+    default:
+        return;
+    }
+    uint32_t image_id = ins[3];
+    int load =
+        fs_find_load(
+            s,
+            image_id);
+    if (load < 0)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_NO_LOAD image=%u op=%s",
+            image_id,
+            spv_op_name(op));
+        return;
+    }
+    FsLoadInfo *li =
+        &s->loads[load];
+    if (li->owner_var == 0)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_UNRESOLVED image=%u source=%u",
+            image_id,
+            li->source_id);
+        return;
     }
     int var =
         fs_var_index(
             s,
-            owner);
+            li->owner_var);
     if (var < 0)
     {
         STEREO_LOG(
-            "FS_IMAGE_OWNER_UNKNOWN image=%u owner=%u",
-            image,
-            owner);
+            "FS_IMAGE_OWNER_UNKNOWN owner=%u",
+            li->owner_var);
         return;
     }
-    STEREO_LOG(
-        "FS_IMAGE_DESCRIPTOR image=%u owner=%u set=%u binding=%u type=%u",
-        image,
-        owner,
-        s->vars[var].set,
-        s->vars[var].binding,
-        s->vars[var].type);
-    /*
-     * Important future hook:
-     *
-     * This is where projection/depth analysis will attach.
-     *
-     * Once we know:
-     *
-     *   binding -> depth attachment
-     *   image sampling -> depth value
-     *   math chain -> reconstruction
-     *
-     * we can inject projection correction instead of only
-     * stereoizing the original vertex transform.
-     */
     bool stereo =
         fs_binding_is_stereo_attachment(
             s,
-            owner);
-
+            li->owner_var);
     STEREO_LOG(
-        "FS_IMAGE_CLASSIFY image=%u owner=%u varIndex=%d storage=%u set=%u binding=%u stereo=%u",
-        image,
-        owner,
-        var,
-        s->vars[var].storage,
+        "FS_SAMPLE_CLASSIFIED image=%u owner=%u binding=%u stereo=%u op=%s",
+        image_id,
+        li->owner_var,
+        s->vars[var].binding,
+        stereo,
+        spv_op_name(op));
+    li->binding =
+        s->vars[var].binding;
+    STEREO_LOG(
+        "FS_IMAGE_SAMPLE op=%s image=%u owner=%u set=%u binding=%u stereo=%u proj=%u view=%u",
+        spv_op_name(op),
+        image_id,
+        li->owner_var,
         s->vars[var].set,
         s->vars[var].binding,
-        stereo);
-
+        stereo,
+        li->from_projection,
+        li->from_view);
     if (stereo)
     {
         STEREO_LOG(
-            "FS_DEPTH_RESOURCE_SAMPLE image=%u owner=%u binding=%u",
-            image,
-            owner,
-            s->vars[var].binding);
+            "FS_STEREO_RESOURCE image=%u binding=%u proj=%u",
+            image_id,
+            s->vars[var].binding,
+            li->from_projection);
     }
+    STEREO_LOG(
+        "FS_IMAGE_OWNER image=%u owner=%u",
+        (wc >= 4) ? ins[3] : 0,
+        li->owner_var);
 }
 /*
  * Instruction dispatchers
@@ -3028,7 +3470,6 @@ fs_scan_instruction(
 {
     if (!s || !ins)
         return;
-
     /*
      * Diagnostic: log every image operation encountered during
      * the prescan so we know exactly which SPIR-V instructions
@@ -3050,131 +3491,226 @@ fs_scan_instruction(
             (wc >= 3) ? ins[2] : 0,
             (wc >= 4) ? ins[3] : 0);
         break;
-
     default:
         break;
     }
-
     switch (op)
     {
-        /*
-         * Type declarations.
-         *
-         * These must be scanned before variables because
-         * later resource classification depends on knowing
-         * image/sampled-image relationships.
-         */
-        case SpvOpTypeFloat:
-        case SpvOpTypeInt:
-        case SpvOpTypeVector:
-        case SpvOpTypeImage:
-        case SpvOpTypeSampledImage:
-        case SpvOpTypePointer:
-            fs_scan_type_instruction(
-                s,
-                ins,
-                op,
-                wc);
-            break;
-        /*
-         * Decorations may appear before OpVariable.
-         *
-         * Cache them first and apply them when the variable
-         * is encountered.
-         */
-        case SpvOpDecorate:
-            fs_process_decoration(
-                s,
-                ins,
-                wc);
-            break;
-        /*
-         * Descriptor/resource declarations.
-         */
-        case SpvOpVariable:
-            fs_scan_variable_instruction(
-                s,
-                ins,
-                wc);
-            break;
-        /*
-         * Function metadata.
-         */
-        case SpvOpFunction:
-            fs_scan_function(
-                s,
-                ins,
-                wc);
-            break;
-        case SpvOpFunctionParameter:
-            fs_scan_function_parameter(
-                s,
-                ins,
-                wc);
-            break;
-        case SpvOpFunctionEnd:
-            s->in_function = false;
-            s->current_function_id = 0;
-            s->current_param_index = 0;
+    /*
+     * Type declarations.
+     *
+     * These must be scanned before variables because
+     * later resource classification depends on knowing
+     * image/sampled-image relationships.
+     */
+    case SpvOpTypeFloat:
+    case SpvOpTypeInt:
+    case SpvOpTypeVector:
+    case SpvOpTypeImage:
+    case SpvOpTypeSampledImage:
+    case SpvOpTypePointer:
+        fs_scan_type_instruction(
+            s,
+            ins,
+            op,
+            wc);
+        break;
+    /*
+     * Decorations may appear before OpVariable.
+     *
+     * Cache them first and apply them when the variable
+     * is encountered.
+     */
+    case SpvOpDecorate:
+        fs_process_decoration(
+            s,
+            ins,
+            wc);
+        break;
+    /*
+     * Descriptor/resource declarations.
+     */
+    case SpvOpVariable:
+        fs_scan_variable_instruction(
+            s,
+            ins,
+            wc);
+        break;
+    /*
+     * Function metadata.
+     */
+    case SpvOpFunction:
+        fs_scan_function(
+            s,
+            ins,
+            wc);
+        break;
+    case SpvOpFunctionParameter:
+        fs_scan_function_parameter(
+            s,
+            ins,
+            wc);
+        break;
+    case SpvOpFunctionEnd:
+        s->in_function = false;
+        s->current_function_id = 0;
+        s->current_param_index = 0;
+        STEREO_LOG(
+            "FS_FUNCTION_END");
+        break;
+    case SpvOpFunctionCall:
+        STEREO_LOG(
+            "FS_FUNCTION_CALL wc=%u resultType=%u result=%u function=%u",
+            wc,
+            wc > 1 ? ins[1] : 0,
+            wc > 2 ? ins[2] : 0,
+            wc > 3 ? ins[3] : 0);
+        fs_scan_function_call(
+            s,
+            ins,
+            wc);
+        break;
+    /*
+     * Resource ownership tracking.
+     *
+     * Keep SSA ownership for:
+     *  - direct loads
+     *  - pointer arithmetic / access chains
+     *  - simple forwarding ops
+     *
+     * This is required so a later OpLoad from an access chain can still
+     * be traced back to the originating uniform variable.
+     */
+    case SpvOpAccessChain:
+    case SpvOpInBoundsAccessChain:
+    case SpvOpPtrAccessChain:
+    {
+        if (wc >= 4)
+        {
+            uint32_t result_id = ins[2];
+            uint32_t base_id   = ins[3];
+            uint32_t owner     = base_id;
+            if (!fs_resolve_load_owner(s, base_id, &owner))
+            {
+                if (fs_var_index(s, base_id) >= 0)
+                    owner = base_id;
+            }
+            fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
-                "FS_FUNCTION_END");
-            break;
-        case SpvOpFunctionCall:
+                "FS_CHAIN result=%u base=%u owner=%u op=%s",
+                result_id,
+                base_id,
+                owner,
+                spv_op_name(op));
+        }
+        break;
+    }
+    case SpvOpCopyObject:
+    case SpvOpBitcast:
+    {
+        if (wc >= 4)
+        {
+            uint32_t result_id = ins[2];
+            uint32_t source_id = ins[3];
+            uint32_t owner     = source_id;
+            if (!fs_resolve_load_owner(s, source_id, &owner))
+            {
+                if (fs_var_index(s, source_id) >= 0)
+                    owner = source_id;
+            }
+            fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
-                "FS_FUNCTION_CALL wc=%u resultType=%u result=%u function=%u",
-                wc,
-                wc > 1 ? ins[1] : 0,
-                wc > 2 ? ins[2] : 0,
-                wc > 3 ? ins[3] : 0);
-            fs_scan_function_call(
-                s,
-                ins,
-                wc);
-            break;
-        /*
-         * Resource ownership tracking.
-         */
-        case SpvOpLoad:
-            fs_scan_load_instruction(
-                s,
-                ins,
-                wc);
-            break;
-        case SpvOpSampledImage:
-            fs_track_sampled_image(
-                s,
-                ins,
-                wc);
-            break;
-        case SpvOpImage:
-        case SpvOpCopyObject:
-            fs_track_image_propagation(
-                s,
-                ins,
-                op,
-                wc);
-            break;
-        /*
-         * Final image consumers.
-         *
-         * This is where depth/normal attachment analysis
-         * will eventually feed projection correction.
-         */
-        case SpvOpImageSampleImplicitLod:
-        case SpvOpImageSampleExplicitLod:
-        case SpvOpImageSampleDrefImplicitLod:
-        case SpvOpImageSampleDrefExplicitLod:
-        case SpvOpImageFetch:
-        case SpvOpImageRead:
-        case SpvOpImageWrite:
-            fs_scan_image_operation(
-                s,
-                ins,
-                op,
-                wc);
-            break;
-        default:
-            break;
+                "FS_PROPAGATE_OBJECT op=%s src=%u dst=%u owner=%u",
+                spv_op_name(op),
+                source_id,
+                result_id,
+                owner);
+        }
+        break;
+    }
+    case SpvOpCompositeExtract:
+    {
+        if (wc >= 5)
+        {
+            uint32_t result_id = ins[2];
+            uint32_t source_id = ins[3];
+            uint32_t owner     = source_id;
+            if (!fs_resolve_load_owner(s, source_id, &owner))
+            {
+                if (fs_var_index(s, source_id) >= 0)
+                    owner = source_id;
+            }
+            fs_add_load_mapping(s, result_id, owner);
+        }
+        break;
+    }
+    case SpvOpVectorShuffle:
+    {
+        if (wc >= 6)
+        {
+            uint32_t result_id = ins[2];
+            uint32_t source_id = ins[3];
+            uint32_t owner     = source_id;
+            if (!fs_resolve_load_owner(s, source_id, &owner))
+            {
+                if (fs_var_index(s, source_id) >= 0)
+                    owner = source_id;
+            }
+            fs_add_load_mapping(s, result_id, owner);
+        }
+        break;
+    }
+    case SpvOpLoad:
+        fs_scan_load_instruction(
+            s,
+            ins,
+            wc);
+        break;
+    case SpvOpSampledImage:
+    {
+        if (wc >= 5)
+        {
+            STEREO_LOG(
+                "FS_SAMPLED_IMAGE_OP resultType=%u result=%u image=%u sampler=%u",
+                ins[1],
+                ins[2],
+                ins[3],
+                ins[4]);
+        }
+        fs_track_sampled_image(
+            s,
+            ins,
+            wc);
+        break;
+    }
+    case SpvOpImage:
+        fs_track_image_propagation(
+            s,
+            ins,
+            op,
+            wc);
+        break;
+    /*
+     * Final image consumers.
+     *
+     * This is where depth/normal attachment analysis
+     * will eventually feed projection correction.
+     */
+    case SpvOpImageSampleImplicitLod:
+    case SpvOpImageSampleExplicitLod:
+    case SpvOpImageSampleDrefImplicitLod:
+    case SpvOpImageSampleDrefExplicitLod:
+    case SpvOpImageFetch:
+    case SpvOpImageRead:
+    case SpvOpImageWrite:
+        fs_scan_image_operation(
+            s,
+            ins,
+            op,
+            wc);
+        break;
+    default:
+        break;
     }
 }
 /*
@@ -3343,8 +3879,55 @@ fs_prescan(
     /*
      * Dump the final ownership graph after fixups.
      */
-    fs_dump_scan_summary(
-        s);
+    fs_dump_scan_summary(s);
+    /*
+     * Resolve descriptor ownership for every image type.
+     * This allows spirv_patch_stereo_fs() to know which binding
+     * owns a given OpTypeImage.
+     */
+    for (uint32_t img = 0; img < s->n_img; ++img)
+    {
+        FsImageInfo *image = &s->images[img];
+        image->owner_var = UINT32_MAX;
+        image->binding   = UINT32_MAX;
+        image->set       = UINT32_MAX;
+        for (uint32_t v = 0; v < s->n_var; ++v)
+        {
+            if (image->sampled_type &&
+                s->vars[v].type == image->sampled_type)
+            {
+                image->owner_var = s->vars[v].id;
+                image->binding   = s->vars[v].binding;
+                image->set       = s->vars[v].set;
+                STEREO_LOG(
+                    "FS_IMAGE_OWNER "
+                    "imageType=%u "
+                    "sampledType=%u "
+                    "owner=%u "
+                    "set=%u "
+                    "binding=%u",
+                    image->id,
+                    image->sampled_type,
+                    image->owner_var,
+                    image->set,
+                    image->binding);
+                break;
+            }
+        }
+    }
+    for (uint32_t l = 0; l < s->n_load; ++l)
+    {
+        const FsLoadInfo *load = &s->loads[l];
+        int vi = fs_var_index(s, load->owner_var);
+        STEREO_LOG(
+            "FS_FINAL_LOAD load=%u owner=%u set=%u binding=%u storage=%u type=%u",
+            load->id,
+            load->owner_var,
+            (vi >= 0) ? s->vars[vi].set : 0xffffffffu,
+            (vi >= 0) ? s->vars[vi].binding : 0xffffffffu,
+            (vi >= 0) ? s->vars[vi].storage : 0xffffffffu,
+            (vi >= 0) ? s->vars[vi].type : 0xffffffffu);
+    }
     for (uint32_t v = 0; v < s->n_var; ++v)
     {
         if (s->vars[v].id == 15)
@@ -3460,112 +4043,87 @@ fs_fixup_function_parameters(
     if (!s)
         return;
     /*
-     * Resolve deferred function-call arguments.
-     *
-     * During the first scan we only know:
-     *
-     *   OpFunctionCall
-     *       |
-     *       +-- argument value
-     *
-     * but not always:
-     *
-     *   function parameter ID
-     *
-     * because SPIR-V functions can appear in any order.
+     * Resolve parameter ids for every call.
      */
     for (uint32_t i = 0; i < s->n_call; ++i)
     {
         FsCallInfo *call =
             &s->calls[i];
-        int fn_index =
+        int fn =
             fs_find_function(
                 s,
                 call->function_id);
-        if (fn_index < 0)
-        {
-            STEREO_LOG(
-                "FS_FIXUP_FUNCTION_MISS function=%u",
-                call->function_id);
+        if (fn < 0)
             continue;
-        }
-        FsFunctionInfo *fn =
-            &s->functions[fn_index];
-        uint32_t parameter_index =
-            fn->first_param +
+        FsFunctionInfo *func =
+            &s->functions[fn];
+        uint32_t param_index =
+            func->first_param +
             call->parameter_index;
-        if (parameter_index >= s->n_param)
-        {
-            STEREO_LOG(
-                "FS_FIXUP_PARAMETER_RANGE function=%u index=%u",
-                call->function_id,
-                parameter_index);
+        if (param_index >= s->n_param)
             continue;
-        }
         call->parameter_id =
-            s->params[parameter_index].id;
+            s->params[param_index].id;
         STEREO_LOG(
-            "FS_CALL_PARAMETER_RESOLVE function=%u parameter=%u arg=%u",
+            "FS_CALL_PARAMETER function=%u param=%u arg=%u",
             call->function_id,
             call->parameter_id,
             call->argument_var);
     }
     /*
-     * Resolve loads that originated from function parameters.
+     * Resolve deferred ownership.
      *
-     * Example:
-     *
-     * main()
-     *   |
-     *   v
-     * helper(depthTexture)
-     *   |
-     *   v
-     * OpLoad %param
-     *
-     * The first pass cannot know that %param maps back to the
-     * original descriptor variable.
+     * owner_var currently contains the parameter SSA id
+     * recorded during OpLoad.
      */
-    for (uint32_t load = 0;
-         load < s->n_load;
-         ++load)
+    for (uint32_t i = 0; i < s->n_load; ++i)
     {
-        FsLoadInfo *entry =
-            &s->loads[load];
-        if (entry->owner_var != 0)
+        FsLoadInfo *load =
+            &s->loads[i];
+        int p =
+            fs_find_parameter(
+                s,
+                load->owner_var);
+        if (p < 0)
             continue;
-        for (uint32_t call = 0;
-             call < s->n_call;
-             ++call)
+        FsParameterInfo *param =
+            &s->params[p];
+        bool resolved = false;
+        for (uint32_t c = 0; c < s->n_call; ++c)
         {
-            FsCallInfo *c =
-                &s->calls[call];
-            if (c->parameter_id !=
-                entry->source_id)
-            {
+            FsCallInfo *call =
+                &s->calls[c];
+            if (call->function_id !=
+                param->function_id)
                 continue;
-            }
-            entry->owner_var =
-                c->argument_var;
+            if (call->parameter_id !=
+                param->id)
+                continue;
+            load->owner_var =
+                call->argument_var;
+            resolved = true;
             STEREO_LOG(
-                "FS_LOAD_PARAMETER_FIXUP load=%u owner=%u",
-                entry->id,
-                entry->owner_var);
+                "FS_LOAD_FIXUP load=%u owner=%u",
+                load->id,
+                load->owner_var);
             break;
         }
+        if (!resolved)
+        {
+            STEREO_LOG(
+                "FS_LOAD_FIXUP_FAILED load=%u param=%u",
+                load->id,
+                param->id);
+        }
     }
-    /*
-     * Final unresolved count.
-     *
-     * Unresolved entries are not fatal. Some shaders contain
-     * dead code or resources that never reach a sample.
-     */
     uint32_t unresolved = 0;
-    for (uint32_t i = 0;
-         i < s->n_load;
-         ++i)
+    for (uint32_t i = 0; i < s->n_load; ++i)
     {
-        if (s->loads[i].owner_var == 0)
+        int var =
+            fs_var_index(
+                s,
+                s->loads[i].owner_var);
+        if (var < 0)
             ++unresolved;
     }
     STEREO_LOG(
@@ -3676,11 +4234,29 @@ fs_dump_scan_summary(
     {
         const FsLoadInfo *load =
             &s->loads[i];
-        STEREO_LOG(
-            "FS_LOAD_FINAL id=%u owner=%u binding=%u",
-            load->id,
-            load->owner_var,
-            load->binding);
+        int var =
+            fs_var_index(
+                s,
+                load->owner_var);
+        if (var >= 0)
+        {
+            STEREO_LOG(
+                "FS_LOAD_FINAL id=%u source=%u owner=%u set=%u binding=%u storage=%u",
+                load->id,
+                load->source_id,
+                load->owner_var,
+                s->vars[var].set,
+                s->vars[var].binding,
+                s->vars[var].storage);
+        }
+        else
+        {
+            STEREO_LOG(
+                "FS_LOAD_FINAL id=%u source=%u owner=%u (unresolved)",
+                load->id,
+                load->source_id,
+                load->owner_var);
+        }
     }
     /*
      * Calls
@@ -3757,9 +4333,11 @@ fs_count_patches(
                     "FS_FETCH_NO_DESCRIPTOR image=%u",
                     w[i + 3]);
             }
-            if (fs_binding_is_stereo_attachment(
-                    s,
-                    descriptor_var))
+            STEREO_LOG(
+                "FS_FETCH_CLASSIFY image=%u descriptor=%u",
+                w[i + 3],
+                descriptor_var);
+            if (fs_should_patch_sample(s, hash_spv(w, c), descriptor_var))
             {
                 uint32_t binding = 0xffffffffu;
                 int var =
@@ -3830,12 +4408,35 @@ bool spirv_patch_stereo_fs(
     uint32_t **out, size_t *out_c)
 {
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC) return false;
+    STEREO_LOG(
+        "FS_PATCH_ENTER hash=%016llx words=%zu",
+        (unsigned long long)hash_spv(in, in_c),
+        in_c);
+    uint64_t h = hash_spv(in, in_c);
+    STEREO_LOG(
+        "FS_PATCH_MODULE hash=%016llx words=%zu",
+        (unsigned long long)h,
+        in_c);
     FsScan s;
     fs_prescan(&s, in, in_c);
+    for (uint32_t i = 0; i < s.n_img; ++i)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_TABLE "
+            "type=%u "
+            "sampledType=%u "
+            "owner=%u "
+            "set=%u "
+            "binding=%u",
+            s.images[i].id,
+            s.images[i].sampled_type,
+            s.images[i].owner_var,
+            s.images[i].set,
+            s.images[i].binding);
+    }
     for (uint32_t i = 0; i < s.n_var; ++i)
     {
         const FsVariableInfo *var = &s.vars[i];
-
         if (var->binding != 0xffffffffu)
         {
             STEREO_LOG(
@@ -3846,10 +4447,15 @@ bool spirv_patch_stereo_fs(
                 var->type);
         }
     }
-    if (s.n_img == 0 || !s.float_id) return false;
-
+    if (s.n_img == 0 || !s.float_id)
+    {
+        STEREO_LOG(
+            "FS_PATCH_REJECT images=%u float_id=%u",
+            s.n_img,
+            s.float_id);
+        return false;
+    }
     uint32_t n_patches = fs_count_patches(&s, in, in_c);
-
     /* Allocate new IDs above current bound */
     uint32_t nid           = in[3];
     uint32_t new_int_id    = s.int_id        ? s.int_id        : nid++;
@@ -3860,23 +4466,18 @@ bool spirv_patch_stereo_fs(
     bool     is_new_vi     = (s.vi_var_id == 0);
     uint32_t samp_nid      = nid;
     uint32_t new_bound     = samp_nid + n_patches * 5 + 8;
-
     SpvBuf ob;
     if (!sb_init(&ob, in_c + 60 + (size_t)n_patches * 28)) return false;
-
     bool mv_added   = s.has_mv_cap;
     bool types_done = false;
     bool ep_done    = false;
     bool in_func    = false;
-
     /* Header */
     sb_push_n(&ob, in, 5);
     ob.w[3] = new_bound;
-
     for (size_t i = 5; i < in_c; ) {
         uint32_t op = in[i] & 0xffff, wc = in[i] >> 16;
         if (!wc || i + wc > in_c) break;
-
         if (in_func &&
             op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSparseTexelsResident)
@@ -3889,14 +4490,12 @@ bool spirv_patch_stereo_fs(
                 (wc >= 2) ? in[i + 1] : 0,
                 (wc >= 3) ? in[i + 2] : 0);
         }
-
         /* Add MultiView capability before first non-capability instruction */
         if (!mv_added && op != 17) {
             uint32_t mv[] = { (2u<<16)|17, 4439 };
             sb_push_n(&ob, mv, 2);
             mv_added = true;
         }
-
         /* Modify OpEntryPoint: append new_vi_id to interface if we're adding it */
         if (op == 15 && !ep_done) {
             ep_done = true;
@@ -3910,9 +4509,8 @@ bool spirv_patch_stereo_fs(
             i += wc; continue;
         }
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
-        if (op == 25 && wc >= 9 &&
-            (fs_image_index(&s, in[i+1]) >= 0 ||
-             fs_type_is_input_attachment(&s, in[i+1])) &&
+        if (op == SpvOpTypeImage && wc >= 9 &&
+            in[i+3] == SpvDim2D &&
             in[i+5] == 0)
         {
             STEREO_LOG(
@@ -3932,16 +4530,21 @@ bool spirv_patch_stereo_fs(
                 in[i+5],
                 ob.w[ob.n - wc + 5],
                 in[i+6]);
-            for (uint32_t v = 0; v < s.n_var; ++v)
+            for (uint32_t img = 0; img < s.n_img; ++img)
             {
-                if (s.vars[v].type == in[i+1])
+                if (s.images[img].id == in[i+1])
                 {
                     STEREO_LOG(
-                        "FS_IMAGE_PATCH_USER var=%u storage=%u set=%u binding=%u",
-                        s.vars[v].id,
-                        s.vars[v].storage,
-                        s.vars[v].set,
-                        s.vars[v].binding);
+                        "FS_IMAGE_PATCH_USER "
+                        "type=%u "
+                        "owner=%u "
+                        "set=%u "
+                        "binding=%u",
+                        s.images[img].id,
+                        s.images[img].owner_var,
+                        s.images[img].set,
+                        s.images[img].binding);
+                    break;
                 }
             }
             STEREO_LOG(
@@ -4030,7 +4633,10 @@ bool spirv_patch_stereo_fs(
         }
         /* Extend 2D sampling coordinate to 3D for patched loads */
         if (in_func && wc >= 5 &&
-            (op == 87 || op == 88 || op == 89 || op == 90) &&
+            (op == SpvOpImageSampleImplicitLod ||
+             op == SpvOpImageSampleExplicitLod ||
+             op == SpvOpImageSampleDrefImplicitLod ||
+             op == SpvOpImageSampleDrefExplicitLod) &&
             fs_find_load(&s, in[i+3]) >= 0)
         {
             STEREO_LOG(
@@ -4059,6 +4665,21 @@ bool spirv_patch_stereo_fs(
                     descriptor_var,
                     (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
                     (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
+                if (vi >= 0)
+                {
+                    STEREO_LOG(
+                        "FS_DESCRIPTOR_TYPE "
+                        "descriptor=%u "
+                        "type=%u "
+                        "storage=%u "
+                        "set=%u "
+                        "binding=%u",
+                        descriptor_var,
+                        s.vars[vi].type,
+                        s.vars[vi].storage,
+                        s.vars[vi].set,
+                        s.vars[vi].binding);
+                }
                 STEREO_LOG(
                     "FS_SAMPLE_BINDING_DETAIL image=%u descriptor=%u binding=%u",
                     in[i+3],
@@ -4070,7 +4691,7 @@ bool spirv_patch_stereo_fs(
                     load,
                     descriptor_var);
             }
-            if (!fs_binding_is_stereo_attachment(&s, descriptor_var))
+            if (!fs_should_patch_sample(&s, h, descriptor_var))
             {
                 STEREO_LOG(
                     "FS_SAMPLE_SKIP_MONO image=%u descriptor=%u",
@@ -4081,17 +4702,43 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
+            int vi = fs_var_index(&s, descriptor_var);
             STEREO_LOG(
-                "FS_SAMPLE_PATCH_APPLY image=%u descriptor=%u",
+                "FS_SAMPLE_PATCH_APPLY "
+                "hash=%016llx "
+                "image=%u "
+                "descriptor=%u "
+                "set=%u "
+                "binding=%u",
+                (unsigned long long)h,
                 in[i+3],
+                descriptor_var,
+                (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
+                (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
+            int image_type = -1;
+            int sampled_type = -1;
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].id == descriptor_var)
+                {
+                    sampled_type = s.vars[v].type;
+                    break;
+                }
+            }
+            STEREO_LOG(
+                "FS_DESCRIPTOR_TYPES descriptor=%u sampledType=%d",
+                descriptor_var,
+                sampled_type);
+            fs_dump_descriptor_chain(
+                &s,
+                in,
+                in_c,
                 descriptor_var);
-
             uint32_t id_lv  = samp_nid++;
             uint32_t id_cvt = samp_nid++;
             uint32_t id_u   = samp_nid++;
             uint32_t id_v   = samp_nid++;
             uint32_t id_c3  = samp_nid++;
-
             /* OpLoad %int %vi → id_lv */
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
@@ -4107,14 +4754,33 @@ bool spirv_patch_stereo_fs(
             /* OpCompositeConstruct %v3float id_u id_v id_cvt → id_c3 */
             { uint32_t w[]={(6u<<16)|80, new_v3f_id, id_c3, id_u, id_v, id_cvt};
               sb_push_n(&ob,w,6); }
-
             /* Emit modified sample instruction: word[4] = new coord */
+            STEREO_LOG(
+                "FS_SAMPLE_REWRITE "
+                "result=%u "
+                "sampledImage=%u "
+                "descriptor=%u "
+                "coord2d=%u "
+                "coord3d=%u "
+                "opcode=%s",
+                in[i + 2],
+                in[i + 3],
+                descriptor_var,
+                coord_id,
+                id_c3,
+                spv_op_name(op));
             sb_push(&ob, in[i]);          /* opcode */
             sb_push(&ob, in[i+1]);        /* result type */
             sb_push(&ob, in[i+2]);        /* result id */
             sb_push(&ob, in[i+3]);        /* sampled image (unchanged) */
             sb_push(&ob, id_c3);          /* new 3D coordinate */
             if (wc > 5) sb_push_n(&ob, &in[i+5], wc-5); /* image operands */
+            STEREO_LOG(
+                "FS_SAMPLE_WRITTEN "
+                "result=%u "
+                "coord=%u",
+                in[i + 2],
+                id_c3);
             i += wc; continue;
         }
         if (in_func && op == 86 && wc >= 3)
@@ -4175,6 +4841,13 @@ bool spirv_patch_stereo_fs(
             //        in[i+3]);
             //}
             int vi = fs_var_index(&s, descriptor_var);
+            STEREO_LOG(
+                "FS_SAMPLE_PATCH_APPLY hash=%016llx image=%u descriptor=%u set=%u binding=%u",
+                (unsigned long long)h,
+                in[i+3],
+                descriptor_var,
+                (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
+                (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
             if (vi >= 0)
             {
                 STEREO_LOG(
@@ -4210,6 +4883,13 @@ bool spirv_patch_stereo_fs(
                 continue;
             }
             STEREO_LOG(
+                "FS_FETCH_PATCH hash=%016llx image=%u descriptor=%u set=%u binding=%u",
+                (unsigned long long)h,
+                in[i+3],
+                descriptor_var,
+                (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
+                (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
+            STEREO_LOG(
                 "FS_FETCH_OPCODE opcode=%u image=%u coord=%u result=%u",
                 op,
                 in[i+3],
@@ -4220,30 +4900,29 @@ bool spirv_patch_stereo_fs(
                 in[i+3],
                 descriptor_var,
                 in[i+4]);
+            fs_dump_descriptor_chain(
+                &s,
+                in,
+                in_c,
+                descriptor_var);
             uint32_t id_lv = samp_nid++;
             uint32_t id_x  = samp_nid++;
             uint32_t id_y  = samp_nid++;
             uint32_t id_c3 = samp_nid++;
-
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
-
             { uint32_t w[]={(5u<<16)|81, new_int_id, id_x, coord_id, 0};
               sb_push_n(&ob,w,5); }
-
             { uint32_t w[]={(5u<<16)|81, new_int_id, id_y, coord_id, 1};
               sb_push_n(&ob,w,5); }
-
             { uint32_t w[]={(6u<<16)|80, new_v3i_id, id_c3,
                             id_x, id_y, id_lv};
               sb_push_n(&ob,w,6); }
-
             sb_push(&ob, in[i]);
             sb_push(&ob, in[i+1]);
             sb_push(&ob, in[i+2]);
             sb_push(&ob, in[i+3]);
             sb_push(&ob, id_c3);
-
             if (wc > 5)
                 sb_push_n(&ob, &in[i+5], wc - 5);
             STEREO_LOG(
@@ -4253,16 +4932,40 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
-
         sb_push_n(&ob, &in[i], wc);
         i += wc;
     }
-
+    for (size_t j = 5; j < ob.n; )
+    {
+        uint32_t wc = ob.w[j] >> 16;
+        uint32_t op = ob.w[j] & 0xffff;
+        if (!wc || j + wc > ob.n)
+            break;
+        if (op == SpvOpTypeImage && wc >= 9)
+        {
+            STEREO_LOG(
+                "FS_OUTPUT_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3],
+                ob.w[j + 4],
+                ob.w[j + 5],
+                ob.w[j + 6],
+                ob.w[j + 7],
+                ob.w[j + 8]);
+        }
+        j += wc;
+    }
     ob.w[3] = samp_nid + 1;
     *out   = ob.w;
     *out_c = ob.n;
     STEREO_LOG("FS patched: %u 2D img types→arr, %u samples extended, bound %u→%u",
                s.n_img, n_patches, in[3], ob.w[3]);
+    STEREO_LOG(
+        "FS_PATCH_DONE hash=%016llx words=%zu new_words=%zu",
+        (unsigned long long)hash_spv(in, in_c),
+        in_c,
+        ob.n);
     return true;
 }
 
@@ -4281,10 +4984,27 @@ static bool is_patchable_spv(const uint32_t *w, size_t c)
     return false;
 }
 
-static StereoShaderCache *cache_find(StereoDevice *sd, VkShaderModule h)
+static StereoShaderCache *
+cache_find(StereoDevice *sd, VkShaderModule mod)
 {
-    for (uint32_t i=0;i<sd->shader_cache_count;i++)
-        if (sd->shader_cache[i].handle==h) return &sd->shader_cache[i];
+    if (!sd)
+        return NULL;
+    for (uint32_t i = 0; i < sd->shader_cache_count; i++)
+    {
+        StereoShaderCache *e = &sd->shader_cache[i];
+        if (e->handle == mod)
+        {
+            STEREO_LOG(
+                "CACHE_FIND_HIT module=%p hash=%016llx words=%zu",
+                (void *)mod,
+                (unsigned long long)hash_spv(e->spv, e->words),
+                e->words);
+            return e;
+        }
+    }
+    STEREO_LOG(
+        "CACHE_FIND_MISS module=%p",
+        (void *)mod);
     return NULL;
 }
 
@@ -4314,9 +5034,48 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
     VkResult res=sd->real.CreateShaderModule(sd->real_device,pCI,pAlloc,pSM);
     if (res!=VK_SUCCESS) return res;
     if (!sd->stereo.enabled) return VK_SUCCESS;
-    const uint32_t *spv=(const uint32_t*)pCI->pCode;
-    size_t wc=pCI->codeSize/4;
-    if (is_patchable_spv(spv,wc)) cache_add(sd,*pSM,spv,wc);
+    const uint32_t *spv = (const uint32_t *)pCI->pCode;
+    size_t wc = pCI->codeSize / 4;
+    uint64_t h = hash_spv(spv, wc);
+    STEREO_LOG(
+        "CREATE_SHADER module=%p hash=%016llx words=%zu patchable=%u",
+        (void *)*pSM,
+        (unsigned long long)h,
+        wc,
+        is_patchable_spv(spv, wc));
+    const char *dump = stereo_getenv("VKS3D_DUMP_SPIRV");
+    if (dump)
+    {
+        char dp[512];
+        _snprintf(
+            dp,
+            sizeof(dp) - 1,
+            "%s\\%016llx.spv",
+            dump,
+            (unsigned long long)h);
+        FILE *f = fopen(dp, "rb");
+        if (!f)
+        {
+            f = fopen(dp, "wb");
+            if (f)
+            {
+                fwrite(
+                    spv,
+                    4,
+                    wc,
+                    f);
+                fclose(f);
+            }
+        }
+        else
+        {
+            fclose(f);
+        }
+    }
+    if (is_patchable_spv(spv, wc))
+    {
+        cache_add(sd, *pSM, spv, wc);
+    }
     return VK_SUCCESS;
 }
 
@@ -4335,7 +5094,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                (N > 0 ? (void*)pCI[0].renderPass : NULL),
                (N > 0 ? pCI[0].stageCount : 0),
                (N > 0 ? pCI[0].pNext : NULL));
-
     STEREO_LOG(
         "PIPE_CREATE_BEGIN N=%u multiview=%d enabled=%d",
         N,
@@ -4343,10 +5101,17 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         sd->stereo.enabled);
     if (!sd->stereo.enabled)
         return sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,pCI,pAlloc,pP);
-
     VkShaderModule                   *tmp_mod = calloc(N, sizeof(VkShaderModule));
     VkPipelineShaderStageCreateInfo **tst     = calloc(N, sizeof(void*));
     VkGraphicsPipelineCreateInfo     *infos   = malloc(N * sizeof(*infos));
+    StereoDebugCtx                   *dbg_out = calloc(N, sizeof(*dbg_out));
+    for (uint32_t i = 0; i < N; i++)
+    {
+        dbg_out[i].proj_set             = UINT32_MAX;
+        dbg_out[i].proj_binding         = UINT32_MAX;
+        dbg_out[i].proj_member_mask     = UINT32_MAX;
+        dbg_out[i].proj_var             = UINT32_MAX;
+    }
     if (!tmp_mod||!tst||!infos) {
         free(tmp_mod); free(tst); free(infos);
         return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -4367,7 +5132,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
     static int  dump_n = 0;
     float lo=sd->stereo.left_eye_offset, ro=sd->stereo.right_eye_offset,
           conv=sd->stereo.convergence;
-
     STEREO_LOG(
         "[PATCH] lo=%f ro=%f flip=%d",
         lo,
@@ -4375,8 +5139,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         sd->stereo.flip_eyes);
     for (uint32_t p=0; p<N; p++) {
         const VkGraphicsPipelineCreateInfo *ci=&pCI[p];
-        StereoPipelineInfo *info =
-            add_pipeline_info(sd);
+        //REMOVED StereoPipelineInfo *info =
+        //REMOVED     add_pipeline_info(sd);
         const VkBaseInStructure *base =
             (const VkBaseInStructure*)ci->pNext;
         uint32_t view_mask = 0;
@@ -4448,7 +5212,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             if (st==VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
                 { has_tes=true; tes_stage=s; }
         }
-
         /* ── Determine if this pipeline's render pass has multiview ──────
          * gl_ViewIndex is 0 in non-multiview passes.  Patching VS/TES there
          * bakes in left_eye_offset for ALL draws → deferred G-buffer / shadow
@@ -4485,7 +5248,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             (unsigned)has_tes,
             (!ci->pVertexInputState ||
              ci->pVertexInputState->vertexBindingDescriptionCount == 0));
-
         for (uint32_t fs_dbg_i = 0; fs_dbg_i < ci->stageCount; fs_dbg_i++) {
             if (ci->pStages[fs_dbg_i].stage == VK_SHADER_STAGE_FRAGMENT_BIT) {
                 StereoShaderCache *fs_dbg =
@@ -4503,7 +5265,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 }
             }
         }
-
         /* ── PATCH 3: Pipeline multiview FIXED (NO pipeline struct exists) ─────────────── */
         /* Multiview is render-pass driven ONLY.
          * Pipeline pNext must NOT contain VkPipelineMultiviewCreateInfo (invalid Vulkan API). */
@@ -4524,7 +5285,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 /* VK 1.3 dynamic rendering: keep infos[p].renderPass as-is */
             }
         }
-
         if (!in_mv_rp)
         {
             STEREO_LOG(
@@ -4534,27 +5294,23 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 has_vs,
                 has_tes,
                 ci->stageCount);
-
             /* IMPORTANT:
              * Do NOT patch renderpass-based multiview logic for clearly mono pipelines
              * BUT still allow FS quad / UI heuristics to run later
              */
             goto PIPE_DECISION_CONTINUE;
         }
-
         /* Substitute multiview render pass for pipeline compilation.
          * Pipelines must be compiled against the MV render pass so the driver
          * enables multiview optimisation and gl_ViewIndex receives the real
          * per-view index (0 or 1).  Render-pass compatibility rules allow these
          * pipelines to be used with both MV and non-MV framebuffers since
          * viewMask is not part of the compatibility criteria. */
-
         if (rpi && rpi->mv_handle && rpi->has_multiview && in_mv_rp)
         {
             /* Render-pass path only; dynamic rendering has no renderPass to swap. */
             infos[p].renderPass = rpi->mv_handle;
         }
-
         /* ── Full-screen quad detection ──────────────────────────────────
          * Pipelines with no vertex input bindings are full-screen quads used
          * by deferred lighting, SSAO, bloom, TAA, etc.  Their FS samples from
@@ -4566,64 +5322,119 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
          * Geometry pipelines (has vertex input) use Path A/B VS patching. */
         bool is_quad = !ci->pVertexInputState ||
                        ci->pVertexInputState->vertexBindingDescriptionCount == 0;
-
-        if (is_quad && ci->stageCount > 0) {
+        STEREO_LOG(
+            "FS_GATE p=%u quad=%u stageCount=%u",
+            p,
+            is_quad,
+            ci->stageCount);
+        if (is_quad && ci->stageCount > 0)
+        {
             /* Find FS stage */
             uint32_t fs_s = ~0u;
             for (uint32_t s2 = 0; s2 < ci->stageCount; s2++)
+            {
                 if (ci->pStages[s2].stage == VK_SHADER_STAGE_FRAGMENT_BIT)
-                    { fs_s = s2; break; }
-            if (fs_s == ~0u) {
+                {
+                    fs_s = s2;
+                    break;
+                }
+            }
+            if (fs_s == ~0u)
+            {
                 STEREO_LOG("Pipe %u: quad but no FS stage", p);
                 continue;
             }
-            /*
-             * Log fullscreen quad FS identity.
-             * Used to identify SSAO/deferred/post-process shaders.
-             */
-            StereoShaderCache *fs_dbg =
+            StereoShaderCache *fs_cache =
                 cache_find(sd, ci->pStages[fs_s].module);
-            if (fs_dbg) {
+            if (!fs_cache)
+            {
                 STEREO_LOG(
-                    "QUAD_FS_SHADER p=%u hash=%016llx words=%zu module=%p",
-                    p,
-                    (unsigned long long)hash_spv(fs_dbg->spv, fs_dbg->words),
-                    fs_dbg->words,
-                    (void*)ci->pStages[fs_s].module);
-            } else {
-                STEREO_LOG(
-                    "QUAD_FS_SHADER p=%u module=%p NOT_CACHED",
-                    p,
-                    (void*)ci->pStages[fs_s].module);
-            }
-            StereoShaderCache *e = cache_find(sd, ci->pStages[fs_s].module);
-            if (!e) {
-                STEREO_LOG("Pipe %u: quad FS not cached (stageCount=%u)", p, ci->stageCount);
+                    "PIPE_MODULE_MISS stage=0x%x module=%p renderPass=%p pipeline=%u",
+                    ci->pStages[fs_s].stage,
+                    (void *)ci->pStages[fs_s].module,
+                    (void *)ci->renderPass,
+                    p);
+                for (uint32_t k = 0; k < sd->shader_cache_count; ++k)
+                {
+                    STEREO_LOG(
+                        "CACHE_HANDLE[%u] module=%p hash=%016llx words=%zu",
+                        k,
+                        (void *)sd->shader_cache[k].handle,
+                        (unsigned long long)hash_spv(
+                            sd->shader_cache[k].spv,
+                            sd->shader_cache[k].words),
+                        sd->shader_cache[k].words);
+                }
                 continue;
             }
-            uint64_t spv_hash = hash_spv(e->spv, e->words);
+            uint64_t spv_hash =
+                hash_spv(fs_cache->spv, fs_cache->words);
+            uint32_t pipeline_has_mv =
+                (rpi != NULL) ? (uint32_t)rpi->has_multiview : 0;
+            STEREO_LOG(
+                "FS_PATCH_DECISION "
+                "pipe=%u "
+                "rp=%p "
+                "subpass=%u "
+                "is_quad=%u "
+                "pipeline_mv=%u "
+                "has_fs=%u "
+                "fs_hash=%016llx "
+                "cache=%p "
+                "stageFlags=0x%x",
+                p,
+                (void *)ci->renderPass,
+                ci->subpass,
+                is_quad,
+                pipeline_has_mv,
+                (fs_s != ~0u),
+                (unsigned long long)spv_hash,
+                (void *)fs_cache,
+                ci->pStages[fs_s].stage);
+            STEREO_LOG(
+                "QUAD_FS_SHADER p=%u hash=%016llx words=%zu module=%p",
+                p,
+                (unsigned long long)spv_hash,
+                fs_cache->words,
+                (void *)ci->pStages[fs_s].module);
             STEREO_LOG(
                 "SHADER_MODULE stage=FS hash=%016llx words=%zu module=%p",
                 (unsigned long long)spv_hash,
-                e->words,
-                (void*)ci->pStages[fs_s].module);
+                fs_cache->words,
+                (void *)ci->pStages[fs_s].module);
             STEREO_LOG(
                 "PATCH hash=%016llx words=%zu module=%p vs_stage=%u",
                 (unsigned long long)spv_hash,
-                e->words,
-                (void*)(has_vs ? ci->pStages[vs_stage].module : VK_NULL_HANDLE),
+                fs_cache->words,
+                (void *)(has_vs ? ci->pStages[vs_stage].module : VK_NULL_HANDLE),
                 vs_stage);
-            if (dump) {
+            if (dump)
+            {
                 char dp[512];
+
                 _snprintf(
                     dp,
-                    sizeof(dp)-1,
+                    sizeof(dp) - 1,
                     "%s\\%016llx-fs.spv",
                     dump,
                     (unsigned long long)spv_hash);
-                FILE *f = fopen(dp, "wb");
-                if (f) {
-                    fwrite(e->spv,4,e->words,f);
+
+                FILE *f = fopen(dp, "rb");
+                if (!f)
+                {
+                    f = fopen(dp, "wb");
+                    if (f)
+                    {
+                        fwrite(
+                            fs_cache->spv,
+                            4,
+                            fs_cache->words,
+                            f);
+                        fclose(f);
+                    }
+                }
+                else
+                {
                     fclose(f);
                 }
             }
@@ -4634,10 +5445,96 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             STEREO_LOG(
                 "PATCHING_FS hash=%016llx",
                 (unsigned long long)spv_hash);
-            if (!spirv_patch_stereo_fs(e->spv, e->words, &patched, &pc2)) {
-                STEREO_LOG("Pipe %u: FS patch skipped (no 2D samplers — material-only?)", p);
+            STEREO_LOG(
+                "CALLING spirv_patch_stereo_fs hash=%016llx words=%zu",
+                (unsigned long long)spv_hash,
+                fs_cache->words);
+            /*
+             * Analyze FS projection UBO usage.
+             *
+             * SSAO/reconstruction shaders often use the projection matrix
+             * only in the fragment stage, so VS metadata is insufficient.
+             */
+            {
+                SpvMod fm = {0};
+                fm.words = fs_cache->spv;
+                fm.count = fs_cache->words;
+                fm.bound = fm.words[3];
+                fm.value_capacity = fm.bound + 64;
+                fm.value_from_matrix =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                fm.is_matrix_type =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                fm.is_matrix_ptr =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                fm.is_proj_value =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                fm.is_view_value =
+                    calloc(fm.value_capacity, sizeof(uint8_t));
+                if (fm.value_from_matrix &&
+                    fm.is_matrix_type &&
+                    fm.is_matrix_ptr &&
+                    fm.is_proj_value &&
+                    fm.is_view_value)
+                {
+                    spv_scan(&fm);
+                    if (fm.proj_found)
+                    {
+                        dbg_out[p].has_proj_ubo = true;
+                        dbg_out[p].proj_set = fm.proj_set;
+                        dbg_out[p].proj_binding = fm.proj_binding;
+                        dbg_out[p].proj_member_mask =
+                            fm.proj_member_mask;
+                        dbg_out[p].proj_var = fm.proj_var;
+                        STEREO_LOG(
+                            "FS_PROJ_FOUND hash=%016llx set=%u binding=%u mask=0x%X var=%u",
+                            (unsigned long long)hash_spv(
+                                fs_cache->spv,
+                                fs_cache->words),
+                            fm.proj_set,
+                            fm.proj_binding,
+                            fm.proj_member_mask,
+                            fm.proj_var);
+                    }
+                }
+                free_spv_provenance(&fm);
+            }
+            STEREO_LOG(
+                "FS_PATCH_BEGIN hash=%016llx pipe=%u",
+                (unsigned long long)spv_hash,
+                p);
+            if (!spirv_patch_stereo_fs(
+                    fs_cache->spv,
+                    fs_cache->words,
+                    &patched,
+                    &pc2))
+            {
+                STEREO_LOG(
+                    "Pipe %u: FS patch skipped (no 2D samplers — material-only?)",
+                    p);
                 continue;
             }
+            STEREO_LOG(
+                "FS_PATCH_DONE hash=%016llx",
+                (unsigned long long)spv_hash);
+            STEREO_LOG(
+                "spirv_patch_stereo_fs returned=%u patchedWords=%zu",
+                patched ? 1 : 0,
+                pc2);
+            STEREO_LOG(
+                "FS_PATCH_RETURN ptr=%p words=%zu hash=%016llx",
+                (void *)patched,
+                pc2,
+                (unsigned long long)hash_spv(
+                    patched,
+                    pc2));
+            STEREO_LOG(
+                "FS_DUMP words=%zu ptr=%p hash=%016llx",
+                pc2,
+                (void *)patched,
+                (unsigned long long)hash_spv(
+                    patched,
+                    pc2));
             if (dump) {
                 char dp[512];
                 _snprintf(
@@ -4679,7 +5576,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 sc2);
             continue;
         }
-
         /* ── Path A: patch existing TES ──────────────────────────────── */
         if (has_tes && tes_stage!=~0u) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[tes_stage].module);
@@ -4689,8 +5585,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (unsigned long long)hash_spv(e->spv, e->words),
                 e->words,
                 (void*)ci->pStages[tes_stage].module);
-            if (dump) {
-                uint64_t spv_hash = hash_spv(e->spv, e->words);
+            if (dump)
+            {
+                uint64_t spv_hash=hash_spv(e->spv, e->words);
                 char dp[512];
                 _snprintf(
                     dp,
@@ -4698,9 +5595,22 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     "%s\\%016llx-ts.spv",
                     dump,
                     (unsigned long long)spv_hash);
-                FILE *f = fopen(dp, "wb");
-                if (f) {
-                    fwrite(e->spv,4,e->words,f);
+                FILE *f = fopen(dp, "rb");
+                if (!f)
+                {
+                    f = fopen(dp, "wb");
+                    if (f)
+                    {
+                        fwrite(
+                            e->spv,
+                            4,
+                            e->words,
+                            f);
+                        fclose(f);
+                    }
+                }
+                else
+                {
                     fclose(f);
                 }
             }
@@ -4719,7 +5629,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     0,
                     0
                 };
-
                 if (!spirv_patch_stereo_vertex(
                         &sd->stereo,
                         e->spv, e->words,
@@ -4729,7 +5638,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                         &dbgA))
                 {
                 STEREO_LOG("TES patch failed");
-
                 if (dump && patched && pc2) {
                     uint64_t spv_hash = hash_spv(e->spv, e->words);
                     char dp[512];
@@ -4789,7 +5697,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 p);
             continue;
         }
-
         STEREO_LOG(
         "PATHB_GATE p=%u in_mv=%d has_vs=%d has_tcs=%d vs_stage=%u",
         p,
@@ -4806,7 +5713,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             ci->stageCount > 0 &&
             has_vs &&
             !has_tcs &&
-            vs_stage!=~0u) {
+            vs_stage != ~0u) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[vs_stage].module);
             if (!e) { STEREO_LOG("Pipe %u PathB: VS not cached",p); continue; }
             STEREO_LOG(
@@ -4821,8 +5728,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 in_mv_rp,
                 (void*)ci->renderPass,
                 (ci->pDepthStencilState != NULL));
-            if (dump) {
-                uint64_t spv_hash = hash_spv(e->spv, e->words);
+            if (dump)
+            {
+                uint64_t spv_hash=hash_spv(e->spv, e->words);
                 char dp[512];
                 _snprintf(
                     dp,
@@ -4830,9 +5738,22 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     "%s\\%016llx-vs.spv",
                     dump,
                     (unsigned long long)spv_hash);
-                FILE *f = fopen(dp, "wb");
-                if (f) {
-                    fwrite(e->spv, 4, e->words, f);
+                FILE *f = fopen(dp, "rb");
+                if (!f)
+                {
+                    f = fopen(dp, "wb");
+                    if (f)
+                    {
+                        fwrite(
+                            e->spv,
+                            4,
+                            e->words,
+                            f);
+                        fclose(f);
+                    }
+                }
+                else
+                {
                     fclose(f);
                 }
             }
@@ -4856,22 +5777,24 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "PathB candidate module=%p words=%zu",
                 (void*)ci->pStages[vs_stage].module,
                 e->words);
-            StereoDebugCtx dbgB = {
+            StereoDebugCtx *dbgB = &dbg_out[p];
+            *dbgB = (StereoDebugCtx){
                 p,
                 ci->renderPass,
                 in_mv_rp,
                 (uint32_t)VK_SHADER_STAGE_VERTEX_BIT,
                 0,
-                9
+                9,
+                false,
+                false
             };
-
             if (!spirv_patch_stereo_vertex(
                     &sd->stereo,
                     e->spv, e->words,
                     &patched, &pc2,
                     lo, ro, conv,
                     /*inj_vi=*/true,
-                    &dbgB)) {
+                    dbgB)) {
                 STEREO_LOG("Pipe %u PathB: VS patch failed",p); continue; }
             if (dump) {
                 uint64_t spv_hash = hash_spv(e->spv, e->words);
@@ -4914,11 +5837,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 p);
             continue;
         }
-
         STEREO_LOG("Pipe %u: no patchable VS/TES stage (stageCount=%u has_vs=%d has_tes=%d has_tcs=%d) — not patched",
                    p, ci->stageCount, has_vs, has_tes, has_tcs);
     }
-
     PIPE_DECISION_CONTINUE:
     /* ── PATCH 5: RenderPass-based multiview binding ─────────────── */
     for (uint32_t p = 0; p < N; p++) {
@@ -4978,20 +5899,15 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         {
             StereoPipelineInfo *info =
                 add_pipeline_info(sd);
-
             if (info)
             {
                 info->pipeline = pP[p];
-
                 info->original_renderpass =
                     pCI[p].renderPass;
-
                 info->mv_renderpass =
                     infos[p].renderPass;
-
                 info->stage_count =
                     infos[p].stageCount;
-
                 info->is_quad =
                     (!pCI[p].pVertexInputState ||
                      pCI[p].pVertexInputState->vertexBindingDescriptionCount == 0);
@@ -4999,14 +5915,16 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 info->vertex_binding_count =
                     pCI[p].pVertexInputState ?
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
-
                 info->view_mask = 0; /* default */
-
+                info->has_proj_ubo          = dbg_out[p].has_proj_ubo;
+                info->proj_set              = dbg_out[p].proj_set;
+                info->proj_binding          = dbg_out[p].proj_binding;
+                info->proj_member_mask      = dbg_out[p].proj_member_mask;
+                info->proj_var              = dbg_out[p].proj_var;
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
                     const VkPipelineShaderStageCreateInfo *st =
                         &infos[p].pStages[s];
-
                     if (st->stage == VK_SHADER_STAGE_VERTEX_BIT)
                     {
                         info->vs_module = st->module;
@@ -5014,17 +5932,30 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                             (tmp_mod[p] != VK_NULL_HANDLE &&
                              st->module == tmp_mod[p]);
                     }
-
                     if (st->stage == VK_SHADER_STAGE_FRAGMENT_BIT)
                     {
                         info->fs_module = st->module;
                         info->patched_fs =
                             (tmp_mod[p] != VK_NULL_HANDLE &&
                              st->module == tmp_mod[p]);
+                        /*
+                         * Always probe the fragment shader too.
+                         * VS/TES may already have filled proj info, but FS can carry
+                         * its own projection UBO for SSAO / post-process paths.
+                         */
+                        StereoShaderCache *fs_cache = cache_find(sd, st->module);
+                        if (fs_cache)
+                        {
+                            uint64_t h = hash_spv(fs_cache->spv, fs_cache->words);
+                            STEREO_LOG(
+                                "FS_PIPE_MODULE module=%p hash=%016llx words=%zu",
+                                (void *)st->module,
+                                (unsigned long long)h,
+                                fs_cache->words);
+                        }
                     }
                 }
             }
-
             STEREO_LOG(
                 "PIPE_INFO pipe=%p rp=%p orig_rp=%p stages=%u",
                 (void*)pP[p],
