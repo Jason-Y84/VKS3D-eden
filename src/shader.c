@@ -5548,7 +5548,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "Pipe %u: Path FS — quad sampler2DArray patch (%u stages)",
                 p,
                 sc2);
-            continue;
         /* ── Path A: patch existing TES ──────────────────────────────── */
         if (has_tes && tes_stage!=~0u) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[tes_stage].module);
