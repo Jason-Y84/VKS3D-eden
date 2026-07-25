@@ -112,6 +112,7 @@ jobs:
         -A "${{matrix.Settings.Platform}}"
         -B "${{github.workspace}}/build"
         -DCMAKE_BUILD_TYPE=${{matrix.Configuration}}
+        -DCMAKE_MSVC_WARNING_FORMAT="%(Filename)%(Line): %(ErrorLevel): %(Message)"
         -DVKS3D_BUILD_TESTS=OFF
         -DVKS3D_BUILD_DEMO=OFF
         -DSTEREO_BUILD_DEMO=OFF
