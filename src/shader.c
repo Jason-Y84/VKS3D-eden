@@ -1191,13 +1191,14 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             sb_push_n(out, w, 5);
         }
         {
-            uint32_t w[]={
-                op_(SpvOpCopyObject, 4),
+            uint32_t w[] = {
+                op_(SpvOpFMul, 5),
                 m->ft,
                 convmag,
-                c->cf0
+                pw,
+                c->cc
             };
-            sb_push_n(out, w, 4);
+            sb_push_n(out, w, 5);
         }
         {
             uint32_t w[] = {
