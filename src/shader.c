@@ -5299,11 +5299,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         bool is_quad = !ci->pVertexInputState ||
                        ci->pVertexInputState->vertexBindingDescriptionCount == 0;
         STEREO_LOG(
-            "FS_GATE p=%u quad=%u stageCount=%u hash=%016llx",
+            "FS_GATE p=%u quad=%u stageCount=%u",
             p,
             is_quad,
-            ci->stageCount,
-            (unsigned long long)hash_spv(fs_dbg->spv, fs_dbg->words));
+            ci->stageCount);
         if (is_quad && ci->stageCount > 0)
         {
             /* Find FS stage */
