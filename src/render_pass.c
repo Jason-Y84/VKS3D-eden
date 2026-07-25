@@ -136,6 +136,7 @@ stereo_CreateRenderPass(
     if (sd->render_pass_count >= MAX_RENDER_PASSES)
         return VK_SUCCESS;
 
+    CHECK_ARRAY_COUNT(sd->render_pass_count, MAX_RENDER_PASSES, "render_pass_count");
     StereoRenderPassInfo *rpi =
         &sd->render_passes[sd->render_pass_count++];
 
@@ -261,6 +262,7 @@ stereo_CreateRenderPass2KHR(
     if (res != VK_SUCCESS) return res;
 
     if (sd->render_pass_count >= MAX_RENDER_PASSES) return VK_SUCCESS;
+    CHECK_ARRAY_COUNT(sd->render_pass_count, MAX_RENDER_PASSES, "render_pass_count");
     StereoRenderPassInfo *rpi = &sd->render_passes[sd->render_pass_count++];
     rpi->handle = *pRenderPass; rpi->mv_handle = VK_NULL_HANDLE;
     rpi->has_multiview = false; rpi->view_mask = 0; rpi->subpass_count = sc;

@@ -183,6 +183,7 @@ static VkResult alloc_alt_stereo_swapchain(StereoDevice *sd, StereoSwapchain *sc
 
     if (sd->upgraded_view_count < MAX_UPGRADED_VIEWS)
     {
+        CHECK_ARRAY_COUNT(sd->upgraded_view_count, MAX_UPGRADED_VIEWS, "upgraded_view_count");
         sd->upgraded_views[sd->upgraded_view_count++] =
             sc->stereo_views_arr[0];
     
@@ -440,6 +441,7 @@ stereo_CreateSwapchainKHR(VkDevice device,
             sc,
             sc->app_handle,
             *pSwapchain);
+        CHECK_ARRAY_COUNT(sd->swapchain_count, MAX_SWAPCHAINS, "swapchain_count");
         if (pCreateInfo->oldSwapchain == VK_NULL_HANDLE)
             sd->swapchain_count++;
 
@@ -533,6 +535,7 @@ stereo_CreateSwapchainKHR(VkDevice device,
                 sc->app_handle,
                 *pSwapchain);
             sd->stereo_w = app_w; sd->stereo_h = app_h;
+            CHECK_ARRAY_COUNT(sd->swapchain_count, MAX_SWAPCHAINS, "swapchain_count");
             if (pCreateInfo->oldSwapchain == VK_NULL_HANDLE)
                 sd->swapchain_count++;
             STEREO_LOG("DXGI stereo swapchain (external mem): %ux%u  handle=%p",
@@ -561,6 +564,7 @@ try_dx9:
                     sc->app_handle,
                     *pSwapchain);
                 sd->stereo_w = app_w; sd->stereo_h = app_h;
+                CHECK_ARRAY_COUNT(sd->swapchain_count, MAX_SWAPCHAINS, "swapchain_count");
                 if (pCreateInfo->oldSwapchain == VK_NULL_HANDLE)
                     sd->swapchain_count++;
                 STEREO_LOG("DX9 stereo swapchain: %ux%u  handle=%p", app_w, app_h, (void*)*pSwapchain);
@@ -596,6 +600,7 @@ try_dx9:
                     sc->real_swapchain,
                     (int)sc->stereo_active,
                     sd->swapchain_count);
+                CHECK_ARRAY_COUNT(sd->swapchain_count, MAX_SWAPCHAINS, "swapchain_count");
                 if (!old_sc)
                     sd->swapchain_count++;
                 STEREO_LOG(
@@ -698,6 +703,7 @@ passthrough:
         sc->real_swapchain = *pSwapchain;
         sc->app_handle     = *pSwapchain;
         sc->stereo_active  = false;
+        CHECK_ARRAY_COUNT(sd->swapchain_count, MAX_SWAPCHAINS, "swapchain_count");
         if (pCreateInfo->oldSwapchain == VK_NULL_HANDLE)
             sd->swapchain_count++;
     }
@@ -1692,10 +1698,12 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         //    sd->upgraded_view_count);
         if (sd->upgraded_view_count < MAX_UPGRADED_VIEWS)
         {
+            CHECK_ARRAY_COUNT(sd->upgraded_view_count, MAX_UPGRADED_VIEWS, "upgraded_view_count");
             sd->upgraded_views[sd->upgraded_view_count++] = *pView;
         }
         if (sd->upgraded_image_count < MAX_UPGRADED_VIEWS)
         {
+            CHECK_ARRAY_COUNT(sd->upgraded_image_count, MAX_UPGRADED_VIEWS, "upgraded_image_count");
             sd->upgraded_images[sd->upgraded_image_count++] =
                 pCreateInfo->image;
         }

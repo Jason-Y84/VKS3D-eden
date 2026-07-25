@@ -891,6 +891,7 @@ remember_bound_pipeline(
         }
         if (sd->cb_track_count >= MAX_CB_TRACK)
             return;
+        CHECK_ARRAY_COUNT(sd->cb_track_count, MAX_CB_TRACK, "cb_track_count");
         uint32_t idx = sd->cb_track_count++;
         sd->cb_track[idx].cb = cb;
         sd->cb_track[idx].pipeline = pipe;
@@ -917,6 +918,7 @@ remember_begin_renderpass(
     }
     if (sd->cb_track_count >= MAX_CB_TRACK)
     return;
+    CHECK_ARRAY_COUNT(sd->cb_track_count, MAX_CB_TRACK, "cb_track_count");
     uint32_t idx = sd->cb_track_count++;
     sd->cb_track[idx].cb = cb;
     sd->cb_track[idx].pipeline = VK_NULL_HANDLE;
@@ -972,6 +974,7 @@ add_pipeline_info(
         sd->pipeline_info = new_array;
         sd->pipeline_info_capacity = new_cap;
     }
+    CHECK_ARRAY_COUNT(sd->pipeline_info_count, sd->pipeline_info_capacity, "pipeline_info_count");
     StereoPipelineInfo *info =
         &sd->pipeline_info[sd->pipeline_info_count++];
     memset(info, 0, sizeof(*info));
@@ -5013,6 +5016,7 @@ static void cache_add(StereoDevice *sd, VkShaderModule h,
     if (sd->shader_cache_count>=MAX_SHADER_CACHE) return;
     uint32_t *cp=malloc(words*4); if (!cp) return;
     memcpy(cp,spv,words*4);
+    CHECK_ARRAY_COUNT(sd->shader_cache_count, MAX_SHADER_CACHE, "shader_cache_count");
     StereoShaderCache *e=&sd->shader_cache[sd->shader_cache_count++];
     e->handle=h; e->spv=cp; e->words=words;
 }

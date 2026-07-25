@@ -215,6 +215,7 @@ stereo_CreateFramebuffer(
           * This avoids two concurrent CreateFramebuffer calls both
           * writing the same entry before fb_track_count is advanced.
           */
+        CHECK_ARRAY_COUNT(sd->fb_track_count, MAX_FB_TRACK, "fb_track_count");
          uint32_t idx = sd->fb_track_count++;
          STEREO_LOG(
              "FB_COUNT_RESERVE idx=%u next=%u",

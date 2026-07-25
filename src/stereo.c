@@ -468,6 +468,7 @@ StereoInstance *stereo_instance_alloc(void) {
     if (g_instance_count >= MAX_INSTANCES) {
         stereo_mutex_unlock(&g_registry_lock); return NULL;
     }
+    CHECK_ARRAY_COUNT(sd->g_instance_count, MAX_INSTANCES, "g_instance_count");
     StereoInstance *si = &g_instances[g_instance_count++];
     memset(si, 0, sizeof(*si));
     SET_LOADER_MAGIC_VALUE(si);  /* required: loader reads this field for dispatch */
@@ -565,6 +566,7 @@ StereoPhysdev *stereo_physdev_get_or_create(VkPhysicalDevice real_pd, StereoInst
         return NULL;
     }
 
+    CHECK_ARRAY_COUNT(sd->g_physdev_count, MAX_PHYSICAL_DEVICES, "g_physdev_count");
     StereoPhysdev *spd = &g_physdev_wrappers[g_physdev_count++];
     memset(spd, 0, sizeof(*spd));
     SET_LOADER_MAGIC_VALUE(spd);   /* loader will overwrite with its dispatch ptr */
@@ -598,6 +600,7 @@ StereoDevice *stereo_device_alloc(void) {
     if (g_device_count >= MAX_DEVICES) {
         stereo_mutex_unlock(&g_registry_lock); return NULL;
     }
+    CHECK_ARRAY_COUNT(sd->g_device_count, MAX_DEVICES, "g_device_count");
     StereoDevice *sd = &g_devices[g_device_count++];
     memset(sd, 0, sizeof(*sd));
     stereo_mutex_init(&sd->lock);

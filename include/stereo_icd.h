@@ -136,6 +136,18 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
     do { ((VK_LOADER_DATA*)(void*)(obj))->loaderMagic = ICD_LOADER_MAGIC; } while(0)
 #endif
 
+#define CHECK_ARRAY_COUNT(count, max, name)                     \
+    do {                                                        \
+        if ((count) >= (max)) {                                 \
+            STEREO_ERR(                                          \
+                "ARRAY OVERFLOW %s count=%u max=%u",             \
+                name,                                            \
+                (unsigned)(count),                               \
+                (unsigned)(max));                                \
+            __debugbreak();                                      \
+        }                                                       \
+    } while (0)
+
 #include <stdint.h>
 #include <stdbool.h>
 
