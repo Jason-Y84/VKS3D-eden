@@ -5076,6 +5076,10 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
     {
         cache_add(sd, *pSM, spv, wc);
     }
+    STEREO_LOG(
+        "CREATE_SHADER_DONE module=%p hash=%016llx",
+        (void *)*pSM,
+        (unsigned long long)h);
     return VK_SUCCESS;
 }
 

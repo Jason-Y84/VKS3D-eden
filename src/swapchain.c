@@ -1232,6 +1232,12 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
     uint64_t seq = ++image_create_seq;
 
     StereoDevice *sd = stereo_device_from_handle(device);
+    STEREO_LOG(
+        "IMG_ENTER usage=0x%08X fmt=%u layers=%u samples=%u",
+        pCreateInfo->usage,
+        pCreateInfo->format,
+        pCreateInfo->arrayLayers,
+        pCreateInfo->samples);
     if (!sd) return VK_ERROR_DEVICE_LOST;
     STEREO_LOG(
         "IMAGE_CREATE imageType=%u fmt=%u samples=%u usage=0x%08X layers=%u extent=%ux%u flags=0x%X",
@@ -1283,7 +1289,19 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
     }
 
     if (!intercept_depth && !intercept_color)
-        return sd->real.CreateImage(sd->real_device, pCreateInfo, pAllocator, pImage);
+    {
+        VkResult r =
+            sd->real.CreateImage(
+            sd->real_device,
+            pCreateInfo,
+            pAllocator,
+            pImage);
+        STEREO_LOG(
+            "IMG_EXIT passthrough result=%d image=%p",
+            r,
+            (r == VK_SUCCESS) ? (void *)(uintptr_t)*pImage : NULL);
+        return r;
+    }
 
     STEREO_LOG(
         "IMAGE_UPGRADE usage=0x%08X fmt=%u extent=%ux%u depth=%u color=%u layers %u->2",
@@ -1298,6 +1316,10 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
     VkImageCreateInfo modified = *pCreateInfo;
     modified.arrayLayers = 2;
     VkResult res = sd->real.CreateImage(sd->real_device, &modified, pAllocator, pImage);
+    STEREO_LOG(
+        "IMG_EXIT upgraded result=%d image=%p",
+        res,
+        (res == VK_SUCCESS) ? (void *)(uintptr_t)*pImage : NULL);
     if (res == VK_SUCCESS) {
         //STEREO_LOG(
         //    "[CREATE IMAGE RESULT] image=%p usage=0x%08X layers=%u",
@@ -1460,6 +1482,12 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
                        const VkAllocationCallbacks *pAllocator, VkImageView *pView)
 {
     StereoDevice *sd = stereo_device_from_handle(device);
+    STEREO_LOG(
+        "IV_ENTER image=%p viewType=%u layers=%u aspect=0x%X",
+        (void *)(uintptr_t)pCreateInfo->image,
+        pCreateInfo->viewType,
+        pCreateInfo->subresourceRange.layerCount,
+        pCreateInfo->subresourceRange.aspectMask);
     if (!sd) return VK_ERROR_DEVICE_LOST;
 
     if (!sd->stereo.multiview)
@@ -1544,11 +1572,17 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             pCreateInfo->subresourceRange.layerCount,
             sd->intercepted_depth_count,
             sd->intercepted_color_count);
-        return sd->real.CreateImageView(
+        VkResult r =
+            sd->real.CreateImageView(
             sd->real_device,
             pCreateInfo,
             pAllocator,
             pView);
+        STEREO_LOG(
+            "IV_EXIT passthrough result=%d view=%p",
+            r,
+            (r == VK_SUCCESS) ? (void *)(uintptr_t)*pView : NULL);
+        return r;
        }
 
     //STEREO_LOG(
@@ -1585,7 +1619,21 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         upgraded.viewType,
         pCreateInfo->subresourceRange.layerCount,
         upgraded.subresourceRange.layerCount);
-    VkResult _r = sd->real.CreateImageView(sd->real_device, &upgraded, pAllocator, pView);
+    STEREO_LOG(
+        "IV_CALL upgraded image=%p type=%u layers=%u",
+        (void *)(uintptr_t)upgraded.image,
+        upgraded.viewType,
+        upgraded.subresourceRange.layerCount);
+    VkResult _r=
+        sd->real.CreateImageView(
+        sd->real_device,
+        &upgraded,
+        pAllocator,
+        pView);
+    STEREO_LOG(
+        "IV_EXIT upgraded result=%d view=%p",
+        _r,
+        (_r == VK_SUCCESS) ? (void *)(uintptr_t)*pView : NULL);
     if (_r == VK_SUCCESS)
     {
         STEREO_LOG(
