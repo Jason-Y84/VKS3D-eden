@@ -60,7 +60,9 @@ static VkResult alloc_external_stereo_image(StereoDevice *sd, StereoSwapchain *s
         .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
+    STEREO_LOG("CALL real CreateImage");
     VkResult res = sd->real.CreateImage(sd->real_device, &ici, NULL, out_image);
+    STEREO_LOG("RETURN real CreateImage result=%d", res);
     if (res != VK_SUCCESS) { STEREO_ERR("CreateImage(external) failed: %d", res); return res; }
 
     VkMemoryRequirements mr;
@@ -174,7 +176,9 @@ static VkResult alloc_alt_stereo_swapchain(StereoDevice *sd, StereoSwapchain *sc
         .format   = sc->format,
         .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2 },
     };
+    STEREO_LOG("CALL real CreateImageView");
     res = sd->real.CreateImageView(sd->real_device, &vci, NULL, &sc->stereo_views_arr[0]);
+    STEREO_LOG("RETURN real CreateImageView result=%d", res);
     if (res != VK_SUCCESS) return res;
 
     if (sd->upgraded_view_count < MAX_UPGRADED_VIEWS)
@@ -512,7 +516,9 @@ stereo_CreateSwapchainKHR(VkDevice device,
                 .format   = sc->format,
                 .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2 },
             };
+            STEREO_LOG("CALL real CreateImageView");
             res = sd->real.CreateImageView(sd->real_device, &vci, NULL, &sc->stereo_views_arr[0]);
+            STEREO_LOG("RETURN real CreateImageView result=%d", res);
             if (res != VK_SUCCESS) { dxgi_sc_destroy(sc); goto try_dx9; }
             if (!setup_barrier_resources(sd, sc)) { dxgi_sc_destroy(sc); goto try_dx9; }
             sc->present_mode  = STEREO_PRESENT_DXGI;
@@ -675,13 +681,15 @@ passthrough:
                 ci.oldSwapchain);
         }
 
-    } 
+    }
+    STEREO_LOG("CALL real CreateSwapchainKHR");
     VkResult res =
         sd->real.CreateSwapchainKHR(
             sd->real_device,
             &ci,
             pAllocator,
             pSwapchain);
+    STEREO_LOG("RETURN real CreateSwapchainKHR result=%d", res);
     STEREO_LOG(
         "[PASSTHROUGH] returned %d swapchain=%p",
         (int)res,
@@ -1290,12 +1298,14 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
 
     if (!intercept_depth && !intercept_color)
     {
+        STEREO_LOG("CALL real CreateImage");
         VkResult r =
             sd->real.CreateImage(
             sd->real_device,
             pCreateInfo,
             pAllocator,
             pImage);
+        STEREO_LOG("RETURN real CreateImage result=%d", r);
         STEREO_LOG(
             "IMG_EXIT passthrough result=%d image=%p",
             r,
@@ -1315,7 +1325,9 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
 
     VkImageCreateInfo modified = *pCreateInfo;
     modified.arrayLayers = 2;
+    STEREO_LOG("CALL real CreateImage");
     VkResult res = sd->real.CreateImage(sd->real_device, &modified, pAllocator, pImage);
+    STEREO_LOG("RETURN real CreateImageView result=%d", res);
     STEREO_LOG(
         "IMG_EXIT upgraded result=%d image=%p",
         res,
@@ -1572,12 +1584,14 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             pCreateInfo->subresourceRange.layerCount,
             sd->intercepted_depth_count,
             sd->intercepted_color_count);
+        STEREO_LOG("CALL real CreateImageView");
         VkResult r =
             sd->real.CreateImageView(
             sd->real_device,
             pCreateInfo,
             pAllocator,
             pView);
+        STEREO_LOG("RETURN real CreateImageView result=%d", r);
         STEREO_LOG(
             "IV_EXIT passthrough result=%d view=%p",
             r,
@@ -1624,12 +1638,14 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         (void *)(uintptr_t)upgraded.image,
         upgraded.viewType,
         upgraded.subresourceRange.layerCount);
+    STEREO_LOG("CALL real CreateImageView");
     VkResult _r=
         sd->real.CreateImageView(
         sd->real_device,
         &upgraded,
         pAllocator,
         pView);
+    STEREO_LOG("RETURN real CreateImageView result=%d", _r);
     STEREO_LOG(
         "IV_EXIT upgraded result=%d view=%p",
         _r,
@@ -1686,6 +1702,9 @@ stereo_DestroyImageView(
     VkImageView imageView,
     const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG(
+        "DestroyImageView %p",
+        (void *)(uintptr_t)imageView);
     //STEREO_LOG(
     //    "[DESTROY IMAGEVIEW ENTRY] view=%p",
     //    imageView);
