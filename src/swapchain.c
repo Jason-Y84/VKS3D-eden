@@ -1739,28 +1739,13 @@ stereo_DestroyImageView(
             //    "[VIEW TRACK REMOVE] view=%p slot=%u",
             //    imageView,
             //    i);
-            memmove(
-                &sd->upgraded_views[i],
-                &sd->upgraded_views[i + 1],
-                (sd->upgraded_view_count - i - 1) *
-                    sizeof(VkImageView));
-            for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
-            {
-                if (sd->upgraded_views[i] == imageView)
-                {
-                    uint32_t last = --sd->upgraded_view_count;
-
-                    if (i != last)
-                        sd->upgraded_views[i] = sd->upgraded_views[last];
-
-                    sd->upgraded_views[last] = VK_NULL_HANDLE;
-                    break;
-                }
-            }
+            uint32_t last = --sd->upgraded_view_count;
+            if (i != last)
+                sd->upgraded_views[i] = sd->upgraded_views[last];
+            sd->upgraded_views[last] = VK_NULL_HANDLE;
             //STEREO_LOG(
             //    "[VIEW TRACK COUNT] count=%u",
             //    sd->upgraded_view_count);
-
             break;
         }
     }
