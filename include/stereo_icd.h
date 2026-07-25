@@ -137,6 +137,11 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
 #endif
 
 #define CHECK_ARRAY_COUNT(count, max, name)                     \
+    STEREO_LOG(                                                 \
+        "ARRAY OVERFLOW CHECK %s count=%u max=%u",             \
+        name,                                                   \
+        (unsigned)(count),                                      \
+        (unsigned)(max));                                       \
     do {                                                        \
         if ((count) >= (max)) {                                 \
             STEREO_LOG(                                          \
