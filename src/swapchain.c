@@ -1381,8 +1381,11 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                     pCreateInfo->usage,
                     pCreateInfo->samples,
                     pCreateInfo->format);
-                sd->intercepted_depth[
-                    sd->intercepted_depth_count++] = *pImage;
+                if (sd->intercepted_depth_count < MAX_DEPTH_IMAGES)
+                {
+                    sd->intercepted_depth[
+                        sd->intercepted_depth_count++] = *pImage;
+                }
             
                 //STEREO_LOG(
                 //    "[DEPTH TRACK INSERT] seq=%llu image=%p slot=%u count=%u",
@@ -1466,8 +1469,11 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                 pCreateInfo->usage,
                 pCreateInfo->samples,
                 pCreateInfo->format);
-            sd->intercepted_color[
-                sd->intercepted_color_count++] = *pImage;
+            if (sd->intercepted_color_count < MAX_COLOR_IMAGES)
+            {
+                sd->intercepted_color[
+                    sd->intercepted_color_count++] = *pImage;
+            }
 
             //STEREO_LOG(
             //    "[COLOR TRACK ADD] seq=%llu image=%p slot=%u count=%u",
@@ -1684,10 +1690,15 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         //    "[VIEW TRACK ADD] view=%p count=%u",
         //    *pView,
         //    sd->upgraded_view_count);
-        sd->upgraded_views[sd->upgraded_view_count++] = *pView;
+        if (sd->upgraded_view_count < MAX_UPGRADED_VIEWS)
+        {
+            sd->upgraded_views[sd->upgraded_view_count++] = *pView;
+        }
         if (sd->upgraded_image_count < MAX_UPGRADED_VIEWS)
+        {
             sd->upgraded_images[sd->upgraded_image_count++] =
                 pCreateInfo->image;
+        }
     }
     //STEREO_LOG(
     //    "[VIEW TRACKED] view=%p count=%u",
@@ -1711,12 +1722,9 @@ stereo_DestroyImageView(
     //STEREO_LOG(
     //    "[VIEW DESTROY ENTRY] view=%p",
     //    imageView);
-
     StereoDevice *sd = stereo_device_from_handle(device);
-
     if (!sd)
         return;
-
     //STEREO_LOG(
     //    "[VIEW DESTROY LOOKUP] count=%u",
     //    sd->upgraded_view_count);
@@ -1731,16 +1739,24 @@ stereo_DestroyImageView(
             //    "[VIEW TRACK REMOVE] view=%p slot=%u",
             //    imageView,
             //    i);
-
             memmove(
                 &sd->upgraded_views[i],
                 &sd->upgraded_views[i + 1],
                 (sd->upgraded_view_count - i - 1) *
                     sizeof(VkImageView));
+            for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
+            {
+                if (sd->upgraded_views[i] == imageView)
+                {
+                    uint32_t last = --sd->upgraded_view_count;
 
-            sd->upgraded_view_count--;
-            sd->upgraded_views[sd->upgraded_view_count] = VK_NULL_HANDLE;
+                    if (i != last)
+                        sd->upgraded_views[i] = sd->upgraded_views[last];
 
+                    sd->upgraded_views[last] = VK_NULL_HANDLE;
+                    break;
+                }
+            }
             //STEREO_LOG(
             //    "[VIEW TRACK COUNT] count=%u",
             //    sd->upgraded_view_count);
@@ -1748,12 +1764,10 @@ stereo_DestroyImageView(
             break;
         }
     }
-
     //STEREO_LOG(
     //    "[VIEW DESTROY MISS] view=%p count=%u",
     //    imageView,
     //    sd->upgraded_view_count);
-
     sd->real.DestroyImageView(
         sd->real_device,
         imageView,

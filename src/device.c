@@ -294,7 +294,12 @@ stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
     }
     sd->tmp_module_count = 0;
     for (uint32_t i = 0; i < sd->shader_cache_count; i++)
+    {
         free(sd->shader_cache[i].spv);
+        sd->shader_cache[i].spv = NULL;
+        sd->shader_cache[i].handle = VK_NULL_HANDLE;
+        sd->shader_cache[i].words = 0;
+    }
     sd->shader_cache_count = 0;
     if (sd->stereo_ubo != VK_NULL_HANDLE) {
         if (sd->stereo_ubo_map)

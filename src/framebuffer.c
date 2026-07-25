@@ -407,17 +407,15 @@ stereo_DestroyFramebuffer(
 {
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return;
-
     for (uint32_t i = 0; i < sd->fb_track_count; i++) {
         if (sd->fb_tracks[i].fb == framebuffer) {
             uint32_t last = --sd->fb_track_count;
-
-            sd->fb_tracks[i] = sd->fb_tracks[last];
-
+            if (i != last)
+                sd->fb_tracks[i] = sd->fb_tracks[last];
+            memset(&sd->fb_tracks[last], 0, sizeof(sd->fb_tracks[last]));
             break;
         }
     }
-
     sd->real.DestroyFramebuffer(
         sd->real_device,
         framebuffer,
@@ -484,13 +482,13 @@ stereo_CmdBeginRenderPass(
                 (unsigned)fb_match);
             bool rp_match =
                 (
-                    dev->fb_tracks[i].rp != VK_NULL_HANDLE &&
-                    pRenderPassBegin->renderPass != VK_NULL_HANDLE &&
+                    dev->fb_tracks[i].rp &&
+                    pRenderPassBegin->renderPass &&
                     dev->fb_tracks[i].rp == pRenderPassBegin->renderPass
                 )
                 ||
                 (
-                    dev->fb_tracks[i].mv_rp != VK_NULL_HANDLE &&
+                    dev->fb_tracks[i].mv_rp &&
                     dev->fb_tracks[i].mv_rp == pRenderPassBegin->renderPass
                 );
             if (fb_match) {
