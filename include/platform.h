@@ -89,9 +89,7 @@ static inline void stereo_mutex_lock(stereo_mutex_t *m)
 }
 static inline void stereo_mutex_unlock(stereo_mutex_t *m)
 {
-    STEREO_LOG("B1");
     LeaveCriticalSection(m);
-    STEREO_LOG("B2");
 }
 static inline void stereo_mutex_destroy(stereo_mutex_t *m)
 {
@@ -573,9 +571,7 @@ static inline void stereo_mutex_lock(stereo_mutex_t *m)
 }
 static inline void stereo_mutex_unlock(stereo_mutex_t *m)
 {
-    STEREO_LOG("A1");
     pthread_mutex_unlock(m);
-    STEREO_LOG("A2");
 }
 static inline void stereo_mutex_destroy(stereo_mutex_t *m)
 {
