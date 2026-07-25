@@ -608,22 +608,14 @@ StereoDevice *stereo_device_alloc(void) {
     return sd;
 }
 StereoDevice *stereo_device_from_handle(VkDevice h) {
-    STEREO_LOG("1");
     ensure_registry_init();
-    STEREO_LOG("2");
     stereo_mutex_lock(&g_registry_lock);
-    STEREO_LOG("3");
     for (uint32_t i = 0; i < g_device_count; i++) {
-    STEREO_LOG("4");
         if (g_devices[i].real_device == h) {
-    STEREO_LOG("5");
             stereo_mutex_unlock(&g_registry_lock); return &g_devices[i];
-    STEREO_LOG("6");
         }
     }
-    STEREO_LOG("7");
     stereo_mutex_unlock(&g_registry_lock);
-    STEREO_LOG("8");
     return NULL;
 }
 void stereo_device_free(VkDevice h) {
