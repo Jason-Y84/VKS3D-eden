@@ -5303,8 +5303,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             p,
             is_quad,
             ci->stageCount,
-            (unsigned long long)(
-                fs_dbg ? hash_spv(fs_dbg->spv, fs_dbg->words) : 0ULL));
+            (unsigned long long)hash_spv(fs_dbg->spv, fs_dbg->words));
         if (is_quad && ci->stageCount > 0)
         {
             /* Find FS stage */
