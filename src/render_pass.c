@@ -119,6 +119,12 @@ stereo_CreateRenderPass(
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
 
+    STEREO_LOG(
+        "RP sd=%p enabled=%u real_device=%p",
+        (void*)sd,
+        sd ? sd->stereo.enabled : 0,
+        sd ? (void*)sd->real_device : NULL);
+
     STEREO_LOG("stereo_CreateRenderPass: attachments=%u",
                pCreateInfo ? pCreateInfo->attachmentCount : 0);
 
