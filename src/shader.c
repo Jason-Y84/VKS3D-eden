@@ -5396,20 +5396,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (unsigned long long)spv_hash,
                 fs_cache->words,
                 (void *)ci->pStages[fs_s].module);
-            const char *stage_name =
-                (ci->pStages[s2].stage == VK_SHADER_STAGE_VERTEX_BIT)                  ? "VS" :
-                (ci->pStages[s2].stage == VK_SHADER_STAGE_FRAGMENT_BIT)                ? "FS" :
-                (ci->pStages[s2].stage == VK_SHADER_STAGE_GEOMETRY_BIT)                ? "GS" :
-                (ci->pStages[s2].stage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT)    ? "TCS" :
-                (ci->pStages[s2].stage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT) ? "TES" :
-                (ci->pStages[s2].stage == VK_SHADER_STAGE_COMPUTE_BIT)                 ? "CS" :
-                "?";
             STEREO_LOG(
-                "SHADER_MODULE stage=%s hash=%016llx words=%zu module=%p",
-                stage_name,
-                (unsigned long long)hash_spv(cache->spv, cache->words),
-                cache->words,
-                (void*)cache->handle);
+                "SHADER_MODULE stage=FS hash=%016llx words=%zu module=%p",
+                (unsigned long long)spv_hash,
+                fs_cache->words,
+                (void *)ci->pStages[fs_s].module);
             STEREO_LOG(
                 "PATCH hash=%016llx words=%zu module=%p vs_stage=%u",
                 (unsigned long long)spv_hash,
