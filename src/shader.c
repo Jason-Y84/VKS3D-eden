@@ -4702,9 +4702,12 @@ bool spirv_patch_stereo_fs(
                 continue;
             }
             STEREO_LOG(
-                "FS_SAMPLE_PATCH_APPLY image=%u descriptor=%u",
+                "FS_SAMPLE_PATCH_APPLY hash=%016llx image=%u descriptor=%u set=%u binding=%u",
+                (unsigned long long)h,
                 in[i+3],
-                descriptor_var);
+                descriptor_var,
+                (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
+                (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
             int image_type = -1;
             int sampled_type = -1;
             for (uint32_t v = 0; v < s.n_var; ++v)
