@@ -5298,6 +5298,13 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
          * Geometry pipelines (has vertex input) use Path A/B VS patching. */
         bool is_quad = !ci->pVertexInputState ||
                        ci->pVertexInputState->vertexBindingDescriptionCount == 0;
+        STEREO_LOG(
+            "FS_GATE p=%u quad=%u stageCount=%u hash=%016llx",
+            p,
+            is_quad,
+            ci->stageCount,
+            (unsigned long long)(
+                fs_dbg ? hash_spv(fs_dbg->spv, fs_dbg->words) : 0ULL));
         if (is_quad && ci->stageCount > 0)
         {
             /* Find FS stage */
