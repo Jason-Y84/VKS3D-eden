@@ -277,6 +277,8 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         pName ? pName : "<NULL>",
         (void *)(uintptr_t)device);
 
+    STEREO_LOG("GDPA enabled=%d", g_device_count ? g_devices[0].stereo.enabled : -1);
+
     /* ── VKS3D-wrapped device commands ───────────────────────────────── */
     if (!strcmp(pName, "vkGetDeviceProcAddr"))
         return (PFN_vkVoidFunction)stereo_GetDeviceProcAddr;
@@ -316,8 +318,11 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
         return (PFN_vkVoidFunction)stereo_UpdateDescriptorSets;
     if (!strcmp(pName, "vkCmdBindDescriptorSets"))
         return (PFN_vkVoidFunction)stereo_CmdBindDescriptorSets;
-    if (!strcmp(pName, "vkCreateRenderPass"))
+    if (!strcmp(pName, "vkCreateRenderPass")) {
+        STEREO_LOG("GDPA WRAP vkCreateRenderPass -> %p",
+                   (void *)stereo_CreateRenderPass);
         return (PFN_vkVoidFunction)stereo_CreateRenderPass;
+    }
 #ifdef VK_KHR_create_renderpass2
     if (!strcmp(pName, "vkCreateRenderPass2KHR"))
         return (PFN_vkVoidFunction)stereo_CreateRenderPass2KHR;
@@ -345,23 +350,37 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
     /* Look up the real device from our registry to get its proc addr fn */
     extern StereoDevice g_devices[];
     extern uint32_t     g_device_count;
+    STEREO_LOG("GDPA searching device registry count=%u", g_device_count);
     for (uint32_t i = 0; i < g_device_count; i++) {
         if (g_devices[i].real_device == device ||
             (VkDevice)(uintptr_t)&g_devices[i] == device) {
+            STEREO_LOG(
+                "GDPA matched device[%u] wrapper=%p real=%p",
+                i,
+                (void *)&g_devices[i],
+                (void *)g_devices[i].real_device);
             PFN_vkGetDeviceProcAddr real_gdpa =
                 (PFN_vkGetDeviceProcAddr)
                 g_devices[i].real.GetDeviceProcAddr;
             if (real_gdpa) {
                 PFN_vkVoidFunction fp =
                     real_gdpa(g_devices[i].real_device, pName);
-                STEREO_LOG("GDPA fallback: %s -> %p", pName, fp);
+                if (fp)
+                    STEREO_LOG("GDPA REAL %s -> %p", pName, fp);
+                else
+                    STEREO_LOG("GDPA REAL %s -> NULL", pName);
                 return fp;
             }
             break;
         }
     }
     /* Fallback: use instance-level lookup */
-    return get_instance_proc_addr_internal(VK_NULL_HANDLE, pName);
+    PFN_vkVoidFunction fp =
+        get_instance_proc_addr_internal(VK_NULL_HANDLE, pName);
+    
+    STEREO_LOG("GDPA INSTANCE %s -> %p", pName, fp);
+    
+    return fp;
 }
 
 /* ── Loader interface v6+: DXGI adapter physdev enumeration ─────────────────
