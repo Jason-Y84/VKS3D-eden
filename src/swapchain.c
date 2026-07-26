@@ -1279,7 +1279,7 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         && pCreateInfo->extent.height > 1
         && (pCreateInfo->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
     STEREO_LOG(
-        "IMAGE_CREATE imageType=%d fmt=%d samples=%d usage=0x%x layers=%u extent=%ux%u flags=0x%x cube=%d array=%d stereo=%d",
+        "IMAGE_CREATE imageType=%d fmt=%d samples=%d usage=0x%x layers=%u extent=%ux%u flags=0x%x cube=%d array=%d upgrade=%d",
         pCreateInfo->imageType,
         pCreateInfo->format,
         pCreateInfo->samples,
@@ -1370,6 +1370,10 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                 {
                     sd->intercepted_depth[
                         sd->intercepted_depth_count++] = *pImage;
+                    STEREO_LOG(
+                        "DEPTH_TRACK count=%u image=%p",
+                        sd->intercepted_depth_count,
+                        (void *)(uintptr_t)*pImage);
                 }
             
             }
@@ -1406,6 +1410,10 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
             {
                 sd->intercepted_color[
                     sd->intercepted_color_count++] = *pImage;
+                STEREO_LOG(
+                    "COLOR_TRACK count=%u image=%p",
+                    sd->intercepted_color_count,
+                    (void *)(uintptr_t)*pImage);
             }
         }
         }
@@ -1579,12 +1587,20 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         {
             CHECK_ARRAY_COUNT(sd->upgraded_view_count, MAX_UPGRADED_VIEWS, "upgraded_view_count");
             sd->upgraded_views[sd->upgraded_view_count++] = *pView;
+            STEREO_LOG(
+                "VIEW_TRACK count=%u view=%p",
+                sd->upgraded_view_count,
+                (void *)(uintptr_t)*pView);
         }
         if (sd->upgraded_image_count < MAX_UPGRADED_VIEWS)
         {
             CHECK_ARRAY_COUNT(sd->upgraded_image_count, MAX_UPGRADED_VIEWS, "upgraded_image_count");
             sd->upgraded_images[sd->upgraded_image_count++] =
                 pCreateInfo->image;
+            STEREO_LOG(
+                "IMAGE_TRACK count=%u image=%p",
+                sd->upgraded_image_count,
+                (void *)(uintptr_t)pCreateInfo->image);
         }
     }
     return _r;
