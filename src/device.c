@@ -295,7 +295,7 @@ stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
     sd->tmp_module_count = 0;
     for (uint32_t i = 0; i < sd->shader_cache_count; i++)
     {
-        free(sd->shader_cache[i].spv);
+        //free(sd->shader_cache[i].spv);
         sd->shader_cache[i].spv = NULL;
         sd->shader_cache[i].handle = VK_NULL_HANDLE;
         sd->shader_cache[i].words = 0;
@@ -310,7 +310,7 @@ stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
         sd->stereo_ubo = VK_NULL_HANDLE;
         sd->stereo_ubo_mem = VK_NULL_HANDLE;
     }
-    free(sd->pipeline_info);
+    //free(sd->pipeline_info);
     sd->pipeline_info = NULL;
     sd->pipeline_info_count = 0;
     sd->pipeline_info_capacity = 0;
