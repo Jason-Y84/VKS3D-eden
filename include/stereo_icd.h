@@ -171,7 +171,7 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
  * Stores original (unpatched) SPIR-V for vertex/geometry/tesseval shaders.   *
  * Used by stereo_CreateGraphicsPipelines to patch the correct stage.          *
  * Fragment and compute shaders are never cached.                              */
-#define MAX_SHADER_CACHE 4096
+#define MAX_SHADER_CACHE 65536
 typedef struct {
     VkShaderModule  handle;
     uint32_t       *spv;    /* heap copy of original SPIR-V words */
