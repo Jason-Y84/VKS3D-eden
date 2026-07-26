@@ -1248,7 +1248,6 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
     STEREO_LOG("CALLED stereo_CreateImage");
     static uint64_t image_create_seq = 0;
     uint64_t seq = ++image_create_seq;
-
     StereoDevice *sd = stereo_device_from_handle(device);
     STEREO_LOG(
         "IMG_ENTER usage=0x%08X fmt=%u layers=%u samples=%u",
@@ -1257,6 +1256,28 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         pCreateInfo->arrayLayers,
         pCreateInfo->samples);
     if (!sd) return VK_ERROR_DEVICE_LOST;
+    /* Upgrade images used as color/depth attachments (G-buffer and scene depth)
+     * so multiview pipelines and framebuffers align.  This uses usage flags
+     * rather than strictly matching the swapchain extent, preventing the
+     * per-pass MV mismatch that caused overlapping geometry.
+     */
+    bool base = sd->stereo.enabled && sd->stereo.multiview
+        && pCreateInfo
+        && pCreateInfo->imageType   == VK_IMAGE_TYPE_2D
+        && pCreateInfo->arrayLayers == 1;
+    /* Depth/stencil attachments — upgraded for multiview depth per eye */
+    bool intercept_depth = base
+        && (pCreateInfo->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    /* Color attachments that are also sampled (render-to-texture G-buffers,
+     * shadow-color, lighting output, post-fx targets).  mipLevels==1 and
+     * extent > 1x1 to avoid upgrading LUTs or procedural textures.
+     * Also intercept non-sampled color attachments (needed so every
+     * framebuffer attachment has 2 layers for the multiview render pass). */
+    bool intercept_color = base
+        && pCreateInfo->mipLevels == 1
+        && pCreateInfo->extent.width  > 1
+        && pCreateInfo->extent.height > 1
+        && (pCreateInfo->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
     STEREO_LOG(
         "IMAGE_CREATE imageType=%d fmt=%d samples=%d usage=0x%x layers=%u extent=%ux%u flags=0x%x cube=%d array=%d stereo=%d",
         pCreateInfo->imageType,
@@ -1270,30 +1291,6 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         !!(pCreateInfo->flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT),
         pCreateInfo->arrayLayers > 1,
         intercept_depth || intercept_color);
-    /* Upgrade images used as color/depth attachments (G-buffer and scene depth)
-     * so multiview pipelines and framebuffers align.  This uses usage flags
-     * rather than strictly matching the swapchain extent, preventing the
-     * per-pass MV mismatch that caused overlapping geometry.
-     */
-    bool base = sd->stereo.enabled && sd->stereo.multiview
-        && pCreateInfo
-        && pCreateInfo->imageType   == VK_IMAGE_TYPE_2D
-        && pCreateInfo->arrayLayers == 1;
-
-    /* Depth/stencil attachments — upgraded for multiview depth per eye */
-    bool intercept_depth = base
-        && (pCreateInfo->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-
-    /* Color attachments that are also sampled (render-to-texture G-buffers,
-     * shadow-color, lighting output, post-fx targets).  mipLevels==1 and
-     * extent > 1x1 to avoid upgrading LUTs or procedural textures.
-     * Also intercept non-sampled color attachments (needed so every
-     * framebuffer attachment has 2 layers for the multiview render pass). */
-    bool intercept_color = base
-        && pCreateInfo->mipLevels == 1
-        && pCreateInfo->extent.width  > 1
-        && pCreateInfo->extent.height > 1
-        && (pCreateInfo->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
     if (base &&
         (pCreateInfo->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) &&
         !(pCreateInfo->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
@@ -1307,7 +1304,6 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
             intercept_depth,
             intercept_color);
     }
-
     if (!intercept_depth && !intercept_color)
     {
         STEREO_LOG("CALL real CreateImage");
@@ -1324,7 +1320,6 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
             (r == VK_SUCCESS) ? (void *)(uintptr_t)*pImage : NULL);
         return r;
     }
-
     STEREO_LOG(
         "IMAGE_UPGRADE usage=0x%08X fmt=%u extent=%ux%u depth=%u color=%u layers %u->2",
         pCreateInfo->usage,
@@ -1334,7 +1329,6 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         intercept_depth,
         intercept_color,
         pCreateInfo->arrayLayers);
-
     VkImageCreateInfo modified = *pCreateInfo;
     modified.arrayLayers = 2;
     STEREO_LOG("CALL real CreateImage");
@@ -1345,27 +1339,10 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         res,
         (res == VK_SUCCESS) ? (void *)(uintptr_t)*pImage : NULL);
     if (res == VK_SUCCESS) {
-        //STEREO_LOG(
-        //    "[CREATE IMAGE RESULT] image=%p usage=0x%08X layers=%u",
-        //    *pImage,
-        //    pCreateInfo->usage,
-        //    pCreateInfo->arrayLayers);
         if (intercept_depth &&
             sd->intercepted_depth_count < MAX_DEPTH_IMAGES)
         {
             
-            //STEREO_LOG(
-            //    "[DEPTH TRACK SOURCE] seq=%llu image=%p usage=0x%08X extent=%ux%u",
-            //    (unsigned long long)seq,
-            //    *pImage,
-            //    pCreateInfo->usage,
-            //    pCreateInfo->extent.width,
-            //    pCreateInfo->extent.height);
-            //STEREO_LOG(
-            //    "[DEPTH TRACK BEFORE ADD] seq=%llu image=%p count=%u",
-            //    (unsigned long long)seq,
-            //    *pImage,
-            //    sd->intercepted_depth_count);
             bool already_tracked = false;
             
             for (uint32_t i = 0;
@@ -1376,10 +1353,6 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                 {
                     already_tracked = true;
             
-                    //STEREO_LOG(
-                    //    "[DEPTH TRACK DUP] image=%p slot=%u",
-                    //    *pImage,
-                    //    i);
             
                     break;
                 }
@@ -1399,60 +1372,15 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                         sd->intercepted_depth_count++] = *pImage;
                 }
             
-                //STEREO_LOG(
-                //    "[DEPTH TRACK INSERT] seq=%llu image=%p slot=%u count=%u",
-                //    (unsigned long long)seq,
-                //    *pImage,
-                //    sd->intercepted_depth_count - 1,
-                //    sd->intercepted_depth_count);
             }
-            //STEREO_LOG(
-            //        "[DEPTH TRACK STATE] seq=%llu image=%p slot=%u count=%u",
-            //        (unsigned long long)seq,
-            //        *pImage,
-            //        sd->intercepted_depth_count - 1,
-            //        sd->intercepted_depth_count);
-            //STEREO_LOG(
-            //    "[DEPTH TRACK STORE] image=%p slot=%u usage=0x%08X extent=%ux%u layers=%u",
-            //    *pImage,
-            //    sd->intercepted_depth_count - 1,
-            //    pCreateInfo->usage,
-            //    pCreateInfo->extent.width,
-            //    pCreateInfo->extent.height,
-            //    pCreateInfo->arrayLayers);
-            //STEREO_LOG(
-            //    "[DEPTH TRACK AFTER ADD] seq=%llu image=%p count=%u",
-            //    (unsigned long long)seq,
-            //    *pImage,
-            //    sd->intercepted_depth_count);
         }
         else if (intercept_depth)
         {
-            //STEREO_LOG(
-            //    "[DEPTH TRACK OVERFLOW] seq=%llu image=%p count=%u",
-            //    (unsigned long long)seq,
-            //    *pImage,
-            //    sd->intercepted_depth_count);
-            //STEREO_LOG(
-            //    "[DEPTH TRACK OVERFLOW FIRST] slot0=%p slot255=%p",
-            //    sd->intercepted_depth[0],
-            //    sd->intercepted_depth[255]);
-            //STEREO_LOG(
-            //    "[DEPTH TRACK FULL] seq=%llu image=%p count=%u max=%u usage=0x%08X extent=%ux%u layers=%u",
-            //    (unsigned long long)seq,
-            //    *pImage,
-            //    sd->intercepted_depth_count,
-            //    MAX_DEPTH_IMAGES,
-            //    pCreateInfo->usage,
-            //    pCreateInfo->extent.width,
-            //    pCreateInfo->extent.height,
-            //    pCreateInfo->arrayLayers);
         }
         if (intercept_color &&
             sd->intercepted_color_count < MAX_COLOR_IMAGES)
         {
         bool already_tracked = false;
-
         for (uint32_t i = 0;
              i < sd->intercepted_color_count;
              i++)
@@ -1460,16 +1388,9 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
             if (sd->intercepted_color[i] == *pImage)
             {
                 already_tracked = true;
-
-                //STEREO_LOG(
-                //    "[COLOR TRACK DUP] image=%p slot=%u",
-                //    *pImage,
-                //    i);
-
                 break;
             }
         }
-
         if (!already_tracked)
         {
             STEREO_LOG(
@@ -1486,22 +1407,10 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                 sd->intercepted_color[
                     sd->intercepted_color_count++] = *pImage;
             }
-
-            //STEREO_LOG(
-            //    "[COLOR TRACK ADD] seq=%llu image=%p slot=%u count=%u",
-            //    (unsigned long long)seq,
-            //    *pImage,
-            //    sd->intercepted_color_count - 1,
-            //    sd->intercepted_color_count);
         }
         }
         else if (intercept_color)
         {
-            //STEREO_LOG(
-            //    "[COLOR TRACK FULL] image=%p count=%u max=%u",
-            //    *pImage,
-            //    sd->intercepted_color_count,
-            //    MAX_COLOR_IMAGES);
         }
     }
     return res;
@@ -1520,7 +1429,6 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         pCreateInfo->subresourceRange.layerCount,
         pCreateInfo->subresourceRange.aspectMask);
     if (!sd) return VK_ERROR_DEVICE_LOST;
-
     /*
      * Cube and cube-array images use array layers for faces.
      * They are not stereo render targets and must never be converted
@@ -1541,13 +1449,6 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     }
     if (!sd->stereo.multiview)
         return sd->real.CreateImageView(sd->real_device, pCreateInfo, pAllocator, pView);
-
-    //STEREO_LOG(
-    //    "[VIEW CREATE RAW] image=%p viewType=%u layers=%u",
-    //    pCreateInfo->image,
-    //    pCreateInfo->viewType,
-    //    pCreateInfo->subresourceRange.layerCount);
-
     bool needs_upgrade = false;
     for (uint32_t si = 0; si < sd->swapchain_count && !needs_upgrade; si++) {
         StereoSwapchain *scc = &sd->swapchains[si];
@@ -1555,11 +1456,6 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         for (uint32_t ii = 0; ii < scc->image_count && !needs_upgrade; ii++)
             if (scc->stereo_images[ii] == pCreateInfo->image) needs_upgrade = true;
     }
-    //STEREO_LOG(
-    //    "[VIEW LOOKUP] image=%p depth_count=%u color_count=%u",
-    //    pCreateInfo->image,
-    //    sd->intercepted_depth_count,
-    //    sd->intercepted_color_count);
     uint32_t depth_matches = 0;
     uint32_t color_matches = 0;
     for (uint32_t i = 0; i < sd->intercepted_depth_count && !needs_upgrade; i++)
@@ -1586,20 +1482,10 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             needs_upgrade = true;
         }
     }
-    //STEREO_LOG(
-    //    "[VIEW DECISION] image=%p needs_upgrade=%d depth_matches=%u color_matches=%u",
-    //    pCreateInfo->image,
-    //    (int)needs_upgrade,
-    //    depth_matches,
-    //    color_matches);
     if (!needs_upgrade &&
         (pCreateInfo->subresourceRange.aspectMask &
          VK_IMAGE_ASPECT_DEPTH_BIT))
     {
-        //STEREO_LOG(
-        //    "[DEPTH VIEW NOT UPGRADED] image=%p depth_count=%u",
-        //    pCreateInfo->image,
-        //    sd->intercepted_depth_count);
     }
     if (!needs_upgrade)
        {
@@ -1635,12 +1521,6 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             (r == VK_SUCCESS) ? (void *)(uintptr_t)*pView : NULL);
         return r;
        }
-
-    //STEREO_LOG(
-    //    "[VIEW CREATE] image=%p layers=%u viewType=%u",
-    //    (void*)(uintptr_t)pCreateInfo->image,
-    //    pCreateInfo->subresourceRange.layerCount,
-    //    pCreateInfo->viewType);
     VkImageViewCreateInfo upgraded = *pCreateInfo;
     if (upgraded.viewType == VK_IMAGE_VIEW_TYPE_2D)
         upgraded.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
@@ -1696,10 +1576,6 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             upgraded.viewType,
             upgraded.subresourceRange.layerCount);
     }
-    //STEREO_LOG(
-    //    "[VIEW TRACK CANDIDATE] view=%p image=%p",
-    //    _r == VK_SUCCESS ? *pView : VK_NULL_HANDLE,
-    //    pCreateInfo->image);
     /* Track upgraded views for framebuffer multiview detection */
     if (_r == VK_SUCCESS &&
         sd->upgraded_view_count < MAX_UPGRADED_VIEWS)
@@ -1708,19 +1584,6 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             "UPGRADED_VIEW_TRACK image=%p view=%p",
             (void*)(uintptr_t)pCreateInfo->image,
             (void*)(uintptr_t)*pView);
-        //STEREO_LOG(
-        //    "[VIEW TRACK ADD] view=%p slot=%u",
-        //    *pView,
-        //    sd->upgraded_view_count);
-        //sd->upgraded_views[sd->upgraded_view_count++] = *pView;
-        //STEREO_LOG(
-        //    "[VIEW TRACK ADD] view=%p count=%u",
-        //    *pView,
-        //    sd->upgraded_view_count);
-        //STEREO_LOG(
-        //    "[VIEW TRACK ADD] view=%p count=%u",
-        //    *pView,
-        //    sd->upgraded_view_count);
         if (sd->upgraded_view_count < MAX_UPGRADED_VIEWS)
         {
             CHECK_ARRAY_COUNT(sd->upgraded_view_count, MAX_UPGRADED_VIEWS, "upgraded_view_count");
@@ -1733,10 +1596,6 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
                 pCreateInfo->image;
         }
     }
-    //STEREO_LOG(
-    //    "[VIEW TRACKED] view=%p count=%u",
-    //    *pView,
-    //    sd->upgraded_view_count);
     return _r;
 }
 
