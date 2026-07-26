@@ -37,6 +37,8 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 
     StereoInstance *si = stereo_instance_from_handle(instance);
 
+    STEREO_LOG("GDPA instance request: %s", name ? name : "<NULL>");
+
     /* ── Instance-level commands ─────────────────────────────────────────── */
     if (!strcmp(name, "vkDestroyInstance"))
         return (PFN_vkVoidFunction)stereo_DestroyInstance;
@@ -259,6 +261,8 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
     if (!pName) return NULL;
+
+    STEREO_LOG("GDPA device request: %s", pName ? pName : "<NULL>");
 
     /* ── VKS3D-wrapped device commands ───────────────────────────────── */
     if (!strcmp(pName, "vkGetDeviceProcAddr"))
