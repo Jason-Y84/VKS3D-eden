@@ -291,7 +291,7 @@ stereo_CreateSwapchainKHR(VkDevice device,
                           const VkAllocationCallbacks    *pAllocator,
                           VkSwapchainKHR                 *pSwapchain)
 {
-
+    STEREO_LOG("CALLED stereo_CreateSwapchainKHR");
     STEREO_LOG(
         "[CREATE SC] surface=%p old=%p",
         pCreateInfo->surface,
@@ -715,6 +715,7 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_DestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain,
                             const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroySwapchainKHR");
     //STEREO_LOG(
     //    "[DESTROY SC ENTRY] swapchain=%p",
     //    swapchain);
@@ -945,6 +946,7 @@ stereo_GetSwapchainImagesKHR(
     uint32_t *pCount,
     VkImage *pImages)
 {
+    STEREO_LOG("CALLED stereo_GetSwapchainImagesKHR");
     STEREO_LOG(
         "GetSwapchainImagesKHR swapchain=%p count_ptr=%p images_ptr=%p",
         swapchain,
@@ -1029,7 +1031,7 @@ stereo_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
                             uint64_t timeout, VkSemaphore semaphore,
                             VkFence fence, uint32_t *pImageIndex)
 {
-
+    STEREO_LOG("CALLED stereo_AcquireNextImageKHR");
     StereoDevice *sd = stereo_device_from_handle(device);
     //STEREO_LOG(
     //    "[NV3D] acquire gfx_queue=%p",
@@ -1155,6 +1157,7 @@ stereo_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
 VKAPI_ATTR VkResult VKAPI_CALL
 stereo_QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
 {
+    STEREO_LOG("CALLED stereo_QueuePresentKHR");
     //STEREO_LOG(
     //    "[NV3D] QueuePresentKHR queue=%p swapchains=%u",
     //    queue,
@@ -1242,6 +1245,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                    const VkAllocationCallbacks *pAllocator, VkImage *pImage)
 {
+    STEREO_LOG("CALLED stereo_CreateImage");
     static uint64_t image_create_seq = 0;
     uint64_t seq = ++image_create_seq;
 
@@ -1505,6 +1509,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo,
                        const VkAllocationCallbacks *pAllocator, VkImageView *pView)
 {
+    STEREO_LOG("CALLED stereo_CreateImageView");
     StereoDevice *sd = stereo_device_from_handle(device);
     STEREO_LOG(
         "IV_ENTER image=%p viewType=%u layers=%u aspect=0x%X",
@@ -1721,6 +1726,7 @@ stereo_DestroyImageView(
     VkImageView imageView,
     const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroyImageView");
     STEREO_LOG(
         "DestroyImageView %p",
         (void *)(uintptr_t)imageView);

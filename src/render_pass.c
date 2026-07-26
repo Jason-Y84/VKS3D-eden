@@ -116,6 +116,7 @@ stereo_CreateRenderPass(
     const VkAllocationCallbacks    *pAllocator,
     VkRenderPass                   *pRenderPass)
 {
+    STEREO_LOG("CALLED stereo_CreateRenderPass");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
 
@@ -237,6 +238,7 @@ stereo_CreateRenderPass2KHR(
     const VkAllocationCallbacks     *pAllocator,
     VkRenderPass                    *pRenderPass)
 {
+    STEREO_LOG("CALLED stereo_CreateRenderPass2KHR");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
     if (!sd->real.CreateRenderPass2KHR) return VK_ERROR_EXTENSION_NOT_PRESENT;

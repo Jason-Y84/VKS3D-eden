@@ -52,6 +52,7 @@ stereo_CreateFramebuffer(
     const VkAllocationCallbacks    *pAllocator,
     VkFramebuffer                  *pFramebuffer)
 {
+    STEREO_LOG("CALLED stereo_CreateFramebuffer");
     STEREO_LOG("[FB ENTRY RAW] tid=%lu pFramebuffer=%p rp=%p attachmentCount=%u",
         GetCurrentThreadId(),
         pFramebuffer,
@@ -406,6 +407,7 @@ stereo_DestroyFramebuffer(
     VkFramebuffer                  framebuffer,
     const VkAllocationCallbacks   *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroyFramebuffer");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return;
     for (uint32_t i = 0; i < sd->fb_track_count; i++) {
@@ -430,6 +432,7 @@ stereo_CmdBeginRenderPass(
     const VkRenderPassBeginInfo *pRenderPassBegin,
     VkSubpassContents            contents)
 {
+    STEREO_LOG("CALLED stereo_CmdBeginRenderPass");
     extern StereoDevice g_devices[];
     extern uint32_t     g_device_count;
     StereoDevice *sd   = NULL;
@@ -701,6 +704,7 @@ stereo_CmdBeginRendering(
     VkCommandBuffer commandBuffer,
     const VkRenderingInfo *pRenderingInfo)
 {
+    STEREO_LOG("CALLED stereo_CmdBeginRendering");
     STEREO_LOG(
         "BEGIN_RENDERING ENTER cb=%p info=%p",
         (void*)commandBuffer,
@@ -751,7 +755,7 @@ VKAPI_ATTR void VKAPI_CALL
 stereo_CmdEndRendering(
     VkCommandBuffer commandBuffer)
 {
-    STEREO_LOG("END_RENDERING ENTER");
+    STEREO_LOG("CALLED stereo_CmdEndRendering");
     extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
     
@@ -784,6 +788,7 @@ stereo_CmdBindPipeline(
     VkPipelineBindPoint pipelineBindPoint,
     VkPipeline pipeline)
 {
+    STEREO_LOG("CALLED stereo_CmdBindPipeline");
     extern StereoDevice g_devices[];
     extern uint32_t g_device_count;
 
@@ -878,6 +883,7 @@ stereo_CmdDrawIndexed(
     int32_t vertexOffset,
     uint32_t firstInstance)
 {
+    STEREO_LOG("CALLED stereo_CmdDrawIndexed");
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
@@ -923,6 +929,7 @@ stereo_CmdDraw(
     uint32_t firstVertex,
     uint32_t firstInstance)
 {
+    STEREO_LOG("CALLED stereo_CmdDraw");
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
@@ -970,6 +977,7 @@ stereo_CmdDrawIndirect(
     uint32_t drawCount,
     uint32_t stride)
 {
+    STEREO_LOG("CALLED stereo_CmdDrawIndirect");
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
@@ -1016,6 +1024,7 @@ stereo_CmdDrawIndexedIndirect(
     uint32_t drawCount,
     uint32_t stride)
 {
+    STEREO_LOG("CALLED stereo_CmdDrawIndexedIndirect");
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
