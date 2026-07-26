@@ -962,7 +962,9 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
     }
     sd->real.GetSwapchainImagesKHR(sd->real_device, sc->real_swapchain,
                                     &sc->comp_sc_count, sc->comp_sc_images);
-
+    STEREO_LOG(
+        "[GPU Compose] real swapchain image_count=%u",
+        sc->comp_sc_count);
     VkSemaphoreCreateInfo sinfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
     sd->real.CreateSemaphore(sd->real_device, &sinfo, NULL, &sc->comp_acquire_sem);
     sd->real.CreateSemaphore(sd->real_device, &sinfo, NULL, &sc->comp_blit_done_sem);

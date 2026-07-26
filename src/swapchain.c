@@ -1374,6 +1374,12 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                         "DEPTH_TRACK count=%u image=%p",
                         sd->intercepted_depth_count,
                         (void *)(uintptr_t)*pImage);
+                    STEREO_LOG(
+                        "COUNTS depth=%u color=%u upgradedImages=%u upgradedViews=%u",
+                        sd->intercepted_depth_count,
+                        sd->intercepted_color_count,
+                        sd->upgraded_image_count,
+                        sd->upgraded_view_count);
                 }
             
             }
@@ -1414,6 +1420,12 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                     "COLOR_TRACK count=%u image=%p",
                     sd->intercepted_color_count,
                     (void *)(uintptr_t)*pImage);
+                STEREO_LOG(
+                    "COUNTS depth=%u color=%u upgradedImages=%u upgradedViews=%u",
+                    sd->intercepted_depth_count,
+                    sd->intercepted_color_count,
+                    sd->upgraded_image_count,
+                    sd->upgraded_view_count);
             }
         }
         }
@@ -1458,11 +1470,18 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     if (!sd->stereo.multiview)
         return sd->real.CreateImageView(sd->real_device, pCreateInfo, pAllocator, pView);
     bool needs_upgrade = false;
+    bool swapchain_match = false;
+    bool depth_match = false;
+    bool color_match = false;
     for (uint32_t si = 0; si < sd->swapchain_count && !needs_upgrade; si++) {
         StereoSwapchain *scc = &sd->swapchains[si];
         if (!scc->stereo_active || !scc->stereo_images) continue;
         for (uint32_t ii = 0; ii < scc->image_count && !needs_upgrade; ii++)
-            if (scc->stereo_images[ii] == pCreateInfo->image) needs_upgrade = true;
+            if (scc->stereo_images[ii] == pCreateInfo->image)
+            {
+                needs_upgrade = true;
+                swapchain_match = true;
+            }
     }
     uint32_t depth_matches = 0;
     uint32_t color_matches = 0;
@@ -1472,6 +1491,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         {
             depth_matches++;
             needs_upgrade = true;
+            swapchain_match = true;
         }
     }
     for (uint32_t i = 0; i < sd->intercepted_color_count && !needs_upgrade; i++)
@@ -1480,6 +1500,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         {
             color_matches++;
             needs_upgrade = true;
+            swapchain_match = true;
         }
     }
     for (uint32_t i = 0; i < sd->upgraded_image_count && !needs_upgrade; i++)
@@ -1488,6 +1509,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         {
             color_matches++;
             needs_upgrade = true;
+            swapchain_match = true;
         }
     }
     if (!needs_upgrade &&
@@ -1520,6 +1542,12 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             (r == VK_SUCCESS) ? (void *)(uintptr_t)*pView : NULL);
         return r;
        }
+    STEREO_LOG(
+        "UPGRADE_REASON image=%p swapchain=%u depth=%u color=%u",
+        (void *)(uintptr_t)pCreateInfo->image,
+        swapchain_match,
+        depth_match,
+        color_match);
     VkImageViewCreateInfo upgraded = *pCreateInfo;
     if (upgraded.viewType == VK_IMAGE_VIEW_TYPE_2D)
         upgraded.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
@@ -1601,6 +1629,12 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
                 "IMAGE_TRACK count=%u image=%p",
                 sd->upgraded_image_count,
                 (void *)(uintptr_t)pCreateInfo->image);
+            STEREO_LOG(
+                "COUNTS depth=%u color=%u upgradedImages=%u upgradedViews=%u",
+                sd->intercepted_depth_count,
+                sd->intercepted_color_count,
+                sd->upgraded_image_count,
+                sd->upgraded_view_count);
         }
     }
     return _r;
