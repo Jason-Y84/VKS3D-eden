@@ -1489,15 +1489,6 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     }
     if (!needs_upgrade)
        {
-        for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
-        {
-            if ((VkImage)(uintptr_t)sd->upgraded_views[i] == pCreateInfo->image)
-            {
-                STEREO_LOG(
-                    "VIEW_IMAGE_ALREADY_UPGRADED image=%p",
-                    (void *)(uintptr_t)pCreateInfo->image);
-            }
-        }
         STEREO_LOG(
             "VIEW_PASSTHROUGH image=%p fmt=%u aspect=0x%X viewType=%u layers=%u depthTracked=%u colorTracked=%u usage_unknown=1",
             (void*)(uintptr_t)pCreateInfo->image,
