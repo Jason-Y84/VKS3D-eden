@@ -669,7 +669,7 @@ bool compose_init(StereoDevice *sd, StereoSwapchain *sc)
 
 void compose_destroy(StereoDevice *sd)
 {
-    //free(sd->comp_composed);
+    free(sd->comp_composed);
     sd->comp_composed = NULL;
     sd->comp_hwnd = NULL;
     sd->comp_ok = false;

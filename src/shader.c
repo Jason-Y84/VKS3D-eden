@@ -5026,7 +5026,7 @@ static void cache_remove(StereoDevice *sd, VkShaderModule h)
     {
         if (sd->shader_cache[i].handle == h)
         {
-            //free(sd->shader_cache[i].spv);
+            free(sd->shader_cache[i].spv);
             uint32_t last = --sd->shader_cache_count;
             if (i != last)
                 sd->shader_cache[i] = sd->shader_cache[last];
