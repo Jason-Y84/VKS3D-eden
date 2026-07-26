@@ -1258,7 +1258,7 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         pCreateInfo->samples);
     if (!sd) return VK_ERROR_DEVICE_LOST;
     STEREO_LOG(
-        "IMAGE_CREATE imageType=%u fmt=%u samples=%u usage=0x%08X layers=%u extent=%ux%u flags=0x%X",
+        "IMAGE_CREATE imageType=%d fmt=%d samples=%d usage=0x%x layers=%u extent=%ux%u flags=0x%x cube=%d array=%d stereo=%d",
         pCreateInfo->imageType,
         pCreateInfo->format,
         pCreateInfo->samples,
@@ -1266,8 +1266,10 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
         pCreateInfo->arrayLayers,
         pCreateInfo->extent.width,
         pCreateInfo->extent.height,
-        pCreateInfo->flags);
-
+        pCreateInfo->flags,
+        !!(pCreateInfo->flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT),
+        pCreateInfo->arrayLayers > 1,
+        intercept_depth || intercept_color);
     /* Upgrade images used as color/depth attachments (G-buffer and scene depth)
      * so multiview pipelines and framebuffers align.  This uses usage flags
      * rather than strictly matching the swapchain extent, preventing the
@@ -1519,6 +1521,24 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
         pCreateInfo->subresourceRange.aspectMask);
     if (!sd) return VK_ERROR_DEVICE_LOST;
 
+    /*
+     * Cube and cube-array images use array layers for faces.
+     * They are not stereo render targets and must never be converted
+     * into 2D array multiview views.
+     */
+    if (pCreateInfo->viewType == VK_IMAGE_VIEW_TYPE_CUBE ||
+        pCreateInfo->viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY)
+    {
+        STEREO_LOG(
+            "VIEW_SKIP cube-compatible viewType=%u layers=%u",
+            pCreateInfo->viewType,
+            pCreateInfo->subresourceRange.layerCount);
+        return sd->real.CreateImageView(
+            sd->real_device,
+            pCreateInfo,
+            pAllocator,
+            pView);
+    }
     if (!sd->stereo.multiview)
         return sd->real.CreateImageView(sd->real_device, pCreateInfo, pAllocator, pView);
 
@@ -1585,7 +1605,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
        {
         for (uint32_t i = 0; i < sd->upgraded_view_count; i++)
         {
-            if (sd->upgraded_images[i] == pCreateInfo->image)
+            if ((VkImage)(uintptr_t)sd->upgraded_views[i] == pCreateInfo->image)
             {
                 STEREO_LOG(
                     "VIEW_IMAGE_ALREADY_UPGRADED image=%p",
