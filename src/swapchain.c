@@ -1067,12 +1067,14 @@ stereo_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
         STEREO_LOG(
             "[NV3D] signaling acquire semaphore %p",
             semaphore);
-
-        sd->real.QueueSubmit(
-            sd->gfx_queue,
-            1,
-            &sig,
-            VK_NULL_HANDLE);
+    VkResult r =
+        VK_CALL_RET(
+            sd->real.QueueSubmit(
+                sd->gfx_queue,
+                1,
+                &sig,
+                VK_NULL_HANDLE)
+        );
     }
 
     if (fence != VK_NULL_HANDLE)
@@ -1081,13 +1083,14 @@ stereo_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
             sd->real_device,
             1,
             &fence);
-
-        sd->real.QueueSubmit(
-            sd->gfx_queue,
-            0,
-            NULL,
-            fence);
-
+        VkResult r =
+            VK_CALL_RET(
+                sd->real.QueueSubmit(
+                    sd->gfx_queue,
+                    0,
+                    NULL,
+                    fence)
+            );
         STEREO_LOG(
             "[NV3D] signaling acquire fence %p",
             fence);
@@ -1145,7 +1148,15 @@ stereo_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
             .signalSemaphoreCount = (semaphore != VK_NULL_HANDLE) ? 1 : 0,
             .pSignalSemaphores    = &semaphore,
         };
-        if (sd->gfx_queue) sd->real.QueueSubmit(sd->gfx_queue, 1, &sig, fence);
+        if (sd->gfx_queue)
+        {
+            VK_CALL_RET(
+                sd->real.QueueSubmit(
+                    sd->gfx_queue,
+                    1,
+                    &sig,
+                    fence));
+        }
     }
     *pImageIndex = 0;
     return VK_SUCCESS;
@@ -1515,7 +1526,12 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     if (!sd) return VK_ERROR_DEVICE_LOST;
 
     if (!sd->stereo.multiview)
-        return sd->real.CreateImageView(sd->real_device, pCreateInfo, pAllocator, pView);
+        return VK_CALL_RET(
+            sd->real.CreateImageView(
+                sd->real_device,
+                pCreateInfo,
+                pAllocator,
+                pView));
 
     //STEREO_LOG(
     //    "[VIEW CREATE RAW] image=%p viewType=%u layers=%u",

@@ -289,7 +289,7 @@ VkImageCreateInfo ici = {
     .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
     .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
 };
-
+STEREO_LOG("CALL CreateImage");
 if (sd->real.CreateImage(
         sd->real_device,
         &ici,
@@ -300,7 +300,7 @@ if (sd->real.CreateImage(
     nv3d_destroy(sd);
     return false;
 }
-
+STEREO_LOG("RET CreateImage=%d", vr);
 VkMemoryRequirements mr;
 sd->real.GetImageMemoryRequirements(
     sd->real_device,

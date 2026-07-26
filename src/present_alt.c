@@ -160,7 +160,12 @@ VkResult alt_alloc_stereo_image(StereoDevice *sd, StereoSwapchain *sc,
         .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-    VkResult res = sd->real.CreateImage(sd->real_device, &ici, NULL, out_image);
+    VkResult res = VK_CALL_RET(
+        sd->real.CreateImage(
+            sd->real_device,
+            &ici,
+            NULL,
+            out_image));
     if (res != VK_SUCCESS) return res;
 
     VkMemoryRequirements mr;
@@ -377,7 +382,12 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
             "CPU_READBACK_CMD[0]=%p",
             (void *)si.pCommandBuffers[0]);
     }
-    VkResult res = sd->real.QueueSubmit(queue, 1, &si, sc->cpu_fence);
+    VkResult res = VK_CALL_RET(
+        sd->real.QueueSubmit(
+            queue,
+            1,
+            &si,
+            sc->cpu_fence));
     STEREO_LOG(
         "CPU_READBACK_SUBMIT_RESULT res=%d",
         res);
@@ -1118,7 +1128,12 @@ VkResult gpu_compose_present(StereoDevice *sd, StereoSwapchain *sc,
         .signalSemaphoreCount = 1,
         .pSignalSemaphores    = &sc->comp_blit_done_sem,
     };
-    res = sd->real.QueueSubmit(queue, 1, &sub, sc->barrier_fences[0]);
+    res = VK_CALL_RET(
+        sd->real.QueueSubmit(
+            queue,
+            1,
+            &sub,
+            sc->barrier_fences[0]));
     free(wsems); free(wmsk);
     if (res != VK_SUCCESS) { STEREO_ERR("[GPU Compose] QueueSubmit: %d", res); return res; }
 
@@ -1131,7 +1146,10 @@ VkResult gpu_compose_present(StereoDevice *sd, StereoSwapchain *sc,
         .pSwapchains        = &sc->real_swapchain,
         .pImageIndices      = &img_idx,
     };
-    return sd->real.QueuePresentKHR(queue, &pi);
+    return VK_CALL_RET(
+        sd->real.QueuePresentKHR(
+            queue,
+            &pi));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

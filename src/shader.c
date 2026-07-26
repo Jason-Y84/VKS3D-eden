@@ -5044,7 +5044,9 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
 {
     StereoDevice *sd=stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
-    VkResult res=sd->real.CreateShaderModule(sd->real_device,pCI,pAlloc,pSM);
+    VkResult res =
+        VK_CALL_RET(
+            VkResult mr=sd->real.CreateShaderModule(sd->real_device,pCI,pAlloc,pSM));
     if (res!=VK_SUCCESS) return res;
     if (!sd->stereo.enabled) return VK_SUCCESS;
     const uint32_t *spv = (const uint32_t *)pCI->pCode;
@@ -5117,7 +5119,19 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         sd->stereo.multiview,
         sd->stereo.enabled);
     if (!sd->stereo.enabled)
-        return sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,pCI,pAlloc,pP);
+        return VK_CALL_RET(
+            sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,pCI,pAlloc,pP));
+    STEREO_LOG(
+        "[PIPE DRIVER RETURN] res=%d",
+        res);
+    for (uint32_t p = 0; p < N; p++)
+    {
+        STEREO_LOG(
+            "[PIPE CLEANUP] %u tmp=%p patched=%d",
+            p,
+            (void*)tmp_mod[p],
+            tst[p] != NULL);
+    }
     VkShaderModule                   *tmp_mod = calloc(N, sizeof(VkShaderModule));
     VkPipelineShaderStageCreateInfo **tst     = calloc(N, sizeof(void*));
     VkGraphicsPipelineCreateInfo     *infos   = malloc(N * sizeof(*infos));
@@ -5569,13 +5583,17 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             VkShaderModuleCreateInfo smci={VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                 NULL,0,pc2*4,patched};
             VkShaderModule tmp=VK_NULL_HANDLE;
-            VkResult mr=sd->real.CreateShaderModule(sd->real_device,&smci,NULL,&tmp);
+            VkResult mr =
+                VK_CALL_RET(
+                    sd->real.CreateShaderModule(sd->real_device,&smci,NULL,&tmp));
             spirv_patched_free(patched);
             if (mr!=VK_SUCCESS) {
                 STEREO_ERR("Pipe %u: quad FS module err %d",p,mr); continue; }
             uint32_t sc2=ci->stageCount;
             VkPipelineShaderStageCreateInfo *st=malloc(sc2*sizeof(*st));
+            STEREO_LOG("CALL DestroyShaderModule");
             if (!st) { sd->real.DestroyShaderModule(sd->real_device,tmp,NULL); continue; }
+            STEREO_LOG("RET DestroyShaderModule");
             memcpy(st,ci->pStages,sc2*sizeof(*st));
             st[fs_s].module = tmp;
             infos[p].pStages = st;
@@ -5691,13 +5709,17 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             VkShaderModuleCreateInfo smci={VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                 NULL,0,pc2*4,patched};
             VkShaderModule tmp=VK_NULL_HANDLE;
-            VkResult mr=sd->real.CreateShaderModule(sd->real_device,&smci,NULL,&tmp);
+            VkResult mr =
+                VK_CALL_RET(
+                    sd->real.CreateShaderModule(sd->real_device,&smci,NULL,&tmp));
             spirv_patched_free(patched);
             if (mr!=VK_SUCCESS) {
                 STEREO_ERR("Pipe %u PathA: module err %d",p,mr); continue; }
             uint32_t sc=ci->stageCount;
             VkPipelineShaderStageCreateInfo *st=malloc(sc*sizeof(*st));
+            STEREO_LOG("CALL DestroyShaderModule");
             if (!st) { sd->real.DestroyShaderModule(sd->real_device,tmp,NULL); continue; }
+            STEREO_LOG("RET DestroyShaderModule");
             memcpy(st,ci->pStages,sc*sizeof(*st));
             st[tes_stage].module = tmp;
             infos[p].pStages = st;
@@ -5831,13 +5853,16 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             VkShaderModuleCreateInfo smci={VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
                 NULL,0,pc2*4,patched};
             VkShaderModule tmp=VK_NULL_HANDLE;
-            VkResult mr=sd->real.CreateShaderModule(sd->real_device,&smci,NULL,&tmp);
+            VK_CALL_RET(
+                VkResult mr=sd->real.CreateShaderModule(sd->real_device,&smci,NULL,&tmp));
             spirv_patched_free(patched);
             if (mr!=VK_SUCCESS) {
                 STEREO_ERR("Pipe %u PathB: VS module err %d",p,mr); continue; }
             uint32_t sc=ci->stageCount;
             VkPipelineShaderStageCreateInfo *st=malloc(sc*sizeof(*st));
+            STEREO_LOG("CALL DestroyShaderModule");
             if (!st) { sd->real.DestroyShaderModule(sd->real_device,tmp,NULL); continue; }
+            STEREO_LOG("RET DestroyShaderModule");
             memcpy(st,ci->pStages,sc*sizeof(*st));
             st[vs_stage].module = tmp;
             infos[p].pStages = st;
@@ -5903,7 +5928,20 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     infos[p].pStages[s].module == tmp_mod[p]));
         }
     }
-    VkResult res=sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,infos,pAlloc,pP);
+    VkResult res =
+        VK_CALL_RET(
+            sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,infos,pAlloc,pP));
+    STEREO_LOG(
+        "[PIPE DRIVER RETURN] res=%d",
+        res);
+    for (uint32_t p = 0; p < N; p++)
+    {
+        STEREO_LOG(
+            "[PIPE CLEANUP] %u tmp=%p patched=%d",
+            p,
+            (void*)tmp_mod[p],
+            tst[p] != NULL);
+    }
     for (uint32_t p = 0; p < N; p++) {
         STEREO_LOG(
             "PIPE_CREATED pipe=%p result=%d rp=%p orig_rp=%p stages=%u",
@@ -5990,7 +6028,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             if (sd->tmp_module_count<MAX_TMP_MODULES)
                 sd->tmp_modules[sd->tmp_module_count++]=tmp_mod[p];
             else
+                STEREO_LOG("CALL DestroyShaderModule");
                 sd->real.DestroyShaderModule(sd->real_device,tmp_mod[p],NULL);
+                STEREO_LOG("RET DestroyShaderModule");
         }
         free(tst[p]);
     }
@@ -6006,5 +6046,7 @@ stereo_DestroyShaderModule(VkDevice device, VkShaderModule sm,
     StereoDevice *sd=stereo_device_from_handle(device);
     if (!sd) return;
     cache_remove(sd,sm);
+    STEREO_LOG("CALL DestroyShaderModule");
     sd->real.DestroyShaderModule(sd->real_device,sm,pAlloc);
+    STEREO_LOG("RET DestroyShaderModule");
 }

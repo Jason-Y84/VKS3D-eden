@@ -128,7 +128,12 @@ VkResult stereo_dxgi_present(
         .commandBufferCount   = 1,
         .pCommandBuffers      = &sc->barrier_cmds[0],
     };
-    res = sd->real.QueueSubmit(queue, 1, &submit, sc->barrier_fences[0]);
+    res = VK_CALL_RET(
+        sd->real.QueueSubmit(
+            queue,
+            1,
+            &submit,
+            sc->barrier_fences[0]));
     free(stage_masks);
     if (res != VK_SUCCESS) {
         STEREO_ERR("Barrier submit failed: %d", res);
