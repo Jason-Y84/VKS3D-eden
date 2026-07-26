@@ -5903,7 +5903,32 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     infos[p].pStages[s].module == tmp_mod[p]));
         }
     }
+    STEREO_LOG(
+        "[PIPE BEFORE DRIVER] N=%u",
+        N);
+    for (uint32_t p = 0; p < N; ++p)
+    {
+        STEREO_LOG(
+            "[PIPE %u] patched=%d tmp=%p stages=%u",
+            p,
+            tst[p] != NULL,
+            (void*)tmp_mod[p],
+            infos[p].stageCount);
+        for (uint32_t s = 0; s < infos[p].stageCount; ++s)
+        {
+            const VkPipelineShaderStageCreateInfo *st =
+                &infos[p].pStages[s];
+            STEREO_LOG(
+                "    stage=%u module=%p stageFlags=0x%x",
+                s,
+                (void*)st->module,
+                st->stage);
+        }
+    }
     VkResult res=sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,infos,pAlloc,pP);
+    STEREO_LOG(
+        "[PIPE AFTER DRIVER] res=%d",
+        res);
     for (uint32_t p = 0; p < N; p++) {
         STEREO_LOG(
             "PIPE_CREATED pipe=%p result=%d rp=%p orig_rp=%p stages=%u",
