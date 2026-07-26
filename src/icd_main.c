@@ -37,7 +37,7 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 
     StereoInstance *si = stereo_instance_from_handle(instance);
 
-    STEREO_LOG("GDPA instance request: %s", name ? name : "<NULL>");
+    STEREO_LOG("GIPA request: %s", name ? name : "<NULL>");
 
     /* ── Instance-level commands ─────────────────────────────────────────── */
     if (!strcmp(name, "vkDestroyInstance"))
@@ -237,13 +237,16 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
         }
         PFN_vkVoidFunction fn =
             si->real_get_instance_proc_addr(si->real_instance, name);
-        if (fn) return fn;
-        PFN_vkGetInstanceProcAddr pdPA = stereo_get_real_pdPA();
-        if (pdPA)
-            return pdPA(si->real_instance, name);
         if (fn) {
-            STEREO_LOG("GIPA fallback: %s -> %p", name, fn);
+            STEREO_LOG("GIPA fallback(real): %s -> %p", name, fn);
             return fn;
+        }
+        PFN_vkGetInstanceProcAddr pdPA = stereo_get_real_pdPA();
+        if (pdPA) {
+            PFN_vkVoidFunction fp =
+                pdPA(si->real_instance, name);
+            STEREO_LOG("GIPA fallback(loader): %s -> %p", name, fp);
+            return fp;
         }
     }
     return NULL;
@@ -266,7 +269,7 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
     if (!pName) return NULL;
 
-    STEREO_LOG("GDPA device request: %s", pName ? pName : "<NULL>");
+    STEREO_LOG("GDPA request: %s", pName ? pName : "<NULL>");
 
     /* ── VKS3D-wrapped device commands ───────────────────────────────── */
     if (!strcmp(pName, "vkGetDeviceProcAddr"))
@@ -342,10 +345,9 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
             PFN_vkGetDeviceProcAddr real_gdpa =
                 (PFN_vkGetDeviceProcAddr)
                 g_devices[i].real.GetDeviceProcAddr;
-            if (real_gdpa)
-                return real_gdpa(g_devices[i].real_device, pName);
             if (real_gdpa) {
-                PFN_vkVoidFunction fp = real_gdpa(g_devices[i].real_device, pName);
+                PFN_vkVoidFunction fp =
+                    real_gdpa(g_devices[i].real_device, pName);
                 STEREO_LOG("GDPA fallback: %s -> %p", pName, fp);
                 return fp;
             }
