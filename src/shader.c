@@ -6040,7 +6040,5 @@ stereo_DestroyShaderModule(VkDevice device, VkShaderModule sm,
     StereoDevice *sd=stereo_device_from_handle(device);
     if (!sd) return;
     cache_remove(sd,sm);
-    STEREO_LOG("CALL real DestroyShaderModule");
-    VkResult res=sd->real.DestroyShaderModule(sd->real_device,sm,pAlloc);
-    STEREO_LOG("RETURN real DestroyShaderModule result=%d", res);
+    sd->real.DestroyShaderModule(sd->real_device,sm,pAlloc);
 }
