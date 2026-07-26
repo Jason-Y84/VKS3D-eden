@@ -270,117 +270,107 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
-    if (!pName) return NULL;
-
+    if (!pName)
+        return NULL;
     STEREO_LOG(
         "GDPA request: %s device=%p",
-        pName ? pName : "<NULL>",
+        pName,
         (void *)(uintptr_t)device);
-
-    STEREO_LOG("GDPA enabled=%d", g_device_count ? g_devices[0].stereo.enabled : -1);
-
-    /* ── VKS3D-wrapped device commands ───────────────────────────────── */
-    if (!strcmp(pName, "vkGetDeviceProcAddr"))
-        return (PFN_vkVoidFunction)stereo_GetDeviceProcAddr;
-    if (!strcmp(pName, "vkDestroyDevice"))
-        return (PFN_vkVoidFunction)stereo_DestroyDevice;
-    if (!strcmp(pName, "vkCreateImage"))
-        return (PFN_vkVoidFunction)stereo_CreateImage;
-    if (!strcmp(pName, "vkCreateImageView"))
-        return (PFN_vkVoidFunction)stereo_CreateImageView;
-    if (!strcmp(pName, "vkCreateFramebuffer"))
-        return (PFN_vkVoidFunction)stereo_CreateFramebuffer;
-    if (!strcmp(pName, "vkDestroyFramebuffer"))
-        return (PFN_vkVoidFunction)stereo_DestroyFramebuffer;
-    if (!strcmp(pName, "vkCmdBeginRenderPass"))
-        return (PFN_vkVoidFunction)stereo_CmdBeginRenderPass;
-    if (strstr(pName, "Rendering"))
-        STEREO_LOG("GetDeviceProcAddr(%s)", pName);
-    if (!strcmp(pName, "vkCmdBeginRendering"))
-        return (PFN_vkVoidFunction)stereo_CmdBeginRendering;
-    if (!strcmp(pName, "vkCmdBeginRenderingKHR"))
-        return (PFN_vkVoidFunction)stereo_CmdBeginRendering;
-    if (!strcmp(pName, "vkCmdEndRendering"))
-        return (PFN_vkVoidFunction)stereo_CmdEndRendering;
-    if (!strcmp(pName, "vkCmdEndRenderingKHR"))
-        return (PFN_vkVoidFunction)stereo_CmdEndRendering;
-    if (!strcmp(pName, "vkCmdBindPipeline"))
-        return (PFN_vkVoidFunction)stereo_CmdBindPipeline;
-    if (!strcmp(pName, "vkCmdDraw"))
-        return (PFN_vkVoidFunction)stereo_CmdDraw;
-    if (!strcmp(pName, "vkCmdDrawIndexed"))
-        return (PFN_vkVoidFunction)stereo_CmdDrawIndexed;
-    if (!strcmp(pName, "vkCmdDrawIndirect"))
-        return (PFN_vkVoidFunction)stereo_CmdDrawIndirect;
-    if (!strcmp(pName, "vkCmdDrawIndexedIndirect"))
-        return (PFN_vkVoidFunction)stereo_CmdDrawIndexedIndirect;
-    if (!strcmp(pName, "vkUpdateDescriptorSets"))
-        return (PFN_vkVoidFunction)stereo_UpdateDescriptorSets;
-    if (!strcmp(pName, "vkCmdBindDescriptorSets"))
-        return (PFN_vkVoidFunction)stereo_CmdBindDescriptorSets;
-    if (!strcmp(pName, "vkCreateRenderPass")) {
-        STEREO_LOG("GDPA WRAP vkCreateRenderPass -> %p",
-                   (void *)stereo_CreateRenderPass);
-        return (PFN_vkVoidFunction)stereo_CreateRenderPass;
+#define GDPA_WRAP(name, fn) \
+    if (!strcmp(pName, name)) { \
+        STEREO_LOG("GDPA WRAPPED %s -> %p", name, (void *)fn); \
+        return (PFN_vkVoidFunction)fn; \
     }
+    /* ── VKS3D wrapped device commands ───────────────────────────── */
+    GDPA_WRAP("vkGetDeviceProcAddr",
+              stereo_GetDeviceProcAddr);
+    GDPA_WRAP("vkDestroyDevice",
+              stereo_DestroyDevice);
+    GDPA_WRAP("vkCreateImage",
+              stereo_CreateImage);
+    GDPA_WRAP("vkCreateImageView",
+              stereo_CreateImageView);
+    GDPA_WRAP("vkCreateFramebuffer",
+              stereo_CreateFramebuffer);
+    GDPA_WRAP("vkDestroyFramebuffer",
+              stereo_DestroyFramebuffer);
+    GDPA_WRAP("vkCmdBeginRenderPass",
+              stereo_CmdBeginRenderPass);
+    GDPA_WRAP("vkCmdBeginRendering",
+              stereo_CmdBeginRendering);
+    GDPA_WRAP("vkCmdBeginRenderingKHR",
+              stereo_CmdBeginRendering);
+    GDPA_WRAP("vkCmdEndRendering",
+              stereo_CmdEndRendering);
+    GDPA_WRAP("vkCmdEndRenderingKHR",
+              stereo_CmdEndRendering);
+    GDPA_WRAP("vkCmdBindPipeline",
+              stereo_CmdBindPipeline);
+    GDPA_WRAP("vkCmdDraw",
+              stereo_CmdDraw);
+    GDPA_WRAP("vkCmdDrawIndexed",
+              stereo_CmdDrawIndexed);
+    GDPA_WRAP("vkCmdDrawIndirect",
+              stereo_CmdDrawIndirect);
+    GDPA_WRAP("vkCmdDrawIndexedIndirect",
+              stereo_CmdDrawIndexedIndirect);
+    GDPA_WRAP("vkUpdateDescriptorSets",
+              stereo_UpdateDescriptorSets);
+    GDPA_WRAP("vkCmdBindDescriptorSets",
+              stereo_CmdBindDescriptorSets);
+    GDPA_WRAP("vkCreateRenderPass",
+              stereo_CreateRenderPass);
 #ifdef VK_KHR_create_renderpass2
-    if (!strcmp(pName, "vkCreateRenderPass2KHR"))
-        return (PFN_vkVoidFunction)stereo_CreateRenderPass2KHR;
-    if (!strcmp(pName, "vkCreateRenderPass2"))
-        return (PFN_vkVoidFunction)stereo_CreateRenderPass2KHR;
+    GDPA_WRAP("vkCreateRenderPass2KHR",
+              stereo_CreateRenderPass2KHR);
+    GDPA_WRAP("vkCreateRenderPass2",
+              stereo_CreateRenderPass2KHR);
 #endif
-    if (!strcmp(pName, "vkCreateShaderModule"))
-        return (PFN_vkVoidFunction)stereo_CreateShaderModule;
-    if (!strcmp(pName, "vkCreateGraphicsPipelines"))
-        return (PFN_vkVoidFunction)stereo_CreateGraphicsPipelines;
-    if (!strcmp(pName, "vkDestroyShaderModule"))
-        return (PFN_vkVoidFunction)stereo_DestroyShaderModule;
-    if (!strcmp(pName, "vkCreateSwapchainKHR"))
-        return (PFN_vkVoidFunction)stereo_CreateSwapchainKHR;
-    if (!strcmp(pName, "vkDestroySwapchainKHR"))
-        return (PFN_vkVoidFunction)stereo_DestroySwapchainKHR;
-    if (!strcmp(pName, "vkGetSwapchainImagesKHR"))
-        return (PFN_vkVoidFunction)stereo_GetSwapchainImagesKHR;
-    if (!strcmp(pName, "vkAcquireNextImageKHR"))
-        return (PFN_vkVoidFunction)stereo_AcquireNextImageKHR;
-    if (!strcmp(pName, "vkQueuePresentKHR"))
-        return (PFN_vkVoidFunction)stereo_QueuePresentKHR;
-
-    /* ── Forward everything else to the real device ──────────────────── */
-    /* Look up the real device from our registry to get its proc addr fn */
+    GDPA_WRAP("vkCreateShaderModule",
+              stereo_CreateShaderModule);
+    GDPA_WRAP("vkDestroyShaderModule",
+              stereo_DestroyShaderModule);
+    GDPA_WRAP("vkCreateGraphicsPipelines",
+              stereo_CreateGraphicsPipelines);
+    GDPA_WRAP("vkCreateSwapchainKHR",
+              stereo_CreateSwapchainKHR);
+    GDPA_WRAP("vkDestroySwapchainKHR",
+              stereo_DestroySwapchainKHR);
+    GDPA_WRAP("vkGetSwapchainImagesKHR",
+              stereo_GetSwapchainImagesKHR);
+    GDPA_WRAP("vkAcquireNextImageKHR",
+              stereo_AcquireNextImageKHR);
+    GDPA_WRAP("vkQueuePresentKHR",
+              stereo_QueuePresentKHR);
+#undef GDPA_WRAP
+    /*
+     * Forward everything else.
+     */
     extern StereoDevice g_devices[];
-    extern uint32_t     g_device_count;
-    STEREO_LOG("GDPA searching device registry count=%u", g_device_count);
+    extern uint32_t g_device_count;
     for (uint32_t i = 0; i < g_device_count; i++) {
         if (g_devices[i].real_device == device ||
             (VkDevice)(uintptr_t)&g_devices[i] == device) {
-            STEREO_LOG(
-                "GDPA matched device[%u] wrapper=%p real=%p",
-                i,
-                (void *)&g_devices[i],
-                (void *)g_devices[i].real_device);
             PFN_vkGetDeviceProcAddr real_gdpa =
-                (PFN_vkGetDeviceProcAddr)
                 g_devices[i].real.GetDeviceProcAddr;
             if (real_gdpa) {
                 PFN_vkVoidFunction fp =
                     real_gdpa(g_devices[i].real_device, pName);
-                if (fp)
-                    STEREO_LOG("GDPA REAL %s -> %p", pName, fp);
-                else
-                    STEREO_LOG("GDPA REAL %s -> NULL", pName);
+                STEREO_LOG(
+                    "GDPA FALLBACK %s -> %p",
+                    pName,
+                    (void *)fp);
                 return fp;
             }
             break;
         }
     }
-    /* Fallback: use instance-level lookup */
-    PFN_vkVoidFunction fp =
-        get_instance_proc_addr_internal(VK_NULL_HANDLE, pName);
-    
-    STEREO_LOG("GDPA INSTANCE %s -> %p", pName, fp);
-    
-    return fp;
+    STEREO_LOG(
+        "GDPA FALLBACK NO DEVICE %s",
+        pName);
+    return get_instance_proc_addr_internal(
+        VK_NULL_HANDLE,
+        pName);
 }
 
 /* ── Loader interface v6+: DXGI adapter physdev enumeration ─────────────────
