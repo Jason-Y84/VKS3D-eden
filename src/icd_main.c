@@ -242,6 +242,10 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
         if (pdPA)
             return pdPA(si->real_instance, name);
     }
+    if (fn) {
+        STEREO_LOG("GIPA fallback: %s -> %p", name, fn);
+        return fn;
+    }
     return NULL;
 }
 
@@ -342,6 +346,11 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
                 return real_gdpa(g_devices[i].real_device, pName);
             break;
         }
+    }
+    if (real_gdpa) {
+        PFN_vkVoidFunction fp = real_gdpa(g_devices[i].real_device, pName);
+        STEREO_LOG("GDPA fallback: %s -> %p", pName, fp);
+        return fp;
     }
     /* Fallback: use instance-level lookup */
     return get_instance_proc_addr_internal(VK_NULL_HANDLE, pName);
