@@ -5045,7 +5045,9 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
     STEREO_LOG("CALLED stereo_CreateShaderModule");
     StereoDevice *sd=stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
+    STEREO_LOG("CALL real CreateShaderModule");
     VkResult res=sd->real.CreateShaderModule(sd->real_device,pCI,pAlloc,pSM);
+    STEREO_LOG("RETURN real CreateShaderModule result=%d", r);
     if (res!=VK_SUCCESS) return res;
     if (!sd->stereo.enabled) return VK_SUCCESS;
     const uint32_t *spv = (const uint32_t *)pCI->pCode;
@@ -5057,6 +5059,10 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
         (unsigned long long)h,
         wc,
         is_patchable_spv(spv, wc));
+    STEREO_LOG(
+        "SHADER_MODULE words=%u hash=%016llx",
+        codeSize / 4,
+        (unsigned long long)h);
     const char *dump = stereo_getenv("VKS3D_DUMP_SPIRV");
     if (dump)
     {
