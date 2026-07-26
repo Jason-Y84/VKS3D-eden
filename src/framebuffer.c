@@ -1115,6 +1115,7 @@ stereo_UpdateDescriptorSets(
     uint32_t descriptorCopyCount,
     const VkCopyDescriptorSet *pDescriptorCopies)
 {
+    STEREO_LOG("CALLED stereo_UpdateDescriptorSets");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd)
         return;
@@ -1176,6 +1177,7 @@ stereo_CmdBindDescriptorSets(
     uint32_t dynamicOffsetCount,
     const uint32_t *pDynamicOffsets)
 {
+    STEREO_LOG("CALLED stereo_CmdBindDescriptorSets");
     StereoDevice *sd = find_any_device();
     if (!sd)
         return;
