@@ -1473,10 +1473,10 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     bool swapchain_match = false;
     bool depth_match = false;
     bool color_match = false;
-    for (uint32_t si = 0; si < sd->swapchain_count && !needs_upgrade; si++) {
+    for (uint32_t si = 0; si < sd->swapchain_count; si++) {
         StereoSwapchain *scc = &sd->swapchains[si];
         if (!scc->stereo_active || !scc->stereo_images) continue;
-        for (uint32_t ii = 0; ii < scc->image_count && !needs_upgrade; ii++)
+        for (uint32_t ii = 0; ii < scc->image_count; ii++)
             if (scc->stereo_images[ii] == pCreateInfo->image)
             {
                 needs_upgrade = true;
@@ -1485,7 +1485,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
     }
     uint32_t depth_matches = 0;
     uint32_t color_matches = 0;
-    for (uint32_t i = 0; i < sd->intercepted_depth_count && !needs_upgrade; i++)
+    for (uint32_t i = 0; i < sd->intercepted_depth_count; i++)
     {
         if (sd->intercepted_depth[i] == pCreateInfo->image)
         {
@@ -1494,7 +1494,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             swapchain_match = true;
         }
     }
-    for (uint32_t i = 0; i < sd->intercepted_color_count && !needs_upgrade; i++)
+    for (uint32_t i = 0; i < sd->intercepted_color_count; i++)
     {
         if (sd->intercepted_color[i] == pCreateInfo->image)
         {
@@ -1503,7 +1503,7 @@ stereo_CreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo
             swapchain_match = true;
         }
     }
-    for (uint32_t i = 0; i < sd->upgraded_image_count && !needs_upgrade; i++)
+    for (uint32_t i = 0; i < sd->upgraded_image_count; i++)
     {
         if (sd->upgraded_images[i] == pCreateInfo->image)
         {
