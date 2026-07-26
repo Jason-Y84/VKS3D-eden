@@ -153,14 +153,6 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
         }                                                       \
     } while (0)
 
-#define VK_CALL_RET(expr)                                                  \
-({                                                                         \
-    STEREO_LOG("CALL %s", #expr);                                          \
-    VkResult _vk_ret = (expr);                                             \
-    STEREO_LOG("RET  %s = %d", #expr, (int)_vk_ret);                       \
-    _vk_ret;                                                               \
-})
-
 #include <stdint.h>
 #include <stdbool.h>
 

@@ -35,7 +35,7 @@ static VkResult create_patched_rp(StereoDevice *sd,
         if (pCI->pAttachments[i].finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
             { needs_patch = true; break; }
     if (!needs_patch)
-        return VK_CALL_RET(sd->real.CreateRenderPass(sd->real_device, pCI, pA, pRP));
+        return sd->real.CreateRenderPass(sd->real_device, pCI, pA, pRP);
     VkAttachmentDescription *pa = malloc(pCI->attachmentCount * sizeof(*pa));
     if (!pa) return VK_ERROR_OUT_OF_HOST_MEMORY;
     for (uint32_t i = 0; i < pCI->attachmentCount; i++) {
@@ -44,7 +44,7 @@ static VkResult create_patched_rp(StereoDevice *sd,
             pa[i].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     }
     VkRenderPassCreateInfo mod = *pCI;  mod.pAttachments = pa;
-    VkResult res = VK_CALL_RET(sd->real.CreateRenderPass(sd->real_device, &mod, pA, pRP));
+    VkResult res = sd->real.CreateRenderPass(sd->real_device, &mod, pA, pRP);
     free(pa);  return res;
 }
 
@@ -103,7 +103,7 @@ static VkResult create_mv_rp(StereoDevice *sd,
     if (pa) mod.pAttachments = pa;
     mv.pNext = NULL;
     mod.pNext = &mv;
-    VkResult res = VK_CALL_RET(sd->real.CreateRenderPass(sd->real_device, &mod, pA, pRP));
+    VkResult res = sd->real.CreateRenderPass(sd->real_device, &mod, pA, pRP);
     free(pa); free(vm); free(cm); free(vo);
     return res;
 }

@@ -179,12 +179,7 @@ stereo_CreateFramebuffer(
         "FB_CREATE_REAL fbCI_rp=%p orig_rp=%p",
         (void*)fci.renderPass,
         (void*)pCreateInfo->renderPass);
-    VkResult res = VK_CALL_RET(
-        sd->real.CreateFramebuffer(
-            sd->real_device,
-            &fci,
-            pAllocator,
-            pFramebuffer));
+    VkResult res = sd->real.CreateFramebuffer(sd->real_device, &fci, pAllocator, pFramebuffer);
     if (res == VK_SUCCESS)
     {
         STEREO_LOG(
@@ -1092,9 +1087,7 @@ static void stereo_overwrite_projection_binding(
         .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         .pBufferInfo     = &bi,
     };
-    STEREO_LOG("CALL UpdateDescriptorSets");
     sd->real.UpdateDescriptorSets(sd->real_device, 1, &w, 0, NULL);
-    STEREO_LOG("RET UpdateDescriptorSets");
     STEREO_LOG(
         "DESC_REWRITE_DONE "
         "set=%p "
@@ -1155,14 +1148,12 @@ stereo_UpdateDescriptorSets(
                 upgraded ? 1 : 0);
         }
     }
-    STEREO_LOG("CALL UpdateDescriptorSets");
     sd->real.UpdateDescriptorSets(
         sd->real_device,
         descriptorWriteCount,
         pDescriptorWrites,
         descriptorCopyCount,
         pDescriptorCopies);
-    STEREO_LOG("RET UpdateDescriptorSets");
 }
 
 VKAPI_ATTR void VKAPI_CALL

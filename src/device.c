@@ -290,15 +290,7 @@ stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
                sd->tmp_module_count);
     for (uint32_t i = 0; i < sd->tmp_module_count; i++) {
         if (sd->tmp_modules[i])
-        {
-            STEREO_LOG("CALL DestroyShaderModule tmp=%p",
-                       (void*)sd->tmp_modules[i]);
-            sd->real.DestroyShaderModule(
-                sd->real_device,
-                sd->tmp_modules[i],
-                NULL);
-            STEREO_LOG("RET DestroyShaderModule");
-        }
+            sd->real.DestroyShaderModule(sd->real_device, sd->tmp_modules[i], NULL);
     }
     sd->tmp_module_count = 0;
     for (uint32_t i = 0; i < sd->shader_cache_count; i++)
