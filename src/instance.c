@@ -33,6 +33,7 @@ StereoPhysdev *stereo_physdev_get_or_create(VkPhysicalDevice real_pd, StereoInst
 VKAPI_ATTR VkResult VKAPI_CALL
 stereo_EnumerateInstanceVersion(uint32_t *pApiVersion)
 {
+    STEREO_LOG("CALLED stereo_EnumerateInstanceVersion");
     STEREO_LOG("stereo_EnumerateInstanceVersion: called");
     if (!stereo_load_real_icd()) {
         STEREO_LOG("stereo_EnumerateInstanceVersion: no real ICD, returning 1.1");
@@ -83,6 +84,7 @@ stereo_EnumerateInstanceExtensionProperties(
     uint32_t            *pPropertyCount,
     VkExtensionProperties *pProperties)
 {
+    STEREO_LOG("CALLED stereo_EnumerateInstanceExtensionProperties");
     STEREO_LOG("stereo_EnumerateInstanceExtensionProperties: called layer=%s",
                pLayerName ? pLayerName : "(null)");
     if (!stereo_load_real_icd()) {
@@ -182,6 +184,7 @@ stereo_CreateInstance(
     const VkAllocationCallbacks   *pAllocator,
     VkInstance                    *pInstance)
 {
+    STEREO_LOG("CALLED stereo_CreateInstance");
     STEREO_LOG("stereo_CreateInstance: called pCreateInfo=%p", (void*)pCreateInfo);
     if (!stereo_load_real_icd()) {
         STEREO_ERR("stereo_CreateInstance: no real ICD");
@@ -302,6 +305,7 @@ stereo_CreateInstance(
 VKAPI_ATTR void VKAPI_CALL
 stereo_DestroyInstance(VkInstance instance, const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroyInstance");
     StereoInstance *si = stereo_instance_from_handle(instance);
     if (!si) return;
 
@@ -316,6 +320,7 @@ stereo_EnumeratePhysicalDevices(
     uint32_t          *pPhysicalDeviceCount,
     VkPhysicalDevice  *pPhysicalDevices)
 {
+    STEREO_LOG("CALLED stereo_EnumeratePhysicalDevices");
     STEREO_LOG("stereo_EnumeratePhysicalDevices: called instance=%p", (void*)instance);
     StereoInstance *si = stereo_instance_from_handle(instance);
     if (!si) {
@@ -380,6 +385,7 @@ stereo_DestroySurfaceKHR(
     VkInstance instance, VkSurfaceKHR surface,
     const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroySurfaceKHR");
     STEREO_LOG("stereo_DestroySurfaceKHR: instance=%p surface=%p", (void*)instance, (void*)(uintptr_t)surface);
     LOOKUP_SI(instance);
     if (si->real.DestroySurfaceKHR)
@@ -395,6 +401,7 @@ stereo_CreateWin32SurfaceKHR(
     const VkAllocationCallbacks       *pAllocator,
     VkSurfaceKHR                      *pSurface)
 {
+    STEREO_LOG("CALLED stereo_CreateWin32SurfaceKHR");
     STEREO_LOG("stereo_CreateWin32SurfaceKHR: instance=%p hwnd=%p", (void*)instance, pCreateInfo ? (void*)pCreateInfo->hwnd : NULL);
     LOOKUP_SI_R(instance, VK_ERROR_INITIALIZATION_FAILED);
     if (!si->real.CreateWin32SurfaceKHR)
@@ -425,6 +432,7 @@ stereo_CreateDebugReportCallbackEXT(
     const VkAllocationCallbacks              *pAllocator,
     VkDebugReportCallbackEXT                 *pCallback)
 {
+    STEREO_LOG("CALLED stereo_CreateDebugReportCallbackEXT");
     LOOKUP_SI_R(instance, VK_ERROR_INITIALIZATION_FAILED);
     if (!si->real.CreateDebugReportCallbackEXT)
         return VK_ERROR_EXTENSION_NOT_PRESENT;
@@ -438,6 +446,7 @@ stereo_DestroyDebugReportCallbackEXT(
     VkInstance instance, VkDebugReportCallbackEXT callback,
     const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroyDebugReportCallbackEXT");
     LOOKUP_SI(instance);
     if (si->real.DestroyDebugReportCallbackEXT)
         si->real.DestroyDebugReportCallbackEXT(si->real_instance, callback, pAllocator);
@@ -451,6 +460,7 @@ stereo_DebugReportMessageEXT(
     size_t location, int32_t messageCode,
     const char *pLayerPrefix, const char *pMessage)
 {
+    STEREO_LOG("CALLED stereo_DebugReportMessageEXT");
     LOOKUP_SI(instance);
     if (si->real.DebugReportMessageEXT)
         si->real.DebugReportMessageEXT(si->real_instance, flags, objectType,
@@ -465,6 +475,7 @@ stereo_CreateDebugUtilsMessengerEXT(
     const VkAllocationCallbacks              *pAllocator,
     VkDebugUtilsMessengerEXT                 *pMessenger)
 {
+    STEREO_LOG("CALLED stereo_CreateDebugUtilsMessengerEXT");
     LOOKUP_SI_R(instance, VK_ERROR_INITIALIZATION_FAILED);
     if (!si->real.CreateDebugUtilsMessengerEXT)
         return VK_ERROR_EXTENSION_NOT_PRESENT;
@@ -478,6 +489,7 @@ stereo_DestroyDebugUtilsMessengerEXT(
     VkInstance instance, VkDebugUtilsMessengerEXT messenger,
     const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroyDebugUtilsMessengerEXT");
     LOOKUP_SI(instance);
     if (si->real.DestroyDebugUtilsMessengerEXT)
         si->real.DestroyDebugUtilsMessengerEXT(si->real_instance, messenger, pAllocator);
@@ -491,6 +503,7 @@ stereo_SubmitDebugUtilsMessageEXT(
     VkDebugUtilsMessageTypeFlagsEXT             messageTypes,
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData)
 {
+    STEREO_LOG("CALLED stereo_SubmitDebugUtilsMessageEXT");
     LOOKUP_SI(instance);
     if (si->real.SubmitDebugUtilsMessageEXT)
         si->real.SubmitDebugUtilsMessageEXT(
