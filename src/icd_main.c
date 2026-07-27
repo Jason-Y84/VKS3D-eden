@@ -333,6 +333,10 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
               stereo_DestroyShaderModule);
     if (!strcmp(pName, "vkCreateGraphicsPipelines")) {
         STEREO_LOG(
+            "GDPA wrapper addr=%p stereo_CreateGraphicsPipelines=%p",
+            (void*)stereo_CreateGraphicsPipelines,
+            (void*)&stereo_CreateGraphicsPipelines);
+        STEREO_LOG(
             "GDPA returning stereo_CreateGraphicsPipelines=%p",
             (void*)stereo_CreateGraphicsPipelines);
         STEREO_LOG(

@@ -5111,7 +5111,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
     uint32_t N, const VkGraphicsPipelineCreateInfo *pCI,
     const VkAllocationCallbacks *pAlloc, VkPipeline *pP)
 {
-    STEREO_LOG("CALLED stereo_CreateGraphicsPipelines");
+    STEREO_LOG(
+        "CALLED stereo_CreateGraphicsPipelines this=%p",
+        (void*)&stereo_CreateGraphicsPipelines);
     StereoDevice *sd=stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
     STEREO_LOG("PIPE_IN_RAW N=%u pCI=%p first=%p renderPass=%p stageCount=%u pNext=%p",
