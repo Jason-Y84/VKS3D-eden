@@ -511,6 +511,10 @@ vk_icdGetPhysicalDeviceProcAddr(VkInstance instance, const char *pName)
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 vkGetDeviceProcAddr(VkDevice device, const char *pName)
 {
+    STEREO_LOG(
+        "EXPORT vkGetDeviceProcAddr(%s) device=%p",
+        pName ? pName : "<NULL>",
+        (void *)(uintptr_t)device);
     return stereo_GetDeviceProcAddr(device, pName);
 }
 
