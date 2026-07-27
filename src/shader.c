@@ -1746,8 +1746,31 @@ bool spirv_patch_stereo_vertex(
         uint32_t wcx = in[i] >> 16;
         if (!wcx || i + wcx > in_c)
             break;
-        if (!ins_ann && opx >= SpvOpTypeVoid && opx <= SpvOpNamedBarrier)
+        if (!ins_ann &&
+            (opx == SpvOpTypeVoid ||
+             opx == SpvOpTypeBool ||
+             opx == SpvOpTypeInt ||
+             opx == SpvOpTypeFloat ||
+             opx == SpvOpTypeVector ||
+             opx == SpvOpTypeMatrix ||
+             opx == SpvOpTypeImage ||
+             opx == SpvOpTypeSampler ||
+             opx == SpvOpTypeSampledImage ||
+             opx == SpvOpTypeArray ||
+             opx == SpvOpTypeRuntimeArray ||
+             opx == SpvOpTypeStruct ||
+             opx == SpvOpTypeOpaque ||
+             opx == SpvOpTypePointer ||
+             opx == SpvOpTypeFunction ||
+             opx == SpvOpTypeForwardPointer ||
+             opx == SpvOpConstantTrue ||
+             opx == SpvOpConstantFalse ||
+             opx == SpvOpConstant ||
+             opx == SpvOpConstantComposite ||
+             opx == SpvOpVariable))
+        {
             ins_ann = i;
+        }
         if (opx == SpvOpFunction)
         {
             in_entry_function =
