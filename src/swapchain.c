@@ -298,6 +298,11 @@ stereo_CreateSwapchainKHR(VkDevice device,
         pCreateInfo->oldSwapchain);
     StereoDevice *sd = stereo_device_from_handle(device);
     STEREO_LOG(
+        "SWAPCHAIN device=%p sd=%p real=%p",
+        (void*)device,
+        (void*)sd,
+        sd ? (void*)sd->real_device : NULL);
+    STEREO_LOG(
         "[CREATE SC START] count=%u old=%p",
         sd->swapchain_count,
         pCreateInfo->oldSwapchain);
@@ -1249,6 +1254,11 @@ stereo_CreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
     static uint64_t image_create_seq = 0;
     uint64_t seq = ++image_create_seq;
     StereoDevice *sd = stereo_device_from_handle(device);
+    STEREO_LOG(
+        "IMAGE device=%p sd=%p real=%p",
+        (void*)device,
+        (void*)sd,
+        sd ? (void*)sd->real_device : NULL);
     STEREO_LOG(
         "IMG_ENTER usage=0x%08X fmt=%u layers=%u samples=%u",
         pCreateInfo->usage,

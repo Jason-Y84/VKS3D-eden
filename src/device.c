@@ -283,9 +283,10 @@ stereo_CreateDevice(
     }
     *pDevice = real_dev;
     STEREO_LOG(
-        "Device created: wrapper=%p real=%p",
-        (void*)real_dev,
-        (void*)sd->real_device);
+        "CREATEDEVICE EXIT wrapper_handle=%p real=%p sd=%p",
+        (void*)*pDevice,
+        (void*)sd->real_device,
+        (void*)sd);
     return VK_SUCCESS;
 }
 
