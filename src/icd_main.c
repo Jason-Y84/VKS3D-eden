@@ -270,6 +270,7 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
+    STEREO_LOG("CALLED stereo_GetDeviceProcAddr");
     if (!pName)
         return NULL;
     STEREO_LOG(
@@ -330,8 +331,15 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
               stereo_CreateShaderModule);
     GDPA_WRAP("vkDestroyShaderModule",
               stereo_DestroyShaderModule);
-    GDPA_WRAP("vkCreateGraphicsPipelines",
-              stereo_CreateGraphicsPipelines);
+    if (!strcmp(pName, "vkCreateGraphicsPipelines")) {
+        STEREO_LOG(
+            "GDPA returning stereo_CreateGraphicsPipelines=%p",
+            (void*)stereo_CreateGraphicsPipelines);
+        STEREO_LOG(
+            "GDPA WRAPPED vkCreateGraphicsPipelines -> %p",
+            (void*)stereo_CreateGraphicsPipelines);
+        return (PFN_vkVoidFunction)stereo_CreateGraphicsPipelines;
+    }
     GDPA_WRAP("vkCreateSwapchainKHR",
               stereo_CreateSwapchainKHR);
     GDPA_WRAP("vkDestroySwapchainKHR",

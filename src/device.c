@@ -241,6 +241,9 @@ stereo_CreateDevice(
         STEREO_LOG("Real CreateDevice failed: %d", res);
         return res;
     }
+    STEREO_LOG(
+        "CreateDevice real GDPA=%p",
+        (void*)sp_si->real.GetDeviceProcAddr);
     StereoDevice *sd = stereo_device_alloc();
     if (!sd)
         return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -253,6 +256,12 @@ stereo_CreateDevice(
     sd->stereo       = sp_si->stereo;
     stereo_config_compute_offsets(&sd->stereo);
     stereo_populate_device_dispatch(sd, sp_si->real_instance);
+    STEREO_LOG(
+        "Dispatch GDPA=%p CreateGraphicsPipelines=%p CreateRenderPass=%p BeginRendering=%p",
+        (void*)sd->real.GetDeviceProcAddr,
+        (void*)sd->real.CreateGraphicsPipelines,
+        (void*)sd->real.CreateRenderPass,
+        (void*)sd->real.CmdBeginRendering);
     {
         uint32_t qf_count = 0;
         sp_si->real.GetPhysicalDeviceQueueFamilyProperties(real_physdev, &qf_count, NULL);
@@ -276,7 +285,10 @@ stereo_CreateDevice(
         }
     }
     *pDevice = real_dev;
-    STEREO_LOG("Device created: %p", (void*)real_dev);
+    STEREO_LOG(
+        "Device created: wrapper=%p real=%p",
+        (void*)real_dev,
+        (void*)sd->real_device);
     return VK_SUCCESS;
 }
 
