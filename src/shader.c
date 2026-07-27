@@ -4556,7 +4556,11 @@ bool spirv_patch_stereo_fs(
     uint32_t samp_nid      = nid;
     uint32_t new_bound     = samp_nid + n_patches * 5 + 8;
     SpvBuf ob;
-    if (!sb_init(&ob, in_c + 60 + (size_t)n_patches * 28)) return false;
+    SpvBuf ann;
+    SpvBuf ob;
+    if (!sb_init(&ann, 16) ||
+        !sb_init(&ob, in_c + 60 + (size_t)n_patches * 28))
+        return false;
     bool mv_added   = s.has_mv_cap;
     bool ext_done   = false;
     uint32_t spv_version = in[1];
@@ -4689,14 +4693,25 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
-        /* Inject new types + gl_ViewIndex variable before first OpFunction */
+        if (!ann_done &&
+            op == SpvOpTypeVoid)
+        {
+            sb_push_n(&ob, ann.w, ann.n);
+            ann_done = true;
+        }
         if (op == 54 && !types_done) {
             types_done = true;
             in_func    = true;
-            if (is_new_vi) {
-                /* OpDecorate %vi BuiltIn ViewIndex */
-                { uint32_t w[]={(4u<<16)|71, new_vi_id, 11, 4440};
-                  sb_push_n(&ob,w,4); }
+            if (is_new_vi)
+            {
+                uint32_t w[] =
+                {
+                    op_(SpvOpDecorate, 4),
+                    new_vi_id,
+                    SpvDecorationBuiltIn,
+                    SpvBuiltInViewIndex
+                };
+                sb_push_n(&ann, w, 4);
             }
             if (!s.int_id) {
                 uint32_t w[]={(4u<<16)|21, new_int_id, 32, 1};
@@ -5074,9 +5089,12 @@ bool spirv_patch_stereo_fs(
         }
         j += wc;
     }
-    ob.w[3] = samp_nid + 1;
-    *out   = ob.w;
-    *out_c = ob.n;
+    if (!ann_done)
+        sb_push_n(&ob, ann.w, ann.n);
+    sb_free(&ann);
+    ob.w[3]=samp_nid + 1;
+    *out=ob.w;
+    *out_c=ob.n;
     STEREO_LOG("FS patched: %u 2D img types→arr, %u samples extended, bound %u→%u",
                s.n_img, n_patches, in[3], ob.w[3]);
     STEREO_LOG(
