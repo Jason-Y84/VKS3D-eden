@@ -257,7 +257,8 @@ stereo_CreateDevice(
     stereo_config_compute_offsets(&sd->stereo);
     stereo_populate_device_dispatch(sd, sp_si->real_instance);
     STEREO_LOG(
-        "Dispatch CreateGraphicsPipelines=%p CreateRenderPass=%p BeginRendering=%p",
+        "Dispatch GDPA=%p CreateGraphicsPipelines=%p CreateRenderPass=%p BeginRendering=%p",
+        (void*)sd->real.GetDeviceProcAddr,
         (void*)sd->real.CreateGraphicsPipelines,
         (void*)sd->real.CreateRenderPass,
         (void*)sd->real.CmdBeginRendering);
