@@ -174,6 +174,7 @@ stereo_CreateDevice(
     const VkAllocationCallbacks  *pAllocator,
     VkDevice                     *pDevice)
 {
+    STEREO_LOG("CALLED stereo_CreateDevice");
     OutputDebugStringA("[VKS3D] stereo_CreateDevice: ENTERED\n");
     STEREO_LOG("stereo_CreateDevice: called physicalDevice=%p (wrapper)", (void*)physicalDevice);
     StereoPhysdev    *sp           = (StereoPhysdev *)(uintptr_t)physicalDevice;
@@ -283,6 +284,7 @@ stereo_CreateDevice(
 VKAPI_ATTR void VKAPI_CALL
 stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroyDevice");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd)
         return;
