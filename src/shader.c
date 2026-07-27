@@ -1856,6 +1856,20 @@ bool spirv_patch_stereo_vertex(
             sb_push_n(&ob, c, 2);
             mv_done = true;
         }
+        if (!ann_done && i == ins_ann)
+        {
+            sb_push_n(&ob, ann.w, ann.n);
+            ann_done = true;
+        }
+        if (!te_done && i == ins_t)
+        {
+            sb_push_n(&ob, te.w, te.n);
+            te_done = true;
+        }
+        uint32_t opx = in[i] & 0xffff;
+        uint32_t wcx = in[i] >> 16;
+        if (!wcx || i + wcx > in_c)
+            break;
         /* After the final OpCapability, emit OpExtension if required. */
         if (!ext_done &&
             need_mv_ext &&
@@ -1873,20 +1887,6 @@ bool spirv_patch_stereo_vertex(
             sb_push_n(&ob, e, 6);
             ext_done = true;
         }
-        if (!ann_done && i == ins_ann)
-        {
-            sb_push_n(&ob, ann.w, ann.n);
-            ann_done = true;
-        }
-        if (!te_done && i == ins_t)
-        {
-            sb_push_n(&ob, te.w, te.n);
-            te_done = true;
-        }
-        uint32_t opx = in[i] & 0xffff;
-        uint32_t wcx = in[i] >> 16;
-        if (!wcx || i + wcx > in_c)
-            break;
         if (id_inj_view &&
             opx == SpvOpEntryPoint &&
             wcx >= 4 &&
