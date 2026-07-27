@@ -4558,6 +4558,12 @@ bool spirv_patch_stereo_fs(
     SpvBuf ob;
     if (!sb_init(&ob, in_c + 60 + (size_t)n_patches * 28)) return false;
     bool mv_added   = s.has_mv_cap;
+    bool ext_done   = false;
+    uint32_t spv_version = in[1];
+    bool need_mv_ext =
+        !s.has_mv_cap &&
+        ((spv_version >> 16) == 1) &&
+        (((spv_version >> 8) & 0xff) == 0);
     bool types_done = false;
     bool ep_done    = false;
     bool in_func    = false;
@@ -4579,11 +4585,34 @@ bool spirv_patch_stereo_fs(
                 (wc >= 2) ? in[i + 1] : 0,
                 (wc >= 3) ? in[i + 2] : 0);
         }
-        /* Add MultiView capability before first non-capability instruction */
-        if (!mv_added && op != 17) {
-            uint32_t mv[] = { (2u<<16)|17, 4439 };
+        /* Emit MultiView capability immediately before the first non-capability. */
+        if (!mv_added &&
+            op != SpvOpCapability)
+        {
+            uint32_t mv[] =
+            {
+                op_(SpvOpCapability, 2),
+                SpvCapabilityMultiView
+            };
             sb_push_n(&ob, mv, 2);
             mv_added = true;
+        }
+        /* SPIR-V 1.0 requires SPV_KHR_multiview immediately after capabilities. */
+        if (!ext_done &&
+            need_mv_ext &&
+            op != SpvOpCapability)
+        {
+            uint32_t e[] =
+            {
+                op_(SpvOpExtension, 6),
+                0x5F565053, /* SPV_ */
+                0x5F52484B, /* KHR_ */
+                0x746C756D, /* mult */
+                0x65697669, /* ivie */
+                0x00000077  /* w */
+            };
+            sb_push_n(&ob, e, 6);
+            ext_done = true;
         }
         /* Modify OpEntryPoint: append new_vi_id to interface if we're adding it */
         if (op == 15 && !ep_done) {
