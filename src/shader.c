@@ -4630,31 +4630,6 @@ bool spirv_patch_stereo_fs(
             }
             i += wc; continue;
         }
-        if (in_func &&
-            op == SpvOpImageQuerySizeLod &&
-            wc >= 5)
-        {
-            uint32_t image_id = in[i + 3];
-            uint32_t descriptor_var = 0;
-            int load = fs_find_load(&s, image_id);
-            if (load >= 0)
-                descriptor_var = s.loads[load].owner_var;
-            if (fs_binding_is_stereo_attachment(&s, descriptor_var))
-            {
-                uint32_t q3_id = samp_nid++;
-                STEREO_LOG(
-                    "FS_QUERY_SIZE_ARRAYED image=%u descriptor=%u",
-                    image_id,
-                    descriptor_var);
-                sb_push(&ob, ((5u << 16) | SpvOpImageQuerySizeLod));
-                sb_push(&ob, new_v3i_id);
-                sb_push(&ob, q3_id);
-                sb_push(&ob, in[i + 3]);
-                sb_push(&ob, in[i + 4]);
-                i += wc;
-                continue;
-            }
-        }        
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == SpvOpTypeImage && wc >= 9 &&
             in[i+3] == SpvDim2D &&
