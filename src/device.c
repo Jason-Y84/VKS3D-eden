@@ -241,9 +241,6 @@ stereo_CreateDevice(
         STEREO_LOG("Real CreateDevice failed: %d", res);
         return res;
     }
-    STEREO_LOG(
-        "CreateDevice real GDPA=%p",
-        (void*)sp_si->real.GetDeviceProcAddr);
     StereoDevice *sd = stereo_device_alloc();
     if (!sd)
         return VK_ERROR_OUT_OF_HOST_MEMORY;
