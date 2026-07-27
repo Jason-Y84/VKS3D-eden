@@ -1584,16 +1584,9 @@ bool spirv_patch_stereo_vertex(
      * - constants
      * - ViewIndex variable
      */
-    SpvBuf deco;
-    if (!sb_init(&deco, 32))
-    {
-        free_spv_provenance(&m);
-        return false;
-    }
     SpvBuf te;
     if (!sb_init(&te, 96))
     {
-        sb_free(&deco);
         free_spv_provenance(&m);
         return false;
     }
@@ -1706,7 +1699,7 @@ bool spirv_patch_stereo_vertex(
             SpvDecorationBuiltIn,
             SpvBuiltInViewIndex
         };
-        sb_push_n(&deco, d, 4);
+        sb_push_n(&te, d, 4);
         uint32_t v[] =
         {
             op_(SpvOpVariable, 4),
@@ -1820,7 +1813,6 @@ bool spirv_patch_stereo_vertex(
         }
         if (!te_done && i == ins_t)
         {
-            sb_push_n(&ob, deco.w, deco.n);
             sb_push_n(&ob, te.w, te.n);
             te_done = true;
         }
@@ -1899,7 +1891,6 @@ bool spirv_patch_stereo_vertex(
     }
     if (!te_done)
         sb_push_n(&ob, te.w, te.n);
-    sb_free(&deco);
     sb_free(&te);
     ob.w[3] = nid;
     *out = ob.w;
