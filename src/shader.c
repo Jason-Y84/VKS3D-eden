@@ -1841,7 +1841,9 @@ bool spirv_patch_stereo_vertex(
         spv_version,
         need_mv_ext,
         need_mv_cap);
+    /* Header only. We'll inject after the last OpCapability. */
     sb_push_n(&ob, in, 5);
+    bool ext_done = false;
     for (size_t i = 5; i < in_c;)
     {
         if (!mv_done && need_mv_cap)
@@ -1852,17 +1854,24 @@ bool spirv_patch_stereo_vertex(
                 SpvCapabilityMultiView
             };
             sb_push_n(&ob, c, 2);
+            mv_done = true;
+        }
+        /* After the final OpCapability, emit OpExtension if required. */
+        if (!ext_done &&
+            need_mv_ext &&
+            opx != SpvOpCapability)
+        {
             uint32_t e[] =
             {
                 op_(SpvOpExtension, 6),
-                0x5F565053, /* "SPV_" */
-                0x5F52484B, /* "KHR_" */
-                0x746C756D, /* "mult" */
-                0x65697669, /* "ivie" */
-                0x00000077  /* "w\0\0\0" */
+                0x5F565053, /* SPV_ */
+                0x5F52484B, /* KHR_ */
+                0x746C756D, /* mult */
+                0x65697669, /* ivie */
+                0x00000077  /* w */
             };
             sb_push_n(&ob, e, 6);
-            mv_done = true;
+            ext_done = true;
         }
         if (!ann_done && i == ins_ann)
         {
@@ -1946,6 +1955,20 @@ bool spirv_patch_stereo_vertex(
             &in[i],
             wcx);
         i += wcx;
+    }
+    /* Module contained only capabilities before declarations. */
+    if (!ext_done && need_mv_ext)
+    {
+        uint32_t e[] =
+        {
+            op_(SpvOpExtension, 6),
+            0x5F565053,
+            0x5F52484B,
+            0x746C756D,
+            0x65697669,
+            0x00000077
+        };
+        sb_push_n(&ob, e, 6);
     }
     if (!ann_done)
         sb_push_n(&ob, ann.w, ann.n);
