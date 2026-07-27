@@ -1846,25 +1846,22 @@ bool spirv_patch_stereo_vertex(
     {
         if (!mv_done && need_mv_cap)
         {
-            if (need_mv_ext)
-            {
-                static const uint32_t mv_ext[] =
-                {
-                    op_(SpvOpExtension, 6),
-                    0x5F565053,
-                    0x5F52484B,
-                    0x746C756D,
-                    0x65697669,
-                    0x00000077
-                };
-                sb_push_n(&ob, mv_ext, 6);
-            }
             uint32_t c[] =
             {
                 op_(SpvOpCapability, 2),
                 SpvCapabilityMultiView
             };
             sb_push_n(&ob, c, 2);
+            uint32_t e[] =
+            {
+                op_(SpvOpExtension, 6),
+                0x5F565053, /* "SPV_" */
+                0x5F52484B, /* "KHR_" */
+                0x746C756D, /* "mult" */
+                0x65697669, /* "ivie" */
+                0x00000077  /* "w\0\0\0" */
+            };
+            sb_push_n(&ob, e, 6);
             mv_done = true;
         }
         if (!ann_done && i == ins_ann)
