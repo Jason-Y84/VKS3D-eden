@@ -1584,8 +1584,9 @@ bool spirv_patch_stereo_vertex(
      * - constants
      * - ViewIndex variable
      */
+    SpvBuf ann;
     SpvBuf te;
-    if (!sb_init(&te, 96))
+    if (!sb_init(&ann, 16) || !sb_init(&te, 96))
     {
         free_spv_provenance(&m);
         return false;
@@ -1699,7 +1700,7 @@ bool spirv_patch_stereo_vertex(
             SpvDecorationBuiltIn,
             SpvBuiltInViewIndex
         };
-        sb_push_n(&te, d, 4);
+        sb_push_n(&ann, d, 4);
         uint32_t v[] =
         {
             op_(SpvOpVariable, 4),
@@ -1735,6 +1736,7 @@ bool spirv_patch_stereo_vertex(
      * Geometry shaders:
      * inject before EmitVertex.
      */
+    size_t ins_ann = 0;
     size_t ins_t = 0;
     size_t ins_b = 0;
     bool in_entry_function = false;
@@ -1744,6 +1746,8 @@ bool spirv_patch_stereo_vertex(
         uint32_t wcx = in[i] >> 16;
         if (!wcx || i + wcx > in_c)
             break;
+        if (!ins_ann && opx >= SpvOpTypeVoid && opx <= SpvOpNamedBarrier)
+            ins_ann = i;
         if (opx == SpvOpFunction)
         {
             in_entry_function =
@@ -1783,6 +1787,7 @@ bool spirv_patch_stereo_vertex(
         id_inj_view &&
         !m.has_mv_cap;
     bool mv_done = false;
+    bool ann_done = false;
     bool te_done = false;
     bool body_done = false;
     /* Rebuild the SPIR-V module:
@@ -1810,6 +1815,11 @@ bool spirv_patch_stereo_vertex(
             };
             sb_push_n(&ob, c, 2);
             mv_done = true;
+        }
+        if (!ann_done && i == ins_ann)
+        {
+            sb_push_n(&ob, ann.w, ann.n);
+            ann_done = true;
         }
         if (!te_done && i == ins_t)
         {
@@ -1889,8 +1899,11 @@ bool spirv_patch_stereo_vertex(
             wcx);
         i += wcx;
     }
+    if (!ann_done)
+        sb_push_n(&ob, ann.w, ann.n);
     if (!te_done)
         sb_push_n(&ob, te.w, te.n);
+    sb_free(&ann);
     sb_free(&te);
     ob.w[3] = nid;
     *out = ob.w;
