@@ -1831,11 +1831,35 @@ bool spirv_patch_stereo_vertex(
         in[1],
         in[2],
         in[3]);
+    uint32_t spv_version = in[1];
+    bool need_mv_ext =
+        need_mv_cap &&
+        ((spv_version >> 16) == 1) &&
+        (((spv_version >> 8) & 0xff) == 0);
+    STEREO_LOG(
+        "SPV_MULTIVIEW version=0x%08X needExt=%u needCap=%u",
+        spv_version,
+        need_mv_ext,
+        need_mv_cap);
     sb_push_n(&ob, in, 5);
     for (size_t i = 5; i < in_c;)
     {
         if (!mv_done && need_mv_cap)
         {
+            if (need_mv_ext)
+            {
+                static const uint32_t mv_ext[] =
+                {
+                    op_(SpvOpExtension, 6),
+                    //SPV_KHR_multiview
+                    0x5F565053,
+                    0x5F52484B,
+                    0x746C756D,
+                    0x65697669,
+                    0x00000077
+                };
+                sb_push_n(&ob, mv_ext, 6);
+            }
             uint32_t c[] =
             {
                 op_(SpvOpCapability, 2),
