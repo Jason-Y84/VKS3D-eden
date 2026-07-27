@@ -1851,7 +1851,6 @@ bool spirv_patch_stereo_vertex(
                 static const uint32_t mv_ext[] =
                 {
                     op_(SpvOpExtension, 6),
-                    //SPV_KHR_multiview
                     0x5F565053,
                     0x5F52484B,
                     0x746C756D,
