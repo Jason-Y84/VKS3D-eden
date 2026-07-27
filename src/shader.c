@@ -4514,6 +4514,11 @@ bool spirv_patch_stereo_fs(
     bool ep_done    = false;
     bool in_func    = false;
     /* Header */
+    STEREO_LOG(
+        "SPV_HEADER version=0x%08X generator=0x%08X bound=%u",
+        in[1],
+        in[2],
+        in[3]);
     sb_push_n(&ob, in, 5);
     ob.w[3] = new_bound;
     for (size_t i = 5; i < in_c; ) {
