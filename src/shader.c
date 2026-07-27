@@ -4923,6 +4923,28 @@ bool spirv_patch_stereo_fs(
                 in[i+2],
                 in[i+3]);
         }
+        if (in_func &&
+            op == SpvOpImageQuerySizeLod &&
+            wc >= 5)
+        {
+            /*
+             * Arrayed images return ivec3 from OpImageQuerySizeLod.
+             * Original shader expects ivec2.
+             */
+            if (in[i + 1] == s.v2int_id)
+            {
+                ST EREO_LOG(
+                    "FS_QUERY_SIZE_PATCH result=%u oldType=%u newType=%u",
+                    in[i + 2],
+                    in[i + 1],
+                    new_v3i_id);
+                sb_push(&ob, in[i]);
+                sb_push(&ob, new_v3i_id);
+                sb_push_n(&ob, &in[i + 2], wc - 2);
+                i += wc;
+                continue;
+            }
+        }
         /* Extend OpImageFetch ivec2 -> ivec3(x,y,ViewIndex) */
         if (in_func && op == 95 && wc >= 5)
         {
