@@ -118,7 +118,6 @@ typedef struct
     uint32_t ft;
     uint32_t v4t;
     uint32_t it;
-    uint32_t uit;
     uint32_t bt_type;
     uint32_t bt;
     uint32_t ptr_out_v4;
@@ -425,13 +424,7 @@ static void do_scan(SpvMod *m, bool p2)
                 if(wc==4&&w[i+2]==m->ft&&w[i+3]==4) m->v4t=w[i+1];
                 break;
             case SpvOpTypeInt:
-                if (wc == 4 && w[i+2] == 32)
-                {
-                    if (w[i+3] == 1)
-                        m->it = w[i+1];
-                    else if (w[i+3] == 0)
-                        m->uit = w[i+1];
-                }
+                if(wc==4&&w[i+2]==32) m->it=w[i+1];
                 break;
             case SpvOpTypeBool:
                 if (wc >= 2 && !m->bt_type)
@@ -1083,7 +1076,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         {
             uint32_t w[] = {
                 op_(SpvOpLoad, 4),
-                m->uit,
+                m->it,
                 lv,
                 m->view_var
             };
@@ -1637,7 +1630,7 @@ bool spirv_patch_stereo_vertex(
             op_(SpvOpTypePointer, 4),
             id_ptr_int,
             SpvStorageInput,
-            m.uit
+            m.it
         };
         sb_push_n(&te, w, 4);
         m.ptr_in_int = id_ptr_int;
