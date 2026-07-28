@@ -2097,6 +2097,14 @@ bool spirv_patch_stereo_vertex(
                 ob.w[j + 2],
                 ob.w[j + 3]);
         }
+        if (opj == SpvOpTypeInt && wcj >= 4)
+        {
+            STEREO_LOG(
+                "VS_TYPE_INT id=%u width=%u signed=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3]);
+        }
         if (ob.w[j + 1] == ob.w[j + 1]) /* keep compiler happy */
         {
             if (ob.w[j + 1] == 16 ||
@@ -2137,6 +2145,15 @@ bool spirv_patch_stereo_vertex(
                 ob.w[j + 1],
                 ob.w[j + 2],
                 ob.w[j + 3]);
+            if (ob.w[j + 3] == m.view_var)
+            {
+                STEREO_LOG(
+                    "VIEW_LOAD_FINAL type=%u ptr=%u expectedPtr=%u expectedType=%u",
+                    ob.w[j + 1],
+                    ob.w[j + 3],
+                    m.view_var,
+                    m.it);
+            }
         }
         if (!wc || j + wc > ob.n)
             break;
