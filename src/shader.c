@@ -426,6 +426,10 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpTypeInt:
                 if(wc==4&&w[i+2]==32) m->it=w[i+1];
                 break;
+            case SpvOpTypeBool:
+                if (wc >= 2 && !m->bt_type)
+                    m->bt_type = w[i + 1];
+                break;
             case SpvOpTypeMatrix:
                 if (wc >= 4)
                 {
