@@ -660,30 +660,46 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpTypePointer:
                 if (wc >= 4)
                 {
-                if (TYPE(w[i + 3]))
-                {
-                SETPTR(w[i + 1], 1);
-                }
-                if (w[i+3] == m->proj_struct_type)
-                {
-                    STEREO_LOG(
-                        "PROJ_PTR ptr=%u struct=%u",
-                        w[i+1],
-                        w[i+3]);
-                    m->proj_ptr_type = w[i+1];
-                }
-                if (w[i + 2] == SpvStorageOutput &&
-                m->v4t &&
-                w[i + 3] == m->v4t)
-                {
-                m->ptr_out_v4 = w[i + 1];
-                }
-                if (w[i + 2] == SpvStorageInput &&
-                m->it &&
-                w[i + 3] == m->it)
-                {
-                m->ptr_in_int = w[i + 1];
-                }
+                    if (TYPE(w[i + 3]))
+                    {
+                        SETPTR(w[i + 1], 1);
+                    }
+                    if (w[i + 3] == m->proj_struct_type)
+                    {
+                        STEREO_LOG(
+                            "PROJ_PTR ptr=%u struct=%u",
+                            w[i + 1],
+                            w[i + 3]);
+                        m->proj_ptr_type = w[i + 1];
+                    }
+                    if (w[i + 2] == SpvStorageOutput &&
+                        m->v4t &&
+                        w[i + 3] == m->v4t)
+                    {
+                        m->ptr_out_v4 = w[i + 1];
+                    }
+                    if (w[i + 2] == SpvStorageInput)
+                    {
+                        STEREO_LOG(
+                            "VS_INPUT_PTR ptr=%u pointee=%u signedInt=%u unsignedInt=%u",
+                            w[i + 1],
+                            w[i + 3],
+                            m->it,
+                            m->ut);
+                        if (m->it && w[i + 3] == m->it)
+                        {
+                            STEREO_LOG(
+                                "VS_SIGNED_INPUT_PTR ptr=%u",
+                                w[i + 1]);
+                            m->ptr_in_int = w[i + 1];
+                        }
+                        if (m->ut && w[i + 3] == m->ut)
+                        {
+                            STEREO_LOG(
+                                "VS_UNSIGNED_INPUT_PTR ptr=%u",
+                                w[i + 1]);
+                        }
+                    }
                 }
                 break;
             case SpvOpVariable:
@@ -693,6 +709,32 @@ static void do_scan(SpvMod *m, bool p2)
                     PTR(w[i + 1]))
                 {
                     SETPTR(w[i + 2], 1);
+                }
+                if (wc >= 4)
+                {
+                    if (w[i + 3] == SpvStorageClassInput)
+                    {
+                        STEREO_LOG(
+                            "VS_INPUT_VAR "
+                            "result=%u "
+                            "ptr=%u "
+                            "storage=%u",
+                            w[i + 2],
+                            w[i + 1],
+                            w[i + 3]);
+                        if (w[i + 1] == m->ptr_in_int)
+                        {
+                            STEREO_LOG(
+                                "VS_VIEW_VAR_DEF "
+                                "result=%u "
+                                "ptrType=%u "
+                                "storage=%u",
+                                w[i + 2],
+                                w[i + 1],
+                                w[i + 3]);
+                            m->view_var = w[i + 2];
+                        }
+                    }
                 }
                 if (w[i+1] == m->proj_ptr_type &&
                     w[i+3] == SpvStorageClassUniform)
