@@ -4649,6 +4649,7 @@ bool spirv_patch_stereo_fs(
                     }
                     break;
                 }
+            }
             if (!patch_this_type)
             {
                 sb_push_n(&ob, &in[i], wc);
