@@ -704,6 +704,13 @@ static void do_scan(SpvMod *m, bool p2)
                         m->proj_var);
                     m->proj_var = w[i+2];
                 }
+                if (w[i + 3] == SpvStorageInput)
+                {
+                    STEREO_LOG(
+                        "VS_INPUT_VARIABLE var=%u ptr=%u",
+                        w[i + 2],
+                        w[i + 1]);
+                }
                 break;
             case SpvOpDecorate:
                 if (wc >= 4)
