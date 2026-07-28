@@ -1997,6 +1997,16 @@ bool spirv_patch_stereo_vertex(
     {
         uint32_t opj = ob.w[j] & 0xffff;
         uint32_t wcj = ob.w[j] >> 16;
+        if ((opj == SpvOpTypePointer ||
+             opj == SpvOpTypeInt ||
+             opj == SpvOpTypeVector) &&
+            wcj >= 2)
+        {
+            STEREO_LOG(
+                "VS_TYPE_OUT op=%s id=%u",
+                spv_op_name(opj),
+                ob.w[j + 1]);
+        }
         if (!wcj || j + wcj > ob.n)
             break;
         if (opj == SpvOpVariable && wcj >= 4)
@@ -4598,6 +4608,22 @@ bool spirv_patch_stereo_fs(
     bool     is_new_vi     = (s.vi_var_id == 0);
     uint32_t samp_nid      = nid;
     uint32_t new_bound     = samp_nid + n_patches * 5 + 8;
+    STEREO_LOG(
+        "VS_NEW_IDS "
+        "bound=%u "
+        "nid=%u "
+        "int=%u "
+        "v3f=%u "
+        "v3i=%u "
+        "ptr=%u "
+        "view=%u",
+        in[3],
+        nid,
+        new_int_id,
+        new_v3f_id,
+        new_v3i_id,
+        new_pin_id,
+        new_vi_id);
     SpvBuf ob;
     SpvBuf ann;
     if (!sb_init(&ann, 16) ||
