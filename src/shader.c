@@ -116,7 +116,6 @@ typedef struct
     uint32_t view_var;
     /* Common types */
     uint32_t ft;
-    uint32_t v3it;
     uint32_t v4t;
     uint32_t it;
     uint32_t bt_type;
@@ -422,12 +421,6 @@ static void do_scan(SpvMod *m, bool p2)
                 if(wc==3&&w[i+2]==32) m->ft=w[i+1];
                 break;
             case SpvOpTypeVector:
-                if (wc == 4 &&
-                    w[i+2] == m->it &&
-                    w[i+3] == 3)
-                {
-                    m->v3it = w[i+1];
-                }
                 if(wc==4&&w[i+2]==m->ft&&w[i+3]==4) m->v4t=w[i+1];
                 break;
             case SpvOpTypeInt:
@@ -4566,7 +4559,7 @@ bool spirv_patch_stereo_fs(
     uint32_t nid           = in[3];
     uint32_t new_int_id    = s.int_id        ? s.int_id        : nid++;
     uint32_t new_v3f_id    = s.v3float_id    ? s.v3float_id    : nid++;
-    uint32_t new_v3i_id    = s.v3it ? s.v3it : nid++;
+    uint32_t new_v3i_id    = nid++;
     uint32_t new_pin_id    = s.ptr_int_in_id ? s.ptr_int_in_id : nid++;
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
     bool     is_new_vi     = (s.vi_var_id == 0);
@@ -4757,7 +4750,6 @@ bool spirv_patch_stereo_fs(
             if (!s.v3float_id) {
                 uint32_t w[]={(4u<<16)|23, new_v3f_id, s.float_id, 3};
                 sb_push_n(&ob,w,4); }
-            if (!s.v3it)
             {
                 uint32_t w[]={(4u<<16)|23, new_v3i_id, new_int_id, 3};
                 sb_push_n(&ob,w,4);
