@@ -678,11 +678,20 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                 m->ptr_out_v4 = w[i + 1];
                 }
-                if (w[i + 2] == SpvStorageInput &&
-                m->it &&
-                w[i + 3] == m->it)
+                if (w[i + 2] == SpvStorageInput)
                 {
-                m->ptr_in_int = w[i + 1];
+                    STEREO_LOG(
+                        "VS_INPUT_POINTER ptr=%u pointeeType=%u",
+                        w[i + 1],
+                        w[i + 3]);
+                    if (m->it &&
+                        w[i + 3] == m->it)
+                    {
+                        STEREO_LOG(
+                            "VS_INT_POINTER ptr=%u",
+                            w[i + 1]);
+                        m->ptr_in_int = w[i + 1];
+                    }
                 }
                 }
                 break;
