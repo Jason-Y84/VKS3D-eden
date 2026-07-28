@@ -1090,6 +1090,16 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     if (c->have_view && m->view_var && m->it && c->bt)
     {
         {
+            STEREO_LOG(
+                "VIEW_LOAD "
+                "type=%u "
+                "ptr=%u "
+                "ptrType=%u "
+                "signedType=%u",
+                m->it,
+                m->view_var,
+                m->ptr_in_int,
+                m->it);
             uint32_t w[] = {
                 op_(SpvOpLoad, 4),
                 m->it,
@@ -2113,6 +2123,25 @@ bool spirv_patch_stereo_vertex(
     sb_free(&ann);
     sb_free(&te);
     ob.w[3] = nid;
+    for (size_t j = 5; j < ob.n;)
+    {
+        uint32_t op = ob.w[j] & 0xffff;
+        uint32_t wc = ob.w[j] >> 16;
+        if (op == SpvOpLoad && wc >= 4)
+        {
+            STEREO_LOG(
+                "OUT_LOAD "
+                "type=%u "
+                "result=%u "
+                "ptr=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3]);
+        }
+        if (!wc || j + wc > ob.n)
+            break;
+        j += wc;
+    }
     *out = ob.w;
     *out_c = ob.n;
     /*
