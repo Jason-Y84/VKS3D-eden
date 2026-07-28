@@ -2107,6 +2107,7 @@ typedef struct
     uint32_t float_id;
     uint32_t int_id;
     uint32_t v3float_id;
+    uint32_t v3int_id;
     uint32_t ptr_int_in_id;
     uint32_t vi_var_id;
     bool     has_mv_cap;
@@ -2616,6 +2617,13 @@ fs_scan_type_instruction(
         }
         break;
     case SpvOpTypeVector:
+        if (wc >= 4 &&
+            s->int_id &&
+            ins[2] == s->int_id &&
+            ins[3] == 3)
+        {
+            s->v3int_id = ins[1];
+        }
         if (wc >= 4 &&
             s->float_id &&
             ins[2] == s->float_id &&
@@ -4559,7 +4567,7 @@ bool spirv_patch_stereo_fs(
     uint32_t nid           = in[3];
     uint32_t new_int_id    = s.int_id        ? s.int_id        : nid++;
     uint32_t new_v3f_id    = s.v3float_id    ? s.v3float_id    : nid++;
-    uint32_t new_v3i_id    = nid++;
+    uint32_t new_v3i_id    = s.v3int_id ? s.v3int_id : nid++;
     uint32_t new_pin_id    = s.ptr_int_in_id ? s.ptr_int_in_id : nid++;
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
     bool     is_new_vi     = (s.vi_var_id == 0);
@@ -4750,6 +4758,7 @@ bool spirv_patch_stereo_fs(
             if (!s.v3float_id) {
                 uint32_t w[]={(4u<<16)|23, new_v3f_id, s.float_id, 3};
                 sb_push_n(&ob,w,4); }
+            if (!s.v3int_id)
             {
                 uint32_t w[]={(4u<<16)|23, new_v3i_id, new_int_id, 3};
                 sb_push_n(&ob,w,4);
