@@ -118,6 +118,7 @@ typedef struct
     uint32_t ft;
     uint32_t v4t;
     uint32_t it;
+    uint32_t bt_type;
     uint32_t bt;
     uint32_t ptr_out_v4;
     uint32_t ptr_in_int;
@@ -763,6 +764,10 @@ static void do_scan(SpvMod *m, bool p2)
                         m->has_direct_position_write = true;
                     }
                 }
+                break;
+            case SpvOpTypeBool:
+                if (!m->bt_type)
+                    m->bt_type = id;
                 break;
             }
         } else {
@@ -1560,8 +1565,13 @@ bool spirv_patch_stereo_vertex(
         m.view_var ||
         will_inj_vi;
     uint32_t id_new_bt = 0;
-    if (!m.bt && have_view && m.it)
+    if (!m.bt &&
+        !m.bt_type &&
+        have_view &&
+        m.it)
+    {
         id_new_bt = nid++;
+    }
     uint32_t id_cz = nid++;
     uint32_t id_cf0 = nid++;
     uint32_t id_cl = nid++;
@@ -1578,7 +1588,7 @@ bool spirv_patch_stereo_vertex(
     uint32_t bt =
         m.bt ?
         m.bt :
-        id_new_bt;
+        (m.bt_type ? m.bt_type : id_new_bt);
     /* Additional SPIR-V declarations inserted before the entry function:
      * - new types
      * - constants
