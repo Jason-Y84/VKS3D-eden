@@ -1337,6 +1337,13 @@ bool spirv_patch_stereo_vertex(
      * - entry point classification
      */
     spv_scan(&m);
+    STEREO_LOG(
+        "VS_SCAN bound=%u it=%u ptr_in_int=%u v3uint=%u view=%u",
+        m.bound,
+        m.it,
+        m.ptr_in_int,
+        m.v3it,
+        m.view_var);
     /*
      * Optional shader blacklist.
      * Used for debugging shaders that should remain untouched.
@@ -1577,6 +1584,32 @@ bool spirv_patch_stereo_vertex(
     uint32_t id_cl = nid++;
     uint32_t id_cr = nid++;
     uint32_t id_cc = nid++;
+    STEREO_LOG(
+        "VS_NEW_IDS "
+        "bound=%u "
+        "next=%u "
+        "ptr_v4=%u "
+        "ptr_int=%u "
+        "new_it=%u "
+        "inj_view=%u "
+        "new_bool=%u "
+        "cz=%u "
+        "cf0=%u "
+        "cl=%u "
+        "cr=%u "
+        "cc=%u",
+        m.bound,
+        nid,
+        id_ptr_v4,
+        id_ptr_int,
+        id_new_it,
+        id_inj_view,
+        id_new_bt,
+        id_cz,
+        id_cf0,
+        id_cl,
+        id_cr,
+        id_cc);
     uint32_t uv4 =
         m.ptr_out_v4 ?
         m.ptr_out_v4 :
@@ -2003,7 +2036,8 @@ bool spirv_patch_stereo_vertex(
             wcj >= 2)
         {
             STEREO_LOG(
-                "VS_TYPE_OUT op=%s id=%u",
+                "VS_TYPE_OUT opcode=%u (%s) id=%u",
+                opj,
                 spv_op_name(opj),
                 ob.w[j + 1]);
         }
@@ -2014,6 +2048,23 @@ bool spirv_patch_stereo_vertex(
             STEREO_LOG(
                 "VS_VARIABLE_OUT result=%u type=%u storage=%u",
                 ob.w[j + 2],
+                ob.w[j + 1],
+                ob.w[j + 3]);
+        }
+        if (opj == SpvOpTypePointer && wcj >= 4)
+        {
+            STEREO_LOG(
+                "VS_TYPE_POINTER_OUT id=%u storage=%u pointee=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3]);
+        }
+        if (opj == SpvOpVariable &&
+            wcj >= 4 &&
+            ob.w[j + 2] == id_inj_view)
+        {
+            STEREO_LOG(
+                "VS_VIEW_VAR type=%u storage=%u",
                 ob.w[j + 1],
                 ob.w[j + 3]);
         }
@@ -4608,22 +4659,6 @@ bool spirv_patch_stereo_fs(
     bool     is_new_vi     = (s.vi_var_id == 0);
     uint32_t samp_nid      = nid;
     uint32_t new_bound     = samp_nid + n_patches * 5 + 8;
-    STEREO_LOG(
-        "VS_NEW_IDS "
-        "bound=%u "
-        "nid=%u "
-        "int=%u "
-        "v3f=%u "
-        "v3i=%u "
-        "ptr=%u "
-        "view=%u",
-        in[3],
-        nid,
-        new_int_id,
-        new_v3f_id,
-        new_v3i_id,
-        new_pin_id,
-        new_vi_id);
     SpvBuf ob;
     SpvBuf ann;
     if (!sb_init(&ann, 16) ||
