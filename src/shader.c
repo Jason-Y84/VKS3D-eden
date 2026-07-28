@@ -1338,11 +1338,10 @@ bool spirv_patch_stereo_vertex(
      */
     spv_scan(&m);
     STEREO_LOG(
-        "VS_SCAN bound=%u it=%u ptr_in_int=%u v3uint=%u view=%u",
+        "VS_SCAN bound=%u it=%u ptr_in_int=%u view=%u",
         m.bound,
         m.it,
         m.ptr_in_int,
-        m.v3it,
         m.view_var);
     /*
      * Optional shader blacklist.
