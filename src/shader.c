@@ -1756,6 +1756,14 @@ bool spirv_patch_stereo_vertex(
         uint32_t wcx = in[i] >> 16;
         if (!wcx || i + wcx > in_c)
             break;
+        if (opx == SpvOpVariable && wcx >= 4)
+        {
+            STEREO_LOG(
+                "VS_VARIABLE_IN result=%u type=%u storage=%u",
+                in[i + 2],
+                in[i + 1],
+                in[i + 3]);
+        }
         if (!ins_ann &&
             (opx == SpvOpTypeVoid ||
              opx == SpvOpTypeBool ||
@@ -1984,6 +1992,23 @@ bool spirv_patch_stereo_vertex(
         sb_push_n(&ob, ann.w, ann.n);
     if (!te_done)
         sb_push_n(&ob, te.w, te.n);
+    /* Verify OpVariable declarations after rewriting */
+    for (size_t j = 5; j < ob.n;)
+    {
+        uint32_t opj = ob.w[j] & 0xffff;
+        uint32_t wcj = ob.w[j] >> 16;
+        if (!wcj || j + wcj > ob.n)
+            break;
+        if (opj == SpvOpVariable && wcj >= 4)
+        {
+            STEREO_LOG(
+                "VS_VARIABLE_OUT result=%u type=%u storage=%u",
+                ob.w[j + 2],
+                ob.w[j + 1],
+                ob.w[j + 3]);
+        }
+        j += wcj;
+    }
     sb_free(&ann);
     sb_free(&te);
     ob.w[3] = nid;
