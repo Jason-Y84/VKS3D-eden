@@ -2029,6 +2029,19 @@ bool spirv_patch_stereo_vertex(
     {
         uint32_t opj = ob.w[j] & 0xffff;
         uint32_t wcj = ob.w[j] >> 16;
+        if (opj == SpvOpVariable &&
+            wcj >= 4 &&
+            ob.w[j + 2] == id_inj_view)
+        {
+            STEREO_LOG(
+                "VS_VIEW_VAR_DEF "
+                "result=%u "
+                "ptrType=%u "
+                "storage=%u",
+                ob.w[j + 2],
+                ob.w[j + 1],
+                ob.w[j + 3]);
+        }
         if ((opj == SpvOpTypePointer ||
              opj == SpvOpTypeInt ||
              opj == SpvOpTypeVector) &&
@@ -2057,6 +2070,18 @@ bool spirv_patch_stereo_vertex(
                 ob.w[j + 1],
                 ob.w[j + 2],
                 ob.w[j + 3]);
+        }
+        if (ob.w[j + 1] == ob.w[j + 1]) /* keep compiler happy */
+        {
+            if (ob.w[j + 1] == 16 ||
+                ob.w[j + 1] == id_ptr_int)
+            {
+                STEREO_LOG(
+                    "VS_VIEW_POINTER ptr=%u storage=%u pointee=%u",
+                    ob.w[j + 1],
+                    ob.w[j + 2],
+                    ob.w[j + 3]);
+            }
         }
         if (opj == SpvOpVariable &&
             wcj >= 4 &&
