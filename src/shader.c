@@ -769,10 +769,6 @@ static void do_scan(SpvMod *m, bool p2)
                     }
                 }
                 break;
-            case SpvOpTypeBool:
-                if (!m->bt_type)
-                    m->bt_type = id;
-                break;
             }
         } else {
             if(op==SpvOpTypePointer && wc>=4 &&
