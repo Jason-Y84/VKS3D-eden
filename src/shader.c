@@ -660,6 +660,12 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpTypePointer:
                 if (wc >= 4)
                 {
+                    STEREO_LOG(
+                        "VS_RAW_POINTER words=%u,%u,%u,%u",
+                        w[i],
+                        w[i+1],
+                        w[i+2],
+                        w[i+3]);
                     uint32_t ptr_id = w[i + 1];
                     uint32_t storage = w[i + 2];
                     uint32_t pointee = w[i + 3];
@@ -686,16 +692,29 @@ static void do_scan(SpvMod *m, bool p2)
                     {
                         m->ptr_out_v4 = ptr_id;
                     }
-                    if (storage == SpvStorageInput &&
-                        m->it &&
-                        pointee == m->it)
+                    if (storage == SpvStorageInput)
                     {
                         STEREO_LOG(
-                            "VS_VIEW_POINTER ptr=%u storage=%u pointee=%u",
+                            "VS_INPUT_POINTER ptr=%u storage=%u pointee=%u",
                             ptr_id,
                             storage,
                             pointee);
-                        m->ptr_in_int = ptr_id;
+                        if (m->view_var &&
+                            ptr_id == m->ptr_in_int)
+                        {
+                            STEREO_LOG(
+                                "VS_VIEW_POINTER_EXISTING ptr=%u pointee=%u",
+                                ptr_id,
+                                pointee);
+                        }
+                        if (m->it &&
+                            pointee == m->it)
+                        {
+                            STEREO_LOG(
+                                "VS_SIGNED_INT_POINTER ptr=%u",
+                                ptr_id);
+                            m->ptr_in_int = ptr_id;
+                        }
                     }
                 }
                 break;
