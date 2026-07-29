@@ -5373,16 +5373,15 @@ bool spirv_patch_stereo_fs(
             uint32_t id_c3 = samp_nid++;
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv_raw, new_vi_id};
               sb_push_n(&ob,w,4); }
+            uint32_t coord_scalar_type = new_int_id;
+            uint32_t coord_vector_type = new_v3i_id;
+            uint32_t coord_type        = fs_result_type_of(&s, in, in_c, coord_id);
             STEREO_LOG(
                 "FS_VIEWINDEX_LOAD raw=%u final=%u rawType=%u finalType=%u",
                 id_lv_raw,
                 id_lv,
                 new_int_id,
                 coord_scalar_type);
-            uint32_t coord_scalar_type = new_int_id;
-            uint32_t coord_vector_type = new_v3i_id;
-            uint32_t coord_type =
-                fs_result_type_of(&s, in, in_c, coord_id);
             if (coord_type == s.v2uint_id ||
                 coord_type == s.v3uint_id)
             {
