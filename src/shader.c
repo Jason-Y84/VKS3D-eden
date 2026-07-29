@@ -362,8 +362,17 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     SETMAT(w[i + 2], MAT(w[i + 3]));
                     if (PROJ(w[i + 3]))
+                    {
+                        STEREO_LOG(
+                            "PROJ_EXTRACT result=%u src=%u member=%u",
+                            w[i + 2],
+                            w[i + 3],
+                            PROJ(w[i + 3]) - 1);
                         SETPROJ(w[i + 2], PROJ(w[i + 3]));
+                    }
                     if (VIEW(w[i + 3]))
+                        SETVIEW(w[i + 2], VIEW(w[i + 3]));
+                    if (VIEW(w[i + 3]) != 0)
                         SETVIEW(w[i + 2], VIEW(w[i + 3]));
                 }
                 break;
