@@ -4859,6 +4859,7 @@ bool spirv_patch_stereo_fs(
     uint32_t new_bound     = samp_nid + n_patches * 5 + 8;
     SpvBuf ob;
     SpvBuf ann;
+    SpvBuf ob;
     if (!sb_init(&ann, 16) ||
         !sb_init(&ob, in_c + 60 + (size_t)n_patches * 28))
         return false;
@@ -4871,7 +4872,6 @@ bool spirv_patch_stereo_fs(
         (((spv_version >> 8) & 0xff) == 0);
     bool types_done = false;
     bool ep_done    = false;
-    bool ann_done   = false;
     bool in_func    = false;
     /* Header */
     sb_push_n(&ob, in, 5);
