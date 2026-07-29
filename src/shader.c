@@ -2290,6 +2290,7 @@ typedef struct
     uint32_t owner_var;
     uint32_t binding;
     uint32_t set;
+    bool     stereo;
 } FsImageInfo;
 
 
@@ -2910,16 +2911,6 @@ fs_scan_type_instruction(
         uint32_t dim     = ins[3];
         uint32_t depth   = ins[4];
         uint32_t arrayed = ins[5];
-        //STEREO_LOG(
-        //    "FS_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
-        //    type_id,
-        //    ins[2],
-        //    dim,
-        //    depth,
-        //    arrayed,
-        //    ins[6],
-        //    ins[7],
-        //    ins[8]);
         if (dim == SpvDim2D &&
             arrayed == 0 &&
             s->n_img < FS_MAX_IMG)
@@ -2927,25 +2918,13 @@ fs_scan_type_instruction(
             FsImageInfo *img =
                 &s->images[s->n_img++];
             memset(img, 0, sizeof(*img));
-            img->id             = type_id;
-            img->depth          = depth;
-            img->arrayed        = arrayed;
-            img->patchable      = true;
-            img->sampled_type   = 0;
-            //STEREO_LOG(
-            //    "FS_IMAGE_CANDIDATE type=%u depth=%u index=%u",
-            //    img->id,
-            //    img->depth,
-            //    s->n_img - 1);
+            img->id            = type_id;
+            img->depth         = depth;
+            img->arrayed       = arrayed;
+            img->patchable     = true;
+            img->sampled_type  = 0;
+            img->stereo        = false;
         }
-        //else
-        //{
-        //    STEREO_LOG(
-        //        "FS_IMAGE_REJECT type=%u dim=%u arrayed=%u",
-        //        type_id,
-        //        dim,
-        //        arrayed);
-        //}
         break;
     }
     case SpvOpTypeSampledImage:
@@ -4287,6 +4266,14 @@ fs_prescan(
                     image->owner_var,
                     image->set,
                     image->binding);
+                image->stereo =
+                    fs_binding_is_stereo_attachment(
+                        s,
+                        image->owner_var);
+                STEREO_LOG(
+                    "FS_IMAGE_STEREO imageType=%u stereo=%u",
+                    image->id,
+                    image->stereo);
                 break;
             }
         }
@@ -4944,16 +4931,20 @@ bool spirv_patch_stereo_fs(
             bool patch_this_type = false;
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
-                if (s.images[img].id == in[i + 1])
-                {
-                    if (fs_binding_is_stereo_attachment(
-                            &s,
-                            s.images[img].owner_var))
-                    {
-                        patch_this_type = true;
-                    }
-                    break;
-                }
+                if (s.images[img].id != in[i + 1])
+                    continue;
+                STEREO_LOG(
+                    "FS_IMAGE_TYPE_USER "
+                    "type=%u "
+                    "owner=%u "
+                    "binding=%u "
+                    "stereo=%u",
+                    s.images[img].id,
+                    s.images[img].owner_var,
+                    s.images[img].binding,
+                    s.images[img].stereo);
+                if (s.images[img].stereo)
+                    patch_this_type = true;
             }
             if (!patch_this_type)
             {
@@ -4978,23 +4969,6 @@ bool spirv_patch_stereo_fs(
                 in[i+5],
                 ob.w[ob.n - wc + 5],
                 in[i+6]);
-            for (uint32_t img = 0; img < s.n_img; ++img)
-            {
-                if (s.images[img].id == in[i+1])
-                {
-                    STEREO_LOG(
-                        "FS_IMAGE_PATCH_USER "
-                        "type=%u "
-                        "owner=%u "
-                        "set=%u "
-                        "binding=%u",
-                        s.images[img].id,
-                        s.images[img].owner_var,
-                        s.images[img].set,
-                        s.images[img].binding);
-                    break;
-                }
-            }
             STEREO_LOG(
                 "FS_PATCH_IMAGE word=%zu type=%u dim=%u depth=%u arrayed=%u",
                 i,
