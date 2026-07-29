@@ -4829,6 +4829,15 @@ bool spirv_patch_stereo_fs(
     uint32_t new_pin_id    = s.ptr_int_in_id ? s.ptr_int_in_id : nid++;
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
     bool     is_new_vi     = (s.vi_var_id == 0);
+    STEREO_LOG(
+        "FS_NEW_TYPES int=%u uint=%u v3i=%u v3u=%u v3f=%u ptr=%u vi=%u",
+        new_int_id,
+        s.uint_id,
+        new_v3i_id,
+        new_v3u_id,
+        new_v3f_id,
+        new_pin_id,
+        new_vi_id);
     uint32_t samp_nid      = nid;
     uint32_t new_bound     = samp_nid + n_patches * 5 + 8;
     SpvBuf ob;
