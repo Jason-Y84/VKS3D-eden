@@ -4923,9 +4923,10 @@ bool spirv_patch_stereo_fs(
             i += wc; continue;
         }
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
-        if (op == SpvOpTypeImage && wc >= 9 &&
-            in[i+3] == SpvDim2D &&
-            in[i+5] == 0)
+        if (op == SpvOpTypeImage &&
+            wc >= 9 &&
+            in[i + 3] == SpvDim2D &&
+            in[i + 5] == 0)
         {
             bool patch_this_type = false;
             for (uint32_t img = 0; img < s.n_img; ++img)
