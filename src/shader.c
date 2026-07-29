@@ -5186,9 +5186,6 @@ bool spirv_patch_stereo_fs(
             uint32_t id_u   = samp_nid++;
             uint32_t id_v   = samp_nid++;
             uint32_t id_c3  = samp_nid++;
-            /* OpLoad %int %vi → id_lv */
-            { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
-              sb_push_n(&ob,w,4); }
             /* OpConvertSToF %float id_lv → id_cvt */
             { uint32_t w[]={(4u<<16)|111, s.float_id, id_cvt, id_lv};
               sb_push_n(&ob,w,4); }
@@ -5370,6 +5367,16 @@ bool spirv_patch_stereo_fs(
                 coord_scalar_type = s.uint_id;
                 coord_vector_type = new_v3u_id;
                 layer_type        = s.uint_id;
+            }
+            if (coord_scalar_type == s.uint_id)
+            {
+                { uint32_t w[]={(4u<<16)|124, s.uint_id, id_lv, new_vi_id};
+                  sb_push_n(&ob,w,4); }
+            }
+            else
+            {
+                { uint32_t w[]={(4u<<16)|111, s.float_id, id_lv, new_vi_id};
+                  sb_push_n(&ob,w,4); }
             }
             {
                 uint32_t w[]={(4u<<16)|61, new_int_id, id_layer_raw, new_vi_id};
