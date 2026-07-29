@@ -306,14 +306,32 @@ static void do_scan(SpvMod *m, bool p2)
                 {
                     uint32_t member_id = w[i + 4];
                     uint32_t member_value = member_id;
-                    (void)spv_resolve_u32_constant(m, member_id, &member_value);
+                    (void)spv_resolve_u32_constant(
+                        m,
+                        member_id,
+                        &member_value);
                     m->proj_access_count++;
                     m->proj_found = VK_TRUE;
-                    /* projection provenance */
-                    SETPROJ(w[i + 2], member_value + 1);
-                    /* separate view provenance */
-                    if (member_value == 2)
-                        SETVIEW(w[i + 2], 1);
+                    /* Only tag matrix members */
+                    switch (member_value)
+                    {
+                        case 0: /* view */
+                        case 1: /* viewI */
+                        case 2: /* projection */
+                        case 3: /* projectionI */
+                        case 4: /* viewProj */
+                        case 5: /* prevViewProj */
+                            SETPROJ(
+                                w[i + 2],
+                                member_value + 1);
+                            if (member_value == 2)
+                                SETVIEW(
+                                    w[i + 2],
+                                    1);
+                            break;
+                        default:
+                            break;
+                    }
                     STEREO_LOG(
                         "PROJ_ACCESS result=%u base=%u index_id=%u member=%u",
                         w[i+2],
