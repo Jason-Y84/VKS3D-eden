@@ -1971,6 +1971,11 @@ bool spirv_patch_stereo_vertex(
             sb_push_n(&ob, c, 2);
             mv_done = true;
         }
+        if (!ann_done && i == ins_ann)
+        {
+            sb_push_n(&ob, ann.w, ann.n);
+            ann_done = true;
+        }
         if (!te_done && i == ins_t)
         {
             sb_push_n(&ob, te.w, te.n);
@@ -4866,6 +4871,7 @@ bool spirv_patch_stereo_fs(
         (((spv_version >> 8) & 0xff) == 0);
     bool types_done = false;
     bool ep_done    = false;
+    bool ann_done   = false;
     bool in_func    = false;
     /* Header */
     sb_push_n(&ob, in, 5);
@@ -5028,7 +5034,7 @@ bool spirv_patch_stereo_fs(
                     SpvDecorationBuiltIn,
                     SpvBuiltInViewIndex
                 };
-                sb_push_n(&ob, w, 4);
+                sb_push_n(&ann, w, 4);
             }
             if (!s.int_id) {
                 uint32_t w[]={(4u<<16)|21, new_int_id, 32, 1};
@@ -5483,6 +5489,8 @@ bool spirv_patch_stereo_fs(
         }
         j += wc;
     }
+    if (!ann_done)
+        sb_push_n(&ob, ann.w, ann.n);
     sb_free(&ann);
     ob.w[3]=samp_nid + 1;
     *out=ob.w;
