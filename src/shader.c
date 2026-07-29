@@ -118,6 +118,7 @@ typedef struct
     uint32_t ft;
     uint32_t v4t;
     uint32_t it;
+    uint32_t ut;
     uint32_t bt_type;
     uint32_t bt;
     uint32_t ptr_out_v4;
@@ -453,11 +454,13 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpTypeInt:
                 if (wc == 4 && w[i + 2] == 32)
                 {
-                    /* Keep the signed 32-bit integer type only.
-                       Do not overwrite it with the unsigned type. */
                     if (w[i + 3] == 1)
                     {
                         m->it = w[i + 1];
+                    }
+                    else
+                    {
+                        m->ut = w[i + 1];
                     }
                 }
                 break;
@@ -2314,6 +2317,7 @@ typedef struct
     //Cached SPIR-V types
     uint32_t float_id;
     uint32_t int_id;
+    uint32_t uint_id;
     uint32_t v3float_id;
     uint32_t v3int_id;
     uint32_t ptr_int_in_id;
@@ -2818,10 +2822,12 @@ fs_scan_type_instruction(
         break;
     case SpvOpTypeInt:
         if (wc >= 4 &&
-            ins[2] == 32 &&
-            ins[3] == 1)
+            ins[2] == 32)
         {
-            s->int_id = ins[1];
+            if (ins[3] == 1)
+                s->int_id = ins[1];
+            else
+                s->uint_id = ins[1];
         }
         break;
     case SpvOpTypeVector:
