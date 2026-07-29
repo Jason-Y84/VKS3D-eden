@@ -2863,6 +2863,12 @@ fs_scan_type_instruction(
                 s->int_id = ins[1];
             else
                 s->uint_id = ins[1];
+            STEREO_LOG(
+                "FS_TYPE_INT_DECL id=%u signed=%u int=%u uint=%u",
+                ins[1],
+                ins[3],
+                s->int_id,
+                s->uint_id);
         }
         break;
     case SpvOpTypeVector:
@@ -4829,6 +4835,14 @@ bool spirv_patch_stereo_fs(
     uint32_t new_pin_id    = s.ptr_int_in_id ? s.ptr_int_in_id : nid++;
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
     bool     is_new_vi     = (s.vi_var_id == 0);
+    STEREO_LOG(
+        "FS_SCAN_SUMMARY int=%u uint=%u v2i=%u v2u=%u v3i=%u v3u=%u",
+        s.int_id,
+        s.uint_id,
+        s.v2int_id,
+        s.v2uint_id,
+        s.v3int_id,
+        s.v3uint_id);
     STEREO_LOG(
         "FS_NEW_TYPES int=%u uint=%u v3i=%u v3u=%u v3f=%u ptr=%u vi=%u",
         new_int_id,
