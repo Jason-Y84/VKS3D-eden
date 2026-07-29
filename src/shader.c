@@ -5388,7 +5388,34 @@ bool spirv_patch_stereo_fs(
                 new_vi_type,
                 new_int_id);
             uint32_t id_layer = id_lv;
-            if (new_vi_type != new_int_id)
+            uint32_t coord_scalar_type = new_int_id;
+            uint32_t coord_vector_type = new_v3i_id;
+            uint32_t coord_type =
+                fs_result_type_of(&s, in, in_c, coord_id);
+            bool coord_is_uint =
+                coord_type &&
+                s.uint_id &&
+                (coord_type == s.v2uint_id ||
+                 coord_type == s.v3uint_id);
+            if (coord_is_uint)
+            {
+                if (!new_v3u_id)
+                    break;
+                coord_scalar_type = s.uint_id;
+                coord_vector_type = new_v3u_id;
+                if (new_vi_type != s.uint_id)
+                {
+                    id_layer = samp_nid++;
+                    uint32_t w[] = {
+                        (4u << 16) | SpvOpBitcast,
+                        s.uint_id,
+                        id_layer,
+                        id_lv
+                    };
+                    sb_push_n(&ob, w, 4);
+                }
+            }
+            else if (new_vi_type != new_int_id)
             {
                 id_layer = samp_nid++;
                 uint32_t w[] = {
@@ -5399,20 +5426,6 @@ bool spirv_patch_stereo_fs(
                 };
                 sb_push_n(&ob, w, 4);
             }
-            uint32_t coord_scalar_type = new_int_id;
-            uint32_t coord_vector_type = new_v3i_id;
-            uint32_t coord_type =
-                fs_result_type_of(&s, in, in_c, coord_id);
-            if (coord_type &&
-                s.uint_id &&
-                (coord_type == s.v2uint_id ||
-                 coord_type == s.v3uint_id))
-            {
-                if (!new_v3u_id)
-                    break;
-                coord_scalar_type = s.uint_id;
-                coord_vector_type = new_v3u_id;
-            }
             STEREO_LOG(
                 "FS_COORD_CONSTRUCT "
                 "coord=%u "
@@ -5420,17 +5433,17 @@ bool spirv_patch_stereo_fs(
                 "scalar=%u "
                 "vector=%u "
                 "viewLoadType=%u "
+                "layer=%u "
                 "x=%u "
-                "y=%u "
-                "layer=%u",
+                "y=%u",
                 coord_id,
                 coord_type,
                 coord_scalar_type,
                 coord_vector_type,
-                new_int_id,
+                new_vi_type,
+                id_layer,
                 id_x,
-                id_y,
-                id_lv);
+                id_y);
             { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_x, coord_id, 0};
               sb_push_n(&ob,w,5); }
             { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_y, coord_id, 1};
