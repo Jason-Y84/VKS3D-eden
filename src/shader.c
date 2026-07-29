@@ -2506,6 +2506,33 @@ uint32_t var)
     return stereo;
 }
 
+static uint32_t fs_result_type_of(FsScan *s,
+    const uint32_t *in,
+    size_t in_c,
+    uint32_t result_id)
+{
+    for (size_t i = 5; i < in_c;)
+    {
+        uint32_t wc = in[i] >> 16;
+        uint32_t op = in[i] & 0xffff;
+        if (!wc)
+            break;
+        if ((op == SpvOpCompositeConstruct ||
+             op == SpvOpCompositeExtract ||
+             op == SpvOpVectorShuffle ||
+             op == SpvOpLoad ||
+             op == SpvOpAccessChain ||
+             op == SpvOpImageFetch) &&
+            wc >= 3 &&
+            in[i + 2] == result_id)
+        {
+            return in[i + 1];
+        }
+        i += wc;
+    }
+    return 0;
+}
+
 static bool
 fs_should_patch_sample(
     const FsScan *s,
@@ -5298,9 +5325,33 @@ bool spirv_patch_stereo_fs(
             uint32_t id_c3 = samp_nid++;
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
-            { uint32_t w[]={(5u<<16)|81, new_int_id, id_x, coord_id, 0};
+            uint32_t coord_scalar_type = new_int_id;
+            {
+                uint32_t coord_type =
+                    fs_result_type_of(&s, in, in_c, coord_id);
+                if (coord_type)
+                {
+                    for (size_t j = 5; j < in_c;)
+                    {
+                        uint32_t wcj = in[j] >> 16;
+                        uint32_t opj = in[j] & 0xffff;
+                        if (!wcj)
+                            break;
+                        if (opj == SpvOpTypeVector &&
+                            wcj >= 4 &&
+                            in[j + 1] == coord_type)
+                        {
+                            if (in[j + 2] == s.uint_id)
+                                coord_scalar_type = s.uint_id;
+                            break;
+                        }
+                        j += wcj;
+                    }
+                }
+            }
+            { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_x, coord_id, 0};
               sb_push_n(&ob,w,5); }
-            { uint32_t w[]={(5u<<16)|81, new_int_id, id_y, coord_id, 1};
+            { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_y, coord_id, 1};
               sb_push_n(&ob,w,5); }
             { uint32_t w[]={(6u<<16)|80, new_v3i_id, id_c3,
                             id_x, id_y, id_lv};
