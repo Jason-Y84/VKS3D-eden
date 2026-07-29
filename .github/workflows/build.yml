@@ -119,6 +119,7 @@ jobs:
         -DVKS3D_VER_PATCH=${{env.CommitCount}}
         -DVKS3D_VER_BUILD=${{env.AttemptCount}}
         -DVKS3D_COMMIT_HASH=${{env.CommitHash}}
+        -DVKS3D_BITS=${{matrix.Settings.Bits}}
 
     - name: Build
       run: cmake --build "${{github.workspace}}/build" --config "${{matrix.Configuration}}"
