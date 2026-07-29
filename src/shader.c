@@ -4825,9 +4825,7 @@ bool spirv_patch_stereo_fs(
     uint32_t new_int_id    = s.int_id        ? s.int_id        : nid++;
     uint32_t new_v3f_id    = s.v3float_id    ? s.v3float_id    : nid++;
     uint32_t new_v3i_id    = s.v3int_id ? s.v3int_id : nid++;
-    uint32_t new_v3u_id = 0;
-    if (s.uint_id)
-        new_v3u_id = s.v3uint_id ? s.v3uint_id : nid++;
+    uint32_t new_v3u_id    = s.v3uint_id  ? s.v3uint_id  : nid++;
     uint32_t new_pin_id    = s.ptr_int_in_id ? s.ptr_int_in_id : nid++;
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
     bool     is_new_vi     = (s.vi_var_id == 0);
@@ -5032,7 +5030,7 @@ bool spirv_patch_stereo_fs(
                 uint32_t w[]={(4u<<16)|23, new_v3i_id, new_int_id, 3};
                 sb_push_n(&ob,w,4);
             }
-            if (!s.v3uint_id && s.uint_id)
+            if (!s.v3uint_id)
             {
                 uint32_t w[]={(4u<<16)|SpvOpTypeVector, new_v3u_id, s.uint_id, 3};
                 sb_push_n(&ob,w,4);
@@ -5186,6 +5184,9 @@ bool spirv_patch_stereo_fs(
             uint32_t id_u   = samp_nid++;
             uint32_t id_v   = samp_nid++;
             uint32_t id_c3  = samp_nid++;
+            /* OpLoad %int %vi → id_lv */
+            { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
+              sb_push_n(&ob,w,4); }
             /* OpConvertSToF %float id_lv → id_cvt */
             { uint32_t w[]={(4u<<16)|111, s.float_id, id_cvt, id_lv};
               sb_push_n(&ob,w,4); }
@@ -5353,59 +5354,18 @@ bool spirv_patch_stereo_fs(
             uint32_t id_x  = samp_nid++;
             uint32_t id_y  = samp_nid++;
             uint32_t id_c3 = samp_nid++;
-            uint32_t id_layer_raw = samp_nid++;
+            { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
+              sb_push_n(&ob,w,4); }
             uint32_t coord_scalar_type = new_int_id;
             uint32_t coord_vector_type = new_v3i_id;
             uint32_t coord_type =
                 fs_result_type_of(&s, in, in_c, coord_id);
-            uint32_t layer_type = new_int_id;
             if (coord_type == s.v2uint_id ||
                 coord_type == s.v3uint_id)
             {
-                if (!new_v3u_id)
-                    break;
                 coord_scalar_type = s.uint_id;
                 coord_vector_type = new_v3u_id;
-                layer_type        = s.uint_id;
             }
-            if (coord_scalar_type == s.uint_id)
-            {
-                { uint32_t w[]={(4u<<16)|124, s.uint_id, id_lv, new_vi_id};
-                  sb_push_n(&ob,w,4); }
-            }
-            else
-            {
-                { uint32_t w[]={(4u<<16)|111, s.float_id, id_lv, new_vi_id};
-                  sb_push_n(&ob,w,4); }
-            }
-            {
-                uint32_t w[]={(4u<<16)|61, new_int_id, id_layer_raw, new_vi_id};
-                sb_push_n(&ob,w,4);
-            }
-            if (layer_type == s.uint_id)
-            {
-                uint32_t w[]={
-                    (4u<<16)|109, /* OpConvertSToU */
-                    s.uint_id,
-                    id_lv,
-                    id_layer_raw
-                };
-                sb_push_n(&ob,w,4);
-            }
-            else
-            {
-                id_lv = id_layer_raw;
-            }
-            STEREO_LOG(
-                "FS_COORD_CONSTRUCT scalar=%u vector=%u coord=%u coordType=%u x=%u y=%u layer=%u rawLayer=%u",
-                coord_scalar_type,
-                coord_vector_type,
-                coord_id,
-                coord_type,
-                id_x,
-                id_y,
-                id_lv,
-                id_layer_raw);
             { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_x, coord_id, 0};
               sb_push_n(&ob,w,5); }
             { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_y, coord_id, 1};
