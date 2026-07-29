@@ -4836,6 +4836,7 @@ bool spirv_patch_stereo_fs(
         new_v3u_id = s.v3uint_id ? s.v3uint_id : nid++;
     uint32_t new_pin_id    = s.ptr_int_in_id ? s.ptr_int_in_id : nid++;
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
+    uint32_t new_vi_type   = s.int_id ? s.int_id : new_int_id;
     bool     is_new_vi     = (s.vi_var_id == 0);
     STEREO_LOG(
         "FS_SCAN_SUMMARY int=%u uint=%u v2i=%u v2u=%u v3i=%u v3u=%u",
@@ -5370,12 +5371,25 @@ bool spirv_patch_stereo_fs(
             uint32_t id_x  = samp_nid++;
             uint32_t id_y  = samp_nid++;
             uint32_t id_c3 = samp_nid++;
-            { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
+            { uint32_t w[]={(4u<<16)|61, new_vi_type, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
             STEREO_LOG(
-                "FS_VIEWINDEX_LOAD result=%u resultType=%u",
+                "FS_VIEWINDEX_LOAD result=%u actualType=%u finalType=%u",
                 id_lv,
+                new_vi_type,
                 new_int_id);
+            uint32_t id_layer = id_lv;
+            if (new_vi_type != new_int_id)
+            {
+                id_layer = samp_nid++;
+                uint32_t w[] = {
+                    (4u << 16) | SpvOpBitcast,
+                    new_int_id,
+                    id_layer,
+                    id_lv
+                };
+                sb_push_n(&ob, w, 4);
+            }
             uint32_t coord_scalar_type = new_int_id;
             uint32_t coord_vector_type = new_v3i_id;
             uint32_t coord_type =
@@ -5411,7 +5425,7 @@ bool spirv_patch_stereo_fs(
             { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_y, coord_id, 1};
               sb_push_n(&ob,w,5); }
             { uint32_t w[]={(6u<<16)|80, coord_vector_type, id_c3,
-                            id_x, id_y, id_lv};
+                            id_x, id_y, id_layer};
               sb_push_n(&ob,w,6); }
             sb_push(&ob, in[i]);
             sb_push(&ob, in[i+1]);
