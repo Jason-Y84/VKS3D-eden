@@ -4832,6 +4832,8 @@ bool spirv_patch_stereo_fs(
     uint32_t new_v3f_id    = s.v3float_id    ? s.v3float_id    : nid++;
     uint32_t new_v3i_id    = s.v3int_id ? s.v3int_id : nid++;
     uint32_t new_v3u_id    = 0;
+    if (s.uint_id)
+        new_v3u_id = s.v3uint_id ? s.v3uint_id : nid++;
     uint32_t new_pin_id    = s.ptr_int_in_id ? s.ptr_int_in_id : nid++;
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
     bool     is_new_vi     = (s.vi_var_id == 0);
@@ -5377,6 +5379,8 @@ bool spirv_patch_stereo_fs(
             if (coord_type == s.v2uint_id ||
                 coord_type == s.v3uint_id)
             {
+                if (!new_v3u_id)
+                    break;
                 coord_scalar_type = s.uint_id;
                 coord_vector_type = new_v3u_id;
             }
