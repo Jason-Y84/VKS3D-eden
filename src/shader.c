@@ -2318,8 +2318,11 @@ typedef struct
     uint32_t float_id;
     uint32_t int_id;
     uint32_t uint_id;
-    uint32_t v3float_id;
+    uint32_t v2int_id;
+    uint32_t v2uint_id;
     uint32_t v3int_id;
+    uint32_t v3uint_id;
+    uint32_t v3float_id;
     uint32_t ptr_int_in_id;
     uint32_t vi_var_id;
     bool     has_mv_cap;
@@ -2518,10 +2521,15 @@ static uint32_t fs_result_type_of(FsScan *s,
         if (!wc)
             break;
         if ((op == SpvOpCompositeConstruct ||
+             op == SpvOpConstant ||
+             op == SpvOpConstantComposite ||
              op == SpvOpCompositeExtract ||
              op == SpvOpVectorShuffle ||
              op == SpvOpLoad ||
              op == SpvOpAccessChain ||
+             op == SpvOpCopyObject ||
+             op == SpvOpBitcast ||
+             op == SpvOpPhi ||
              op == SpvOpImageFetch) &&
             wc >= 3 &&
             in[i + 2] == result_id)
@@ -2858,19 +2866,27 @@ fs_scan_type_instruction(
         }
         break;
     case SpvOpTypeVector:
-        if (wc >= 4 &&
-            s->int_id &&
-            ins[2] == s->int_id &&
-            ins[3] == 3)
+        if (wc >= 4)
         {
-            s->v3int_id = ins[1];
-        }
-        if (wc >= 4 &&
-            s->float_id &&
-            ins[2] == s->float_id &&
-            ins[3] == 3)
-        {
-            s->v3float_id = ins[1];
+            if (ins[2] == s->int_id)
+            {
+                if (ins[3] == 2)
+                    s->v2int_id = ins[1];
+                else if (ins[3] == 3)
+                    s->v3int_id = ins[1];
+            }
+            else if (ins[2] == s->uint_id)
+            {
+                if (ins[3] == 2)
+                    s->v2uint_id = ins[1];
+                else if (ins[3] == 3)
+                    s->v3uint_id = ins[1];
+            }
+            else if (ins[2] == s->float_id &&
+                     ins[3] == 3)
+            {
+                s->v3float_id = ins[1];
+            }
         }
         break;
     case SpvOpTypeImage:
@@ -5326,28 +5342,12 @@ bool spirv_patch_stereo_fs(
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
             uint32_t coord_scalar_type = new_int_id;
+            uint32_t coord_type =
+                fs_result_type_of(&s, in, in_c, coord_id);
+            if (coord_type == s.v2uint_id ||
+                coord_type == s.v3uint_id)
             {
-                uint32_t coord_type =
-                    fs_result_type_of(&s, in, in_c, coord_id);
-                if (coord_type)
-                {
-                    for (size_t j = 5; j < in_c;)
-                    {
-                        uint32_t wcj = in[j] >> 16;
-                        uint32_t opj = in[j] & 0xffff;
-                        if (!wcj)
-                            break;
-                        if (opj == SpvOpTypeVector &&
-                            wcj >= 4 &&
-                            in[j + 1] == coord_type)
-                        {
-                            if (in[j + 2] == s.uint_id)
-                                coord_scalar_type = s.uint_id;
-                            break;
-                        }
-                        j += wcj;
-                    }
-                }
+                coord_scalar_type = s.uint_id;
             }
             { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_x, coord_id, 0};
               sb_push_n(&ob,w,5); }
