@@ -1925,7 +1925,6 @@ bool spirv_patch_stereo_vertex(
         id_inj_view &&
         !m.has_mv_cap;
     bool mv_done = false;
-    bool ann_done = false;
     bool te_done = false;
     bool body_done = false;
     /* Rebuild the SPIR-V module:
@@ -2080,8 +2079,6 @@ bool spirv_patch_stereo_vertex(
         };
         sb_push_n(&ob, e, 6);
     }
-    if (!ann_done)
-        sb_push_n(&ob, ann.w, ann.n);
     if (!te_done)
         sb_push_n(&ob, te.w, te.n);
     /* Verify OpVariable declarations after rewriting */
@@ -5009,12 +5006,6 @@ bool spirv_patch_stereo_fs(
                 in[i+5]);
             i += wc;
             continue;
-        }
-        if (!ann_done &&
-            op == SpvOpTypeVoid)
-        {
-            sb_push_n(&ob, ann.w, ann.n);
-            ann_done = true;
         }
         if (op == 54 && !types_done) {
             types_done = true;
