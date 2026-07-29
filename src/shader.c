@@ -2502,8 +2502,15 @@ uint32_t var)
     bool stereo =
         (v->binding <= 4);
     STEREO_LOG(
-        "FS_BINDING_RESULT var=%u binding=%u stereo=%u",
+        "FS_BINDING_RESULT "
+        "var=%u "
+        "storage=%u "
+        "set=%u "
+        "binding=%u "
+        "stereo=%u",
         var,
+        v->storage,
+        v->set,
         v->binding,
         stereo);
     return stereo;
