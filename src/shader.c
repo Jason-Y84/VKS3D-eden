@@ -5298,10 +5298,32 @@ bool spirv_patch_stereo_fs(
             uint32_t id_c3 = samp_nid++;
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
-            { uint32_t w[]={(5u<<16)|81, new_int_id, id_x, coord_id, 0};
-              sb_push_n(&ob,w,5); }
-            { uint32_t w[]={(5u<<16)|81, new_int_id, id_y, coord_id, 1};
-              sb_push_n(&ob,w,5); }
+            {
+                uint32_t coord_scalar_type = new_int_id;
+                uint32_t coord_owner = fs_find_owner(&s, coord_id);
+                if (coord_owner)
+                {
+                    const uint32_t *coord_ins = &in[coord_owner];
+                    uint32_t coord_type = coord_ins[1];
+                    if (coord_type == s.uint_id)
+                        coord_scalar_type = s.uint_id;
+                }
+                uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_x, coord_id, 0};
+              sb_push_n(&ob,w,5); 
+            }
+            {
+                uint32_t coord_scalar_type = new_int_id;
+                uint32_t coord_owner = fs_find_owner(&s, coord_id);
+                if (coord_owner)
+                {
+                    const uint32_t *coord_ins = &in[coord_owner];
+                    uint32_t coord_type = coord_ins[1];
+                    if (coord_type == s.uint_id)
+                        coord_scalar_type = s.uint_id;
+                }
+                uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_y, coord_id, 1};
+              sb_push_n(&ob,w,5); 
+            }
             { uint32_t w[]={(6u<<16)|80, new_v3i_id, id_c3,
                             id_x, id_y, id_lv};
               sb_push_n(&ob,w,6); }
