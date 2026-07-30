@@ -4890,6 +4890,7 @@ bool spirv_patch_stereo_fs(
     bool types_done = false;
     bool ep_done    = false;
     bool in_func    = false;
+    bool vi_decorate_pending = false;
     /* Header */
     sb_push_n(&ob, in, 5);
     ob.w[3] = new_bound;
@@ -5020,15 +5021,40 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
-        /* Inject new types + gl_ViewIndex variable before first OpFunction */
+        /*
+         * First type declaration = end of Annotation section.
+         * Emit our pending BuiltIn decoration here.
+         */
+        if (vi_decorate_pending &&
+            (op == SpvOpTypeVoid ||
+             op == SpvOpTypeBool ||
+             op == SpvOpTypeInt ||
+             op == SpvOpTypeFloat ||
+             op == SpvOpTypeVector ||
+             op == SpvOpTypeMatrix ||
+             op == SpvOpTypeImage ||
+             op == SpvOpTypeSampler ||
+             op == SpvOpTypeSampledImage ||
+             op == SpvOpTypeArray ||
+             op == SpvOpTypeRuntimeArray ||
+             op == SpvOpTypeStruct ||
+             op == SpvOpTypePointer ||
+             op == SpvOpTypeFunction))
+        {
+            uint32_t d[] = {
+                op_(SpvOpDecorate, 4),
+                new_vi_id,
+                SpvDecorationBuiltIn,
+                SpvBuiltInViewIndex
+            };
+            sb_push_n(&ob, d, 4);
+            vi_decorate_pending = false;
+        }
         if (op == 54 && !types_done) {
             types_done = true;
-            in_func    = true;
-            if (is_new_vi) {
-                /* OpDecorate %vi BuiltIn ViewIndex */
-                { uint32_t w[]={(4u<<16)|71, new_vi_id, 11, 4440};
-                  sb_push_n(&ob,w,4); }
-            }
+            in_func = true;
+            if (is_new_vi)
+                vi_decorate_pending = true;
             if (!s.int_id) {
                 uint32_t w[]={(4u<<16)|21, new_int_id, 32, 1};
                 sb_push_n(&ob,w,4); }
