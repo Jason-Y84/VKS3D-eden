@@ -5373,11 +5373,11 @@ bool spirv_patch_stereo_fs(
              * Preserve the original result id by recreating
              * the ivec2 afterwards.
              */
-            sb_push((5u << 16) | SpvOpImageQuerySizeLod);
-            sb_push(new_v3i_id);
-            sb_push(id_size3);
-            sb_push(in[i + 2]);
-            sb_push(in[i + 3]);
+            sb_push(&ob, (5u << 16) | SpvOpImageQuerySizeLod);
+            sb_push(&ob, new_v3i_id);
+            sb_push(&ob, id_size3);
+            sb_push(&ob, in[i + 2]);
+            sb_push(&ob, in[i + 3]);
             {
                 uint32_t w[] =
                 {
