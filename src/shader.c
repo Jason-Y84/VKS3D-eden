@@ -2987,11 +2987,6 @@ fs_scan_type_instruction(
                 if (s->images[img].sampled_type == ins[3])
                 {
                     s->images[img].pointer_type = ins[1];
-                    STEREO_LOG(
-                        "FS_IMAGE_POINTER image=%u sampled=%u pointer=%u",
-                        s->images[img].id,
-                        s->images[img].sampled_type,
-                        s->images[img].pointer_type);
                     break;
                 }
             }
@@ -3812,10 +3807,6 @@ fs_scan_image_operation(
             s->vars[var].binding,
             li->from_projection);
     }
-    STEREO_LOG(
-        "FS_IMAGE_OWNER image=%u owner=%u",
-        (wc >= 4) ? ins[3] : 0,
-        li->owner_var);
 }
 /*
  * Instruction dispatchers
