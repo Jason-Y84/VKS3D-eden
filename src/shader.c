@@ -3856,9 +3856,11 @@ fs_scan_instruction(
     case SpvOpImageFetch:
     case SpvOpImageRead:
     case SpvOpImageWrite:
+    case SpvOpImageQuerySizeLod:
         STEREO_LOG(
-            "FS_IMAGE_OP opcode=%u wc=%u result=%u image=%u",
+            "FS_IMAGE_OP opcode=%u (%s) wc=%u result=%u image=%u",
             op,
+            spv_op_name(op),
             wc,
             (wc >= 3) ? ins[2] : 0,
             (wc >= 4) ? ins[3] : 0);
@@ -4075,6 +4077,7 @@ fs_scan_instruction(
     case SpvOpImageFetch:
     case SpvOpImageRead:
     case SpvOpImageWrite:
+    case SpvOpImageQuerySizeLod:
         fs_scan_image_operation(
             s,
             ins,
