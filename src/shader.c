@@ -2287,6 +2287,7 @@ typedef struct
     uint32_t arrayed;
     bool     patchable;
     uint32_t sampled_type;   /* OpTypeSampledImage id wrapping this image type */
+    uint32_t pointer_type;
     uint32_t owner_var;
     uint32_t binding;
     uint32_t set;
@@ -2978,6 +2979,22 @@ fs_scan_type_instruction(
             STEREO_LOG(
                 "FS_PTR_INT_INPUT id=%u",
                 s->ptr_int_in_id);
+        }
+        if (wc >= 4)
+        {
+            for (uint32_t img = 0; img < s->n_img; ++img)
+            {
+                if (s->images[img].sampled_type == ins[3])
+                {
+                    s->images[img].pointer_type = ins[1];
+                    STEREO_LOG(
+                        "FS_IMAGE_POINTER image=%u sampled=%u pointer=%u",
+                        s->images[img].id,
+                        s->images[img].sampled_type,
+                        s->images[img].pointer_type);
+                    break;
+                }
+            }
         }
         break;
     default:
@@ -4248,8 +4265,8 @@ fs_prescan(
         image->set       = UINT32_MAX;
         for (uint32_t v = 0; v < s->n_var; ++v)
         {
-            if (image->sampled_type &&
-                s->vars[v].type == image->sampled_type)
+            if (image->pointer_type &&
+                s->vars[v].type == image->pointer_type)
             {
                 image->owner_var = s->vars[v].id;
                 image->binding   = s->vars[v].binding;
@@ -4258,11 +4275,13 @@ fs_prescan(
                     "FS_IMAGE_OWNER "
                     "imageType=%u "
                     "sampledType=%u "
+                    "pointerType=%u "
                     "owner=%u "
                     "set=%u "
                     "binding=%u",
                     image->id,
                     image->sampled_type,
+                    image->pointer_type,
                     image->owner_var,
                     image->set,
                     image->binding);
