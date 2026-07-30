@@ -4879,6 +4879,8 @@ bool spirv_patch_stereo_fs(
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
     uint32_t new_vi_type   = s.int_id ? s.int_id : new_int_id;
     bool     is_new_vi     = (s.vi_var_id == 0);
+    bool     emit_vi_decorate  = is_new_vi;
+    bool     emit_vi_variable  = is_new_vi;
     STEREO_LOG(
         "FS_SCAN_SUMMARY int=%u uint=%u v2i=%u v2u=%u v3i=%u v3u=%u",
         s.int_id,
@@ -4961,7 +4963,7 @@ bool spirv_patch_stereo_fs(
          * Inject BuiltIn ViewIndex at the beginning of the annotation section,
          * immediately before the first OpDecorate.
          */
-        if (is_new_vi &&
+        if (emit_vi_decorate &&
             op == SpvOpDecorate)
         {
             uint32_t d[] =
@@ -4973,7 +4975,7 @@ bool spirv_patch_stereo_fs(
             };
             sb_push_n(&ob, d, 4);
             /* only emit once */
-            is_new_vi = false;
+            emit_vi_decorate = false;
         }
         if (op == 15 && !ep_done) {
             ep_done = true;
@@ -5090,9 +5092,8 @@ bool spirv_patch_stereo_fs(
             if (!s.ptr_int_in_id) {
                 uint32_t w[]={(4u<<16)|32, new_pin_id, 1, new_int_id};
                 sb_push_n(&ob,w,4); }
-            if (is_new_vi) {
-                /* OpVariable %ptr_int_in Input → %vi */
-                uint32_t w[]={(4u<<16)|59, new_pin_id, new_vi_id, 1};
+            if (emit_vi_variable) {
+                uint32_t w[]={(4u<<16)|SpvOpVariable, new_pin_id, new_vi_id, SpvStorageClassInput};
                 sb_push_n(&ob,w,4); }
             sb_push_n(&ob, &in[i], wc);
             i += wc; continue;
