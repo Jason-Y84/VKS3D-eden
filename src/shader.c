@@ -5323,6 +5323,72 @@ bool spirv_patch_stereo_fs(
                 id_c3);
             i += wc; continue;
         }
+        /*
+         * OpImageQuerySizeLod
+         *
+         * Once a 2D image becomes a 2DArray image, ImageQuerySizeLod
+         * returns ivec3 instead of ivec2.
+         *
+         * We keep only xy by inserting a VectorShuffle back to ivec2.
+         */
+        if (in_func &&
+            op == SpvOpImageQuerySizeLod &&
+            wc >= 4 &&
+            fs_find_load(&s, in[i + 2]) >= 0)
+        {
+            uint32_t descriptor_var = 0;
+            int load =
+                fs_find_load(
+                    &s,
+                    in[i + 2]);
+            if (load >= 0)
+                descriptor_var =
+                    s.loads[load].owner_var;
+            if (!fs_should_patch_sample(&s, h, descriptor_var))
+            {
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
+            uint32_t id_size3 = samp_nid++;
+            /*
+             * Query returns ivec3
+             */
+            {
+                uint32_t w[] =
+                {
+                    (5u << 16) | SpvOpImageQuerySizeLod,
+                    new_v3i_id,
+                    id_size3,
+                    in[i + 2],
+                    in[i + 3]
+                };
+                sb_push_n(&ob, w, 5);
+            }
+            /*
+             * Original result stays ivec2
+             */
+            {
+                uint32_t w[] =
+                {
+                    (7u << 16) | SpvOpVectorShuffle,
+                    s.v2int_id,
+                    in[i + 1],      // original result id
+                    id_size3,
+                    id_size3,
+                    0,
+                    1
+                };
+                sb_push_n(&ob, w, 7);
+            }
+            STEREO_LOG(
+                "FS_QUERYSIZE_REWRITE result=%u image=%u temp3=%u",
+                in[i + 1],
+                in[i + 2],
+                id_size3);
+            i += wc;
+            continue;
+        }
         if (in_func && op == 86 && wc >= 3)
         {
             STEREO_LOG(
