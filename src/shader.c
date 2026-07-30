@@ -2980,6 +2980,22 @@ fs_scan_type_instruction(
                 "FS_PTR_INT_INPUT id=%u",
                 s->ptr_int_in_id);
         }
+        if (wc >= 4)
+        {
+            for (uint32_t img = 0; img < s->n_img; ++img)
+            {
+                if (s->images[img].sampled_type == ins[3])
+                {
+                    s->images[img].pointer_type = ins[1];
+                    STEREO_LOG(
+                        "FS_IMAGE_POINTER image=%u sampled=%u pointer=%u",
+                        s->images[img].id,
+                        s->images[img].sampled_type,
+                        s->images[img].pointer_type);
+                    break;
+                }
+            }
+        }
         break;
     default:
         break;
@@ -3796,6 +3812,10 @@ fs_scan_image_operation(
             s->vars[var].binding,
             li->from_projection);
     }
+    STEREO_LOG(
+        "FS_IMAGE_OWNER image=%u owner=%u",
+        (wc >= 4) ? ins[3] : 0,
+        li->owner_var);
 }
 /*
  * Instruction dispatchers
