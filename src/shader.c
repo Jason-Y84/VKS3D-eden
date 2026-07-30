@@ -4962,16 +4962,6 @@ bool spirv_patch_stereo_fs(
     for (size_t i = 5; i < in_c; ) {
         uint32_t op = in[i] & 0xffff, wc = in[i] >> 16;
         if (!wc || i + wc > in_c) break;
-        if (op == SpvOpImageQuerySizeLod)
-        {
-            STEREO_LOG(
-                "FS_EMIT_QUERYSIZE wc=%u resultType=%u result=%u image=%u lod=%u",
-                wc,
-                (wc > 1) ? in[i + 1] : 0,
-                (wc > 2) ? in[i + 2] : 0,
-                (wc > 3) ? in[i + 3] : 0,
-                (wc > 4) ? in[i + 4] : 0);
-        }
         if (in_func &&
             op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSparseTexelsResident)
@@ -5703,15 +5693,6 @@ bool spirv_patch_stereo_fs(
                 id_c3);
             i += wc;
             continue;
-        }
-        if (op == SpvOpImageQuerySizeLod)
-        {
-            STEREO_LOG(
-                "FS_COPY_QUERYSIZE resultType=%u result=%u image=%u lod=%u",
-                in[i + 1],
-                in[i + 2],
-                in[i + 3],
-                in[i + 4]);
         }
         sb_push_n(&ob, &in[i], wc);
         i += wc;
