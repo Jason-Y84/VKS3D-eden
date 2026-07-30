@@ -4958,11 +4958,11 @@ bool spirv_patch_stereo_fs(
             ext_done = true;
         }
         /*
-         * Emit BuiltIn ViewIndex while still in the annotation section,
-         * immediately before the first OpEntryPoint.
+         * Inject BuiltIn ViewIndex at the beginning of the annotation section,
+         * immediately before the first OpDecorate.
          */
         if (is_new_vi &&
-            op == SpvOpEntryPoint)
+            op == SpvOpDecorate)
         {
             uint32_t d[] =
             {
@@ -4972,11 +4972,12 @@ bool spirv_patch_stereo_fs(
                 SpvBuiltInViewIndex
             };
             sb_push_n(&ob, d, 4);
+            /* only emit once */
+            is_new_vi = false;
         }
-        /* Modify OpEntryPoint: append new_vi_id to interface if we're adding it */
         if (op == 15 && !ep_done) {
             ep_done = true;
-            if (is_new_vi) {
+            if (new_vi_id != s.vi_var_id) {
                 sb_push(&ob, ((wc+1)<<16)|15);
                 sb_push_n(&ob, &in[i+1], wc-1);
                 sb_push(&ob, new_vi_id);
