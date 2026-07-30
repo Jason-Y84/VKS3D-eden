@@ -4809,6 +4809,34 @@ bool spirv_patch_stereo_fs(
                 var->set,
                 var->binding,
                 var->type);
+            /* Dump the descriptor's type chain */
+            uint32_t t = var->type;
+            while (t)
+            {
+                uint32_t next = 0;
+                for (size_t j = 5; j < in_c;)
+                {
+                    uint32_t wc = in[j] >> 16;
+                    uint32_t op = in[j] & 0xffff;
+                    if (!wc || j + wc > in_c)
+                        break;
+                    if (in[j + 1] == t)
+                    {
+                        STEREO_LOG(
+                            "FS_TYPE_CHAIN id=%u opcode=%u (%s)",
+                            t,
+                            op,
+                            spv_op_name(op));
+                        if (op == SpvOpTypePointer && wc >= 4)
+                            next = in[j + 3];
+                        else if (op == SpvOpTypeSampledImage && wc >= 3)
+                            next = in[j + 2];
+                        break;
+                    }
+                    j += wc;
+                }
+                t = next;
+            }
         }
     }
     if (s.n_img == 0 || !s.float_id)
