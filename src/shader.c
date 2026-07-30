@@ -4910,7 +4910,6 @@ bool spirv_patch_stereo_fs(
     bool types_done = false;
     bool ep_done    = false;
     bool in_func    = false;
-    bool vi_decor_done = false;
     /* Header */
     sb_push_n(&ob, in, 5);
     ob.w[3] = new_bound;
@@ -4958,6 +4957,22 @@ bool spirv_patch_stereo_fs(
             sb_push_n(&ob, e, 6);
             ext_done = true;
         }
+        /*
+         * Emit BuiltIn ViewIndex while still in the annotation section,
+         * immediately before the first OpEntryPoint.
+         */
+        if (is_new_vi &&
+            op == SpvOpEntryPoint)
+        {
+            uint32_t d[] =
+            {
+                op_(SpvOpDecorate, 4),
+                new_vi_id,
+                SpvDecorationBuiltIn,
+                SpvBuiltInViewIndex
+            };
+            sb_push_n(&ob, d, 4);
+        }
         /* Modify OpEntryPoint: append new_vi_id to interface if we're adding it */
         if (op == 15 && !ep_done) {
             ep_done = true;
@@ -4969,20 +4984,6 @@ bool spirv_patch_stereo_fs(
                 sb_push_n(&ob, &in[i], wc);
             }
             i += wc; continue;
-        }
-        if (is_new_vi && !vi_decor_done &&
-            op >= SpvOpTypeVoid &&
-            op <= SpvOpTypeForwardPointer)
-        {
-            uint32_t d[] =
-            {
-                op_(SpvOpDecorate, 4),
-                new_vi_id,
-                SpvDecorationBuiltIn,
-                SpvBuiltInViewIndex
-            };
-            sb_push_n(&ob, d, 4);
-            vi_decor_done = true;
         }
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == SpvOpTypeImage &&
@@ -4998,12 +4999,10 @@ bool spirv_patch_stereo_fs(
                 STEREO_LOG(
                     "FS_IMAGE_TYPE_USER "
                     "type=%u "
-                    "sampled=%u "
                     "owner=%u "
                     "binding=%u "
                     "stereo=%u",
                     s.images[img].id,
-                    s.images[img].sampled_type,
                     s.images[img].owner_var,
                     s.images[img].binding,
                     s.images[img].stereo);
