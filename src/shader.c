@@ -5398,7 +5398,7 @@ bool spirv_patch_stereo_fs(
         if (in_func &&
             op == SpvOpImageQuerySizeLod &&
             wc >= 4 &&
-            fs_find_load(&s, in[i + 3]) >= 0)
+            fs_find_load(&s, in[i + 2]) >= 0)
         {
             uint32_t descriptor_var = 0;
             int load =
@@ -5424,8 +5424,8 @@ bool spirv_patch_stereo_fs(
                     (5u << 16) | SpvOpImageQuerySizeLod,
                     new_v3i_id,
                     id_size3,
-                    in[i + 3],   // image
-                    in[i + 4]    // lod
+                    in[i + 2],
+                    in[i + 3]
                 };
                 sb_push_n(&ob, w, 5);
             }
