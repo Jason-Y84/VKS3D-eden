@@ -5451,7 +5451,6 @@ bool spirv_patch_stereo_fs(
                 in[i+2],
                 in[i+3]);
         }
-        if (in_func && op == SpvOpImageFetch && wc >= 5)
         /*
          * OpImageQuerySizeLod
          *
