@@ -5428,6 +5428,13 @@ bool spirv_patch_stereo_fs(
                     in[i + 4]
                 };
                 sb_push_n(&ob, w, 5);
+                STEREO_LOG(
+                    "FS_QUERYSIZE_WORDS %08x %08x %08x %08x %08x",
+                    ob.w[ob.n - 5],
+                    ob.w[ob.n - 4],
+                    ob.w[ob.n - 3],
+                    ob.w[ob.n - 2],
+                    ob.w[ob.n - 1]);
             }
             /*
              * Original result stays ivec2
@@ -5543,13 +5550,6 @@ bool spirv_patch_stereo_fs(
                 };
                 sb_push_n(&ob, w, 5);
             }
-            STEREO_LOG(
-                "FS_QUERYSIZE_WORDS %08x %08x %08x %08x %08x",
-                ob.w[ob.n - 5],
-                ob.w[ob.n - 4],
-                ob.w[ob.n - 3],
-                ob.w[ob.n - 2],
-                ob.w[ob.n - 1]);
             STEREO_LOG(
                 "FS_QUERYSIZE_PATCH image=%u oldResult=%u newTmp=%u",
                 in[i + 2],
