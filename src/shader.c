@@ -5428,12 +5428,17 @@ bool spirv_patch_stereo_fs(
                 {
                     (7u << 16) | SpvOpVectorShuffle,
                     s.v2int_id,
-                    in[i + 1],      // original result id
+                    in[i + 2],
                     id_size3,
                     id_size3,
                     0,
                     1
                 };
+                STEREO_LOG(
+                    "FS_VECTORSHUFFLE resultType=%u resultId=%u src=%u",
+                    w[1],
+                    w[2],
+                    w[3]);
                 sb_push_n(&ob, w, 7);
             }
             STEREO_LOG(
