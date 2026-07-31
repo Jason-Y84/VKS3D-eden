@@ -5384,8 +5384,8 @@ bool spirv_patch_stereo_fs(
         {
             STEREO_LOG(
                 "FS_QUERYSIZE_SCAN image=%u load=%d",
-                in[i + 2],
-                fs_find_load(&s, in[i + 2]));
+                in[i + 3],
+                fs_find_load(&s, in[i + 3]));
         }
         /*
          * OpImageQuerySizeLod
@@ -5404,7 +5404,7 @@ bool spirv_patch_stereo_fs(
             int load =
                 fs_find_load(
                     &s,
-                    in[i + 2]);
+                    in[i + 3]);
             if (load >= 0)
                 descriptor_var =
                     s.loads[load].owner_var;
@@ -5448,7 +5448,7 @@ bool spirv_patch_stereo_fs(
             STEREO_LOG(
                 "FS_QUERYSIZE_REWRITE result=%u image=%u temp3=%u",
                 in[i + 1],
-                in[i + 2],
+                in[i + 3],
                 id_size3);
             i += wc;
             continue;
@@ -5485,7 +5485,7 @@ bool spirv_patch_stereo_fs(
             int load =
                 fs_find_load(
                     &s,
-                    in[i + 2]);
+                    in[i + 3]);
             if (load >= 0)
                 descriptor_var =
                     s.loads[load].owner_var;
