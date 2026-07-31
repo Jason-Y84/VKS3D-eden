@@ -4905,6 +4905,20 @@ bool spirv_patch_stereo_fs(
         new_vi_id);
     uint32_t samp_nid      = nid;
     STEREO_LOG(
+        "FS_ID_ALLOC_IDS "
+        "int=%u "
+        "v3f=%u "
+        "v3i=%u "
+        "ptr=%u "
+        "vi=%u "
+        "samp_start=%u",
+        new_int_id,
+        new_v3f_id,
+        new_v3i_id,
+        new_pin_id,
+        new_vi_id,
+        samp_nid);
+    STEREO_LOG(
         "FS_ID_ALLOC_START "
         "bound=%u "
         "nid=%u "
@@ -5381,6 +5395,10 @@ bool spirv_patch_stereo_fs(
                 continue;
             }
             uint32_t id_size3 = samp_nid++;
+            STEREO_LOG(
+                "FS_ALLOC_QUERYSIZE id_size3=%u next=%u",
+                id_size3,
+                samp_nid);
             /*
              * Query returns ivec3
              */
