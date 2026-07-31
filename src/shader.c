@@ -5038,6 +5038,24 @@ bool spirv_patch_stereo_fs(
             in[i + 3] == SpvDim2D &&
             in[i + 5] == 0)
         {
+            STEREO_LOG(
+                "FS_TYPEIMAGE_RAW "
+                "id=%u "
+                "sampledType=%u "
+                "dim=%u "
+                "depth=%u "
+                "arrayed=%u "
+                "ms=%u "
+                "sampled=%u "
+                "format=%u",
+                in[i + 1],
+                in[i + 2],
+                in[i + 3],
+                in[i + 4],
+                in[i + 5],
+                in[i + 6],
+                in[i + 7],
+                in[i + 8]);
             bool patch_this_type = false;
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
@@ -5073,6 +5091,24 @@ bool spirv_patch_stereo_fs(
                 in[i+8]);
             sb_push_n(&ob, &in[i], wc);
             ob.w[ob.n - wc + 5] = 1;   /* Arrayed */
+            STEREO_LOG(
+                "FS_TYPEIMAGE_PATCHED "
+                "id=%u "
+                "sampledType=%u "
+                "dim=%u "
+                "depth=%u "
+                "arrayed=%u "
+                "ms=%u "
+                "sampled=%u "
+                "format=%u",
+                ob.w[ob.n - wc + 1],
+                ob.w[ob.n - wc + 2],
+                ob.w[ob.n - wc + 3],
+                ob.w[ob.n - wc + 4],
+                ob.w[ob.n - wc + 5],
+                ob.w[ob.n - wc + 6],
+                ob.w[ob.n - wc + 7],
+                ob.w[ob.n - wc + 8]);
             STEREO_LOG(
                 "FS_IMAGE_ARRAY_PATCH type=%u oldArrayed=%u newArrayed=%u ms=%u",
                 in[i+1],
@@ -5693,6 +5729,15 @@ bool spirv_patch_stereo_fs(
                 id_c3);
             i += wc;
             continue;
+        }
+        if (op == SpvOpImageQuerySizeLod)
+        {
+            STEREO_LOG(
+                "FS_COPY_QUERYSIZE resultType=%u result=%u image=%u lod=%u",
+                in[i + 1],
+                in[i + 2],
+                in[i + 3],
+                in[i + 4]);
         }
         sb_push_n(&ob, &in[i], wc);
         i += wc;
