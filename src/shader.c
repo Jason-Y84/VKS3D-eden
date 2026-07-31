@@ -4938,6 +4938,14 @@ bool spirv_patch_stereo_fs(
         new_pin_id,
         new_vi_id);
     uint32_t samp_nid      = nid;
+    STEREO_LOG(
+        "FS_ID_ALLOC_START "
+        "bound=%u "
+        "nid=%u "
+        "samp_nid=%u",
+        in[3],
+        nid,
+        samp_nid);
     /*
      * ImageSample/ImageFetch consume 5 ids.
      * ImageQuerySizeLod consumes only 4 ids,
@@ -5317,6 +5325,15 @@ bool spirv_patch_stereo_fs(
             uint32_t id_u   = samp_nid++;
             uint32_t id_v   = samp_nid++;
             uint32_t id_c3  = samp_nid++;
+            STEREO_LOG(
+                "FS_NEW_IDS "
+                "lv=%u cvt=%u u=%u v=%u c3=%u next=%u",
+                id_lv,
+                id_cvt,
+                id_u,
+                id_v,
+                id_c3,
+                samp_nid);
             /* OpLoad %int %vi → id_lv */
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
