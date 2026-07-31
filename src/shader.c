@@ -5404,7 +5404,7 @@ bool spirv_patch_stereo_fs(
             int load =
                 fs_find_load(
                     &s,
-                    in[i + 2]);
+                    in[i + 3]);
             if (load >= 0)
                 descriptor_var =
                     s.loads[load].owner_var;
