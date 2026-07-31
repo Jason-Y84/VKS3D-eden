@@ -5393,7 +5393,6 @@ bool spirv_patch_stereo_fs(
                     op,
                     spv_op_name(op),
                     wc);
-                sb_push_n(&ob, w, 5);
             }
             /*
              * Original result stays ivec2
