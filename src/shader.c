@@ -5460,6 +5460,97 @@ bool spirv_patch_stereo_fs(
                 in[i+2],
                 in[i+3]);
         }
+        /*
+         * OpImageQuerySizeLod
+         *
+         * After converting sampler2D -> sampler2DArray the query
+         * result becomes ivec3 instead of ivec2.
+         *
+         * Rewrite:
+         *
+         *   %old = OpImageQuerySizeLod %v2int %img %lod
+         *
+         * into
+         *
+         *   %tmp3 = OpImageQuerySizeLod %v3int %img %lod
+         *   %x    = OpCompositeExtract %int %tmp3 0
+         *   %y    = OpCompositeExtract %int %tmp3 1
+         *   %old  = OpCompositeConstruct %v2int %x %y
+         */
+        if (in_func &&
+            op == SpvOpImageQuerySizeLod &&
+            wc >= 4)
+        {
+            uint32_t descriptor_var = 0;
+            int load =
+                fs_find_load(
+                    &s,
+                    in[i + 3]);
+            if (load >= 0)
+                descriptor_var =
+                    s.loads[load].owner_var;
+            if (!fs_should_patch_sample(
+                    &s,
+                    h,
+                    descriptor_var))
+            {
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
+            uint32_t id_size3 = samp_nid++;
+            uint32_t id_x     = samp_nid++;
+            uint32_t id_y     = samp_nid++;
+            /*
+             * Preserve the original result id by recreating
+             * the ivec2 afterwards.
+             */
+            sb_push(&ob, (5u << 16) | SpvOpImageQuerySizeLod);
+            sb_push(&ob, new_v3i_id);
+            sb_push(&ob, id_size3);
+            sb_push(&ob, in[i + 2]);
+            sb_push(&ob, in[i + 3]);
+            {
+                uint32_t w[] =
+                {
+                    (5u << 16) | SpvOpCompositeExtract,
+                    new_int_id,
+                    id_x,
+                    id_size3,
+                    0
+                };
+                sb_push_n(&ob, w, 5);
+            }
+            {
+                uint32_t w[] =
+                {
+                    (5u << 16) | SpvOpCompositeExtract,
+                    new_int_id,
+                    id_y,
+                    id_size3,
+                    1
+                };
+                sb_push_n(&ob, w, 5);
+            }
+            {
+                uint32_t w[] =
+                {
+                    (5u << 16) | SpvOpCompositeConstruct,
+                    s.v2int_id,
+                    in[i + 1],      /* original result id */
+                    id_x,
+                    id_y
+                };
+                sb_push_n(&ob, w, 5);
+            }
+            STEREO_LOG(
+                "FS_QUERYSIZE_PATCH image=%u oldResult=%u newTmp=%u",
+                in[i + 2],
+                in[i + 1],
+                id_size3);
+            i += wc;
+            continue;
+        }
         /* Extend OpImageFetch ivec2 -> ivec3(x,y,ViewIndex) */
         if (in_func && op == SpvOpImageFetch && wc >= 5)
         {
