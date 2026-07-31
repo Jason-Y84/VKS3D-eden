@@ -5058,6 +5058,24 @@ bool spirv_patch_stereo_fs(
             sb_push_n(&ob, &in[i], wc);
             ob.w[ob.n - wc + 5] = 1;   /* Arrayed */
             STEREO_LOG(
+                "EMIT_TYPEIMAGE "
+                "id=%u "
+                "sampledType=%u "
+                "dim=%u "
+                "depth=%u "
+                "arrayed=%u "
+                "ms=%u "
+                "sampled=%u "
+                "format=%u",
+                ob.w[ob.n - wc + 1],
+                ob.w[ob.n - wc + 2],
+                ob.w[ob.n - wc + 3],
+                ob.w[ob.n - wc + 4],
+                ob.w[ob.n - wc + 5],
+                ob.w[ob.n - wc + 6],
+                ob.w[ob.n - wc + 7],
+                ob.w[ob.n - wc + 8]);
+            STEREO_LOG(
                 "FS_TYPEIMAGE_PATCHED "
                 "id=%u "
                 "sampledType=%u "
