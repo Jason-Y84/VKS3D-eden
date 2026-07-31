@@ -5384,7 +5384,7 @@ bool spirv_patch_stereo_fs(
         {
             STEREO_LOG(
                 "FS_QUERYSIZE_SCAN image=%u load=%d",
-                in[i + 2],
+                in[i + 3],
                 fs_find_load(&s, in[i + 3]));
         }
         /*
