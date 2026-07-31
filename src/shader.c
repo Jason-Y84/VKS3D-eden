@@ -5508,8 +5508,8 @@ bool spirv_patch_stereo_fs(
             sb_push(&ob, (5u << 16) | SpvOpImageQuerySizeLod);
             sb_push(&ob, new_v3i_id);
             sb_push(&ob, id_size3);
-            sb_push(&ob, in[i + 2]);
-            sb_push(&ob, in[i + 3]);
+            sb_push(&ob, in[i + 3]);   // image
+            sb_push(&ob, in[i + 4]);   // lod
             {
                 uint32_t w[] =
                 {
