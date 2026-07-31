@@ -5378,6 +5378,15 @@ bool spirv_patch_stereo_fs(
                 id_c3);
             i += wc; continue;
         }
+        if (in_func &&
+            op == SpvOpImageQuerySizeLod &&
+            wc >= 4)
+        {
+            STEREO_LOG(
+                "FS_QUERYSIZE_SCAN image=%u load=%d",
+                in[i + 2],
+                fs_find_load(&s, in[i + 2]));
+        }
         /*
          * OpImageQuerySizeLod
          *
