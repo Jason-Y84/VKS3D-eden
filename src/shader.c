@@ -4977,6 +4977,13 @@ bool spirv_patch_stereo_fs(
                 SpvBuiltInViewIndex
             };
             sb_push_n(&ob, d, 4);
+            uint32_t flat[] =
+            {
+                op_(SpvOpDecorate, 3),
+                new_vi_id,
+                SpvDecorationFlat
+            };
+            sb_push_n(&ob, flat, 3);
             /* only emit once */
             emit_vi_decorate = false;
         }
