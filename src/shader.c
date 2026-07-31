@@ -4747,40 +4747,6 @@ fs_count_patches(
                 ++count;
             }
         }
-        /*
-         * OpImageQuerySizeLod
-         *
-         * Array textures return ivec3 instead of ivec2.
-         * We'll insert:
-         *   Query(v3)
-         *   Extract X
-         *   Extract Y
-         *   Construct ivec2
-         */
-        if (in_func &&
-            op == SpvOpImageQuerySizeLod &&
-            wc >= 4)
-        {
-            uint32_t descriptor_var = 0;
-            int load =
-                fs_find_load(
-                    s,
-                    w[i + 2]);
-            if (load >= 0)
-                descriptor_var =
-                    s->loads[load].owner_var;
-            if (fs_should_patch_sample(
-                    s,
-                    hash_spv(w, c),
-                    descriptor_var))
-            {
-                STEREO_LOG(
-                    "FS_PATCH_COUNTER querySize image=%u total=%u",
-                    w[i + 2],
-                    count + 1);
-                ++count;
-            }
-        }
         i += wc;
     }
     return count;
