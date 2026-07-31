@@ -4894,38 +4894,7 @@ bool spirv_patch_stereo_fs(
         s.v2uint_id,
         s.v3int_id,
         s.v3uint_id);
-    STEREO_LOG(
-        "FS_NEW_TYPES int=%u uint=%u v3i=%u v3u=%u v3f=%u ptr=%u vi=%u",
-        new_int_id,
-        s.uint_id,
-        new_v3i_id,
-        new_v3u_id,
-        new_v3f_id,
-        new_pin_id,
-        new_vi_id);
     uint32_t samp_nid      = nid;
-    STEREO_LOG(
-        "FS_ID_ALLOC_IDS "
-        "int=%u "
-        "v3f=%u "
-        "v3i=%u "
-        "ptr=%u "
-        "vi=%u "
-        "samp_start=%u",
-        new_int_id,
-        new_v3f_id,
-        new_v3i_id,
-        new_pin_id,
-        new_vi_id,
-        samp_nid);
-    STEREO_LOG(
-        "FS_ID_ALLOC_START "
-        "bound=%u "
-        "nid=%u "
-        "samp_nid=%u",
-        in[3],
-        nid,
-        samp_nid);
     /*
      * ImageSample/ImageFetch consume 5 ids.
      * ImageQuerySizeLod consumes only 4 ids,
@@ -5305,15 +5274,6 @@ bool spirv_patch_stereo_fs(
             uint32_t id_u   = samp_nid++;
             uint32_t id_v   = samp_nid++;
             uint32_t id_c3  = samp_nid++;
-            STEREO_LOG(
-                "FS_NEW_IDS "
-                "lv=%u cvt=%u u=%u v=%u c3=%u next=%u",
-                id_lv,
-                id_cvt,
-                id_u,
-                id_v,
-                id_c3,
-                samp_nid);
             /* OpLoad %int %vi → id_lv */
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
@@ -5412,13 +5372,6 @@ bool spirv_patch_stereo_fs(
                     in[i + 4]
                 };
                 sb_push_n(&ob, w, 5);
-                STEREO_LOG(
-                    "FS_QUERYSIZE_WORDS %08x %08x %08x %08x %08x",
-                    ob.w[ob.n - 5],
-                    ob.w[ob.n - 4],
-                    ob.w[ob.n - 3],
-                    ob.w[ob.n - 2],
-                    ob.w[ob.n - 1]);
             }
             /*
              * Original result stays ivec2
@@ -5434,11 +5387,6 @@ bool spirv_patch_stereo_fs(
                     0,
                     1
                 };
-                STEREO_LOG(
-                    "FS_VECTORSHUFFLE resultType=%u resultId=%u src=%u",
-                    w[1],
-                    w[2],
-                    w[3]);
                 sb_push_n(&ob, w, 7);
             }
             STEREO_LOG(
@@ -5659,15 +5607,6 @@ bool spirv_patch_stereo_fs(
                 id_c3);
             i += wc;
             continue;
-        }
-        if (op == SpvOpImageQuerySizeLod)
-        {
-            STEREO_LOG(
-                "FS_COPY_QUERYSIZE resultType=%u result=%u image=%u lod=%u",
-                in[i + 1],
-                in[i + 2],
-                in[i + 3],
-                in[i + 4]);
         }
         sb_push_n(&ob, &in[i], wc);
         i += wc;
