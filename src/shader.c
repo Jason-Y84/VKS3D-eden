@@ -5380,6 +5380,10 @@ bool spirv_patch_stereo_fs(
             wc >= 4 &&
             fs_find_load(&s, in[i + 3]) >= 0)
         {
+            STEREO_LOG(
+                "FS_REWRITE_QUERYSIZE_POS word=%zu result=%u",
+                i,
+                in[i+2]);
             uint32_t descriptor_var = 0;
             int load =
                 fs_find_load(
@@ -5657,6 +5661,14 @@ bool spirv_patch_stereo_fs(
         }
         if (op == SpvOpImageQuerySizeLod)
         {
+            STEREO_LOG(
+                "FS_COPY_QUERYSIZE_POS "
+                "word=%zu "
+                "in_func=%u "
+                "result=%u",
+                i,
+                in_func,
+                in[i+2]);
             STEREO_LOG(
                 "FS_COPY_QUERYSIZE resultType=%u result=%u image=%u lod=%u",
                 in[i + 1],
