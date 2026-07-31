@@ -2601,6 +2601,8 @@ spv_op_name(uint32_t op)
         return "OpImage";
     case SpvOpImageSampleImplicitLod:
         return "OpImageSampleImplicitLod";
+    case SpvOpImageQuerySize:
+        return "OpImageQuerySize";
     case SpvOpImageQuerySizeLod:
         return "OpImageQuerySizeLod";
     case SpvOpImageSampleExplicitLod:
@@ -5319,7 +5321,7 @@ bool spirv_patch_stereo_fs(
             i += wc; continue;
         }
         if (in_func &&
-            op == SpvOpImageQuerySizeLod &&
+            (op == SpvOpImageQuerySizeLod || op == SpvOpImageQuerySize) &&
             wc >= 4)
         {
             STEREO_LOG(
@@ -5336,7 +5338,7 @@ bool spirv_patch_stereo_fs(
          * We keep only xy by inserting a VectorShuffle back to ivec2.
          */
         if (in_func &&
-            op == SpvOpImageQuerySizeLod &&
+            (op == SpvOpImageQuerySizeLod || op == SpvOpImageQuerySize) &&
             wc >= 4 &&
             fs_find_load(&s, in[i + 3]) >= 0)
         {
@@ -5363,14 +5365,34 @@ bool spirv_patch_stereo_fs(
              * Query returns ivec3
              */
             {
-                uint32_t w[] =
+                if (op == SpvOpImageQuerySize)
                 {
-                    (5u << 16) | SpvOpImageQuerySizeLod,
-                    new_v3i_id,
-                    id_size3,
-                    in[i + 3],
-                    in[i + 4]
-                };
+                    uint32_t w[] =
+                    {
+                        (4u << 16) | SpvOpImageQuerySize,
+                        new_v3i_id,
+                        id_size3,
+                        in[i + 3]
+                    };
+                    sb_push_n(&ob, w, 4);
+                }
+                else
+                {
+                    uint32_t w[] =
+                    {
+                        (5u << 16) | SpvOpImageQuerySizeLod,
+                        new_v3i_id,
+                        id_size3,
+                        in[i + 3],
+                        in[i + 4]
+                    };
+                    sb_push_n(&ob, w, 5);
+                }
+                STEREO_LOG(
+                    "FS_QUERYSIZE_KIND opcode=%u (%s) wc=%u",
+                    op,
+                    spv_op_name(op),
+                    wc);
                 sb_push_n(&ob, w, 5);
             }
             /*
