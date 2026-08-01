@@ -2857,7 +2857,7 @@ fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
         const FsImageInfo *img = &s->images[i];
         STEREO_LOG(
             "FS_MATCH_CHECK cur=%u cand=%u "
-            "stype=%u/%u dim=%u/%u depth=%u/%u "
+            "sampledImage=%u/%u dim=%u/%u depth=%u/%u "
             "arr=%u/%u ms=%u/%u sampled=%u/%u fmt=%u/%u",
             src->id,
             img->id,
@@ -2868,9 +2868,10 @@ fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
             src->ms,           img->ms,
             src->sampled,      img->sampled,
             src->format,       img->format);
+        /* OpTypeSampledImage wrappers may differ while the underlying
+         * OpTypeImage declarations are identical. Ignore wrapper ids. */
         if (img->id           == src->id)           continue;
         if (img->dim          != src->dim)          continue;
-        if (img->sampled_type != src->sampled_type) continue;
         if (img->depth        != src->depth)        continue;
         if (img->ms           != src->ms)           continue;
         if (img->sampled      != src->sampled)      continue;
