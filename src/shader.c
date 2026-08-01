@@ -3933,6 +3933,10 @@ fs_scan_instruction(
     uint32_t op,
     uint32_t wc)
 {
+    STEREO_LOG(
+        "FS_SCAN_STATE_BEGIN op=%s n_img=%u",
+        spv_op_name(op),
+        s ? s->n_img : 999u);
     if (!s || !ins)
         return;
     /*
@@ -3982,6 +3986,10 @@ fs_scan_instruction(
             op,
             wc);
         break;
+    STEREO_LOG(
+        "FS_SCAN_STATE_END op=%s n_img=%u",
+        spv_op_name(op),
+        s->n_img);
     /*
      * Decorations may appear before OpVariable.
      *
