@@ -4100,22 +4100,6 @@ fs_scan_instruction(
             ins,
             op,
             wc);
-        int img_idx = fs_find_image(&s, in[i + 2]);
-        if (img_idx >= 0 &&
-            s.images[img_idx].replacement_type != 0)
-        {
-            uint32_t tmp[8];
-            memcpy(tmp, &in[i], wc * sizeof(uint32_t));
-            tmp[2] = s.images[img_idx].replacement_type;
-            STEREO_LOG(
-                "FS_IMAGE_REWRITE result=%u oldType=%u newType=%u",
-                tmp[1],
-                in[i + 2],
-                tmp[2]);
-            sb_push_n(&ob, tmp, wc);
-            i += wc;
-            continue;
-        }
         break;
     /*
      * Final image consumers.
@@ -5053,7 +5037,15 @@ bool spirv_patch_stereo_fs(
             in[i + 3] == SpvDim2D &&
             in[i + 5] == 0)
         {
-            int img_idx = fs_find_image(&s, in[i + 1]);
+            int img_idx = -1;
+            for (uint32_t ii = 0; ii < s.n_img; ++ii)
+            {
+                if (s.images[ii].id == in[i + 1])
+                {
+                    img_idx = (int)ii;
+                    break;
+                }
+            }
             if (img_idx >= 0)
             {
                 FsImageInfo *img = &s.images[img_idx];
@@ -5171,6 +5163,34 @@ bool spirv_patch_stereo_fs(
                 in[i+5]);
             i += wc;
             continue;
+        }
+        if (op == SpvOpImage &&
+            wc >= 4)
+        {
+            int img_idx = -1;
+            for (uint32_t ii = 0; ii < s.n_img; ++ii)
+            {
+                if (s.images[ii].id == in[i + 2])
+                {
+                    img_idx = (int)ii;
+                    break;
+                }
+            }
+            if (img_idx >= 0 &&
+                s.images[img_idx].replacement_type != 0)
+            {
+                uint32_t tmp[8];
+                memcpy(tmp, &in[i], wc * sizeof(uint32_t));
+                tmp[2] = s.images[img_idx].replacement_type;
+                STEREO_LOG(
+                    "FS_IMAGE_REWRITE result=%u oldType=%u newType=%u",
+                    tmp[1],
+                    in[i + 2],
+                    tmp[2]);
+                sb_push_n(&ob, tmp, wc);
+                i += wc;
+                continue;
+            }
         }
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
         if (op == 54 && !types_done) {
