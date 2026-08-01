@@ -2889,7 +2889,11 @@ fs_find_image_by_sampled_image(
 {
     for (uint32_t i = 0; i < s->n_img; ++i)
     {
-        if (s->images[i].sampled_type_id == sampled_image_type)
+        /*
+         * sampled_type is currently the field used everywhere else in the
+         * patcher. Match against it to preserve existing behaviour.
+         */
+        if (s->images[i].sampled_type == sampled_image_type)
             return (int)i;
     }
     return -1;
@@ -3005,6 +3009,12 @@ fs_scan_type_instruction(
         {
             if (s->images[ii].id == image_type_id)
             {
+                /*
+                 * Existing patcher logic expects sampled_type to hold the
+                 * OpTypeSampledImage id. Preserve that behaviour.
+                 */
+                s->images[ii].sampled_type    = sampled_image_id;
+                /* Keep this mirrored for the new lookup helper. */
                 s->images[ii].sampled_type_id = sampled_image_id;
                 STEREO_LOG(
                     "FS_TYPE_SAMPLED_IMAGE_MAP imageType=%u sampledImage=%u",
