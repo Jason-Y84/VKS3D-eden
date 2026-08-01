@@ -5452,6 +5452,11 @@ bool spirv_patch_stereo_fs(
                         id_size3,
                         in[i + 3]
                     };
+                    STEREEO_LOG(
+                        "FS_REWRITE_QUERYSIZE oldResult=%u newResult=%u image=%u",
+                        in[i + 1],
+                        id_size3,
+                        in[i + 3]);
                     sb_push_n(&ob, w, 4);
                 }
                 else
