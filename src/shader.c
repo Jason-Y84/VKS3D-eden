@@ -5069,20 +5069,6 @@ bool spirv_patch_stereo_fs(
             in[i + 3] == SpvDim2D &&
             in[i + 5] == 0)
         {
-            int img_idx =
-                fs_find_image(
-                    &s,
-                    in[i + 1]);
-            if (img_idx >= 0 &&
-                !s.images[img_idx].patchable)
-            {
-                STEREO_LOG(
-                    "FS_TYPEIMAGE_SKIP id=%u",
-                    in[i + 1]);
-                sb_push_n(&ob, &in[i], wc);
-                i += wc;
-                continue;
-            }
             int img_idx = -1;
             for (uint32_t ii = 0; ii < s.n_img; ++ii)
             {
