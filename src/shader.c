@@ -2998,20 +2998,6 @@ fs_scan_type_instruction(
             img->patchable        = (arrayed == 0);
             img->stereo           = (arrayed != 0);
             img->replacement_type = 0;
-            /*
-             * SSAO noise textures are mono lookup images.
-             * Do not convert their image type to arrayed.
-             */
-            img->patchable =
-                (spv_hash != 0x35d504ebec7cf2d7ULL ||
-                 img->binding != 2);
-            if (!img->patchable)
-            {
-                STEREO_LOG(
-                    "FS_IMAGE_PATCH_DISABLE_NOISE id=%u binding=%u",
-                    img->id,
-                    img->binding);
-            }
         }
         break;
     }
