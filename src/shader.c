@@ -2971,6 +2971,16 @@ fs_scan_type_instruction(
         break;
     case SpvOpTypeImage:
     {
+        STEREO_LOG(
+            "FS_SCAN_TYPEIMAGE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
+            (wc >= 2) ? ins[1] : 0,
+            (wc >= 3) ? ins[2] : 0,
+            (wc >= 4) ? ins[3] : 0,
+            (wc >= 5) ? ins[4] : 0,
+            (wc >= 6) ? ins[5] : 0,
+            (wc >= 7) ? ins[6] : 0,
+            (wc >= 8) ? ins[7] : 0,
+            (wc >= 9) ? ins[8] : 0);
         if (wc < 9)
             break;
         uint32_t type_id      = ins[1];
@@ -2998,6 +3008,10 @@ fs_scan_type_instruction(
             img->patchable        = (arrayed == 0);
             img->stereo           = (arrayed != 0);
             img->replacement_type = 0;
+            STEREO_LOG(
+                "FS_ADD_IMAGE idx=%u id=%u",
+                s->n_img - 1,
+                img->id);
         }
         break;
     }
@@ -5083,13 +5097,12 @@ bool spirv_patch_stereo_fs(
             for (uint32_t ii = 0; ii < s.n_img; ++ii)
             {
                 STEREO_LOG(
-                    "FS_IMAGE_ENTRY idx=%u id=%u owner=%u binding=%u stereo=%u arrayed=%u sampledImage=%u",
+                    "FS_IMAGE_ENTRY idx=%u id=%u owner=%u binding=%u stereo=%u sampledImage=%u",
                     ii,
                     s.images[ii].id,
                     s.images[ii].owner_var,
                     s.images[ii].binding,
                     s.images[ii].stereo,
-                    s.images[ii].arrayed,
                     s.images[ii].sampled_type_id);
                 if (s.images[ii].id == in[i + 1])
                 {
