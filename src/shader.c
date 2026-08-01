@@ -5486,12 +5486,13 @@ bool spirv_patch_stereo_fs(
                 in[i + 3],
                 load,
                 descriptor_var);
-            if (!fs_should_patch_sample(&s, h, descriptor_var))
+            if (img_idx < 0 || !s.images[img_idx].stereo)
             {
                 STEREO_LOG(
-                    "FS_QSIZE_SKIP image=%u descriptor=%u",
+                    "FS_QSIZE_SKIP image=%u descriptor=%u stereo=%u",
                     in[i + 3],
-                    descriptor_var);
+                    descriptor_var,
+                    (img_idx >= 0) ? s.images[img_idx].stereo : 0);
                 sb_push_n(&ob, &in[i], wc);
                 i += wc;
                 continue;
