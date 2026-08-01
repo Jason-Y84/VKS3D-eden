@@ -2994,6 +2994,11 @@ fs_scan_type_instruction(
         if (dim == SpvDim2D &&
             s->n_img < FS_MAX_IMG)
         {
+            STEREO_LOG(
+                "FS_TYPEIMAGE_APPEND ptr=%p before_n_img=%u type=%u",
+                (void *)s,
+                s->n_img,
+                type_id);
             FsImageInfo *img =
                 &s->images[s->n_img++];
             memset(img, 0, sizeof(*img));
@@ -3009,9 +3014,11 @@ fs_scan_type_instruction(
             img->stereo           = (arrayed != 0);
             img->replacement_type = 0;
             STEREO_LOG(
-                "FS_ADD_IMAGE idx=%u id=%u",
+                "FS_ADD_IMAGE ptr=%p idx=%u id=%u n_img=%u",
+                (void *)s,
                 s->n_img - 1,
-                img->id);
+                img->id,
+                s->n_img);
         }
         break;
     }
@@ -3934,7 +3941,8 @@ fs_scan_instruction(
     uint32_t wc)
 {
     STEREO_LOG(
-        "FS_SCAN_STATE_BEGIN op=%s n_img=%u",
+        "FS_SCAN_STATE_BEGIN ptr=%p op=%s n_img=%u",
+        (void *)s,
         spv_op_name(op),
         s ? s->n_img : 999u);
     if (!s || !ins)
