@@ -2882,6 +2882,19 @@ fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
     return -1;
 }
 
+static int
+fs_find_image_by_sampled_image(
+    FsScan *s,
+    uint32_t sampled_image_type)
+{
+    for (uint32_t i = 0; i < s->n_img; ++i)
+    {
+        if (s->images[i].sampled_type_id == sampled_image_type)
+            return (int)i;
+    }
+    return -1;
+}
+
 static void
 fs_scan_type_instruction(
     FsScan *s,
@@ -2980,31 +2993,28 @@ fs_scan_type_instruction(
     }
     case SpvOpTypeSampledImage:
     {
-        STEREO_LOG(
-            "FS_TYPE_SAMPLED_IMAGE id=%u imageType=%u",
-            ins[1],
-            (wc >= 3) ? ins[2] : 0);
         if (wc < 3)
             break;
-        bool found = false;
-        for (uint32_t i = 0; i < s->n_img; ++i)
+        uint32_t sampled_image_id = ins[1];
+        uint32_t image_type_id    = ins[2];
+        STEREO_LOG(
+            "FS_TYPE_SAMPLED_IMAGE id=%u imageType=%u",
+            sampled_image_id,
+            image_type_id);
+        for (uint32_t ii = 0; ii < s->n_img; ++ii)
         {
-            if (s->images[i].id == ins[2])
+            if (s->images[ii].id == image_type_id)
             {
-                /* Wrapper type (OpTypeSampledImage) */
-                s->images[i].sampled_type_id = ins[1];
+                s->images[ii].sampled_type_id = sampled_image_id;
                 STEREO_LOG(
-                    "FS_TYPE_SAMPLED_IMAGE_MAP imageType=%u sampledImageType=%u",
-                    s->images[i].id,
-                    s->images[i].sampled_type_id);
-                found = true;
+                    "FS_TYPE_SAMPLED_IMAGE_MAP imageType=%u sampledImage=%u",
+                    image_type_id,
+                    sampled_image_id);
                 break;
             }
         }
-        if (found && s->n_si < FS_MAX_SI)
-        {
-            s->si_ids[s->n_si++] = ins[1];
-        }
+        if (s->n_si < FS_MAX_SI)
+            s->si_ids[s->n_si++] = sampled_image_id;
         break;
     }
     case SpvOpTypePointer:
@@ -5415,10 +5425,24 @@ bool spirv_patch_stereo_fs(
             fs_find_load(&s, in[i + 3]) >= 0)
         {
             uint32_t descriptor_var = 0;
+            uint32_t image_ssa = in[i + 3];
+            int img_idx =
+                fs_find_image_by_sampled_image(
+                    &s,
+                    image_ssa);
+            if (img_idx < 0)
+            {
+                STEREO_LOG(
+                    "FS_QSIZE_NO_IMAGE sampledImage=%u",
+                    image_ssa);
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
             int load =
                 fs_find_load(
                     &s,
-                    in[i + 3]);
+                    image_ssa);
             if (load >= 0)
                 descriptor_var =
                     s.loads[load].owner_var;
@@ -5452,8 +5476,7 @@ bool spirv_patch_stereo_fs(
                     {
                         (4u << 16) | SpvOpImageQuerySize,
                         new_v3i_id,
-                        id_size3,
-                        in[i + 3]
+                        image_ssa
                     };
                     STEREO_LOG(
                         "FS_REWRITE_QUERYSIZE oldResult=%u newResult=%u image=%u",
@@ -5468,8 +5491,7 @@ bool spirv_patch_stereo_fs(
                     {
                         (5u << 16) | SpvOpImageQuerySizeLod,
                         new_v3i_id,
-                        id_size3,
-                        in[i + 3],
+                        image_ssa,
                         in[i + 4]
                     };
                     STEREO_LOG(
