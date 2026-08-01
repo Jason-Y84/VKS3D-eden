@@ -2283,17 +2283,22 @@ typedef struct
 typedef struct
 {
     uint32_t id;
+    uint32_t sampled_type_id;
+    uint32_t sampled_type;
+    uint32_t dim;
     uint32_t depth;
     uint32_t arrayed;
+    uint32_t ms;
+    uint32_t sampled;
+    uint32_t format;
     bool     patchable;
-    uint32_t sampled_type;   /* OpTypeSampledImage id wrapping this image type */
     uint32_t pointer_type;
     uint32_t owner_var;
     uint32_t binding;
     uint32_t set;
     bool     stereo;
+    uint32_t replacement_type; /* existing array image type if reused */
 } FsImageInfo;
-
 
 typedef struct
 {
@@ -2913,22 +2918,30 @@ fs_scan_type_instruction(
         if (wc < 9)
             break;
         uint32_t type_id = ins[1];
-        uint32_t dim     = ins[3];
-        uint32_t depth   = ins[4];
-        uint32_t arrayed = ins[5];
+        uint32_t sampled_type = ins[2];
+        uint32_t dim          = ins[3];
+        uint32_t depth        = ins[4];
+        uint32_t arrayed      = ins[5];
+        uint32_t ms           = ins[6];
+        uint32_t sampled      = ins[7];
+        uint32_t format       = ins[8];
         if (dim == SpvDim2D &&
-            arrayed == 0 &&
             s->n_img < FS_MAX_IMG)
         {
             FsImageInfo *img =
                 &s->images[s->n_img++];
             memset(img, 0, sizeof(*img));
             img->id            = type_id;
+            img->sampled_type  = sampled_type;
+            img->dim           = dim;
             img->depth         = depth;
             img->arrayed       = arrayed;
+            img->ms            = ms;
+            img->sampled       = sampled;
+            img->format        = format;
             img->patchable     = true;
-            img->sampled_type  = 0;
             img->stereo        = false;
+            img->replacement_type = 0;
         }
         break;
     }
