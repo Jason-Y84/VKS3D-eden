@@ -5464,6 +5464,12 @@ bool spirv_patch_stereo_fs(
                         in[i + 3],
                         in[i + 4]
                     };
+                    STEREO_LOG(
+                        "FS_REWRITE_QUERYSIZELOD oldResult=%u newResult=%u image=%u lod=%u",
+                        in[i + 1],
+                        id_size3,
+                        in[i + 3],
+                        in[i + 4]);
                     sb_push_n(&ob, w, 5);
                 }
                 STEREO_LOG(
