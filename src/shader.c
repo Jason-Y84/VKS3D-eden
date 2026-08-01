@@ -5511,6 +5511,7 @@ bool spirv_patch_stereo_fs(
                     {
                         (4u << 16) | SpvOpImageQuerySize,
                         new_v3i_id,
+                        id_size3,
                         image_ssa
                     };
                     STEREO_LOG(
@@ -5526,6 +5527,7 @@ bool spirv_patch_stereo_fs(
                     {
                         (5u << 16) | SpvOpImageQuerySizeLod,
                         new_v3i_id,
+                        id_size3,
                         image_ssa,
                         in[i + 4]
                     };
