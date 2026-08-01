@@ -3686,6 +3686,15 @@ fs_track_image_propagation(
     {
         return;
     }
+    STEREO_LOG(
+        "FS_PROP_IMAGE op=%s result=%u source=%u load=%d owner=%u binding=%u sourceOwner=%u",
+        spv_op_name(op),
+        result_id,
+        source_id,
+        src,
+        s->loads[src].owner_var,
+        s->loads[src].binding,
+        s->loads[src].source_id);
     if (s->n_load >= FS_MAX_LOADS)
     {
         STEREO_LOG(
@@ -3698,12 +3707,13 @@ fs_track_image_propagation(
     *dst = s->loads[src];
     dst->id = result_id;
     STEREO_LOG(
-        "FS_PROPAGATE op=%s src=%u dst=%u owner=%u source=%u",
+        "FS_PROPAGATE op=%s src=%u dst=%u owner=%u source=%u binding=%u",
         spv_op_name(op),
         source_id,
         result_id,
         dst->owner_var,
-        dst->source_id);
+        dst->source_id,
+        dst->binding);
 }
 /*
  * Track OpSampledImage ownership.
