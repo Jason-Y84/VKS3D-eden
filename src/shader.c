@@ -5082,6 +5082,15 @@ bool spirv_patch_stereo_fs(
             int img_idx = -1;
             for (uint32_t ii = 0; ii < s.n_img; ++ii)
             {
+                STEREO_LOG(
+                    "FS_IMAGE_ENTRY idx=%u id=%u owner=%u binding=%u stereo=%u arrayed=%u sampledImage=%u",
+                    ii,
+                    s.images[ii].id,
+                    s.images[ii].owner_var,
+                    s.images[ii].binding,
+                    s.images[ii].stereo,
+                    s.images[ii].arrayed,
+                    s.images[ii].sampled_type_id);
                 if (s.images[ii].id == in[i + 1])
                 {
                     img_idx = (int)ii;
