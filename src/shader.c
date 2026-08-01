@@ -5442,19 +5442,6 @@ bool spirv_patch_stereo_fs(
         {
             uint32_t descriptor_var = 0;
             uint32_t image_ssa = in[i + 3];
-            int img_idx =
-                fs_find_image_by_sampled_image(
-                    &s,
-                    image_ssa);
-            if (img_idx < 0)
-            {
-                STEREO_LOG(
-                    "FS_QSIZE_NO_IMAGE sampledImage=%u",
-                    image_ssa);
-                sb_push_n(&ob, &in[i], wc);
-                i += wc;
-                continue;
-            }
             int load =
                 fs_find_load(
                     &s,
@@ -5462,6 +5449,38 @@ bool spirv_patch_stereo_fs(
             if (load >= 0)
                 descriptor_var =
                     s.loads[load].owner_var;
+            int img_idx = -1;
+            if (descriptor_var != 0)
+            {
+                int vi =
+                    fs_var_index(
+                        &s,
+                        descriptor_var);
+                if (vi >= 0)
+                {
+                    uint32_t binding =
+                        s.vars[vi].binding;
+                    for (uint32_t ii = 0; ii < s.n_img; ++ii)
+                    {
+                        if (s.images[ii].binding == binding &&
+                            s.images[ii].stereo)
+                        {
+                            img_idx = (int)ii;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (img_idx < 0)
+            {
+                STEREO_LOG(
+                    "FS_QSIZE_NO_IMAGE image=%u descriptor=%u",
+                    image_ssa,
+                    descriptor_var);
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
             STEREO_LOG(
                 "FS_QSIZE_RESOLVE image=%u load=%d descriptor=%u",
                 in[i + 3],
