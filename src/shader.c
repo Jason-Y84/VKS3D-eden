@@ -5453,7 +5453,7 @@ bool spirv_patch_stereo_fs(
                         id_size3,
                         in[i + 3]
                     };
-                    STEREEO_LOG(
+                    STEREO_LOG(
                         "FS_REWRITE_QUERYSIZE oldResult=%u newResult=%u image=%u",
                         in[i + 1],
                         id_size3,
