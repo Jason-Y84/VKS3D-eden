@@ -2849,6 +2849,26 @@ fs_resolve_load_owner(
  * It intentionally does NOT determine whether an image will actually be
  * patched.  Descriptor bindings are not known yet.
  *═══════════════════════════════════════════════════════════════════════*/
+static int
+fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
+{
+    for (uint32_t i = 0; i < s->n_img; ++i)
+    {
+        const FsImageInfo *img = &s->images[i];
+        if (img->id == src->id)
+            continue;
+        if (img->dim          != src->dim)          continue;
+        if (img->sampled_type != src->sampled_type) continue;
+        if (img->depth        != src->depth)        continue;
+        if (img->ms           != src->ms)           continue;
+        if (img->sampled      != src->sampled)      continue;
+        if (img->format       != src->format)       continue;
+        if (img->arrayed == 1)
+            return (int)i;
+    }
+    return -1;
+}
+
 static void
 fs_scan_type_instruction(
     FsScan *s,
@@ -4080,6 +4100,22 @@ fs_scan_instruction(
             ins,
             op,
             wc);
+        int img_idx = fs_find_image(&s, in[i + 2]);
+        if (img_idx >= 0 &&
+            s.images[img_idx].replacement_type != 0)
+        {
+            uint32_t tmp[8];
+            memcpy(tmp, &in[i], wc * sizeof(uint32_t));
+            tmp[2] = s.images[img_idx].replacement_type;
+            STEREO_LOG(
+                "FS_IMAGE_REWRITE result=%u oldType=%u newType=%u",
+                tmp[1],
+                in[i + 2],
+                tmp[2]);
+            sb_push_n(&ob, tmp, wc);
+            i += wc;
+            continue;
+        }
         break;
     /*
      * Final image consumers.
@@ -5017,6 +5053,24 @@ bool spirv_patch_stereo_fs(
             in[i + 3] == SpvDim2D &&
             in[i + 5] == 0)
         {
+            int img_idx = fs_find_image(&s, in[i + 1]);
+            if (img_idx >= 0)
+            {
+                FsImageInfo *img = &s.images[img_idx];
+                int existing = fs_find_matching_array_image(&s, img);
+                if (existing >= 0)
+                {
+                    img->replacement_type = s.images[existing].id;
+                    STEREO_LOG(
+                        "FS_REUSE_IMAGE_TYPE old=%u existing=%u",
+                        img->id,
+                        img->replacement_type);
+                    /* keep original declaration unchanged */
+                    sb_push_n(&ob, &in[i], wc);
+                    i += wc;
+                    continue;
+                }
+            }
             STEREO_LOG(
                 "FS_TYPEIMAGE_RAW "
                 "id=%u "
