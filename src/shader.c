@@ -2991,6 +2991,14 @@ fs_scan_type_instruction(
         uint32_t ms           = ins[6];
         uint32_t sampled      = ins[7];
         uint32_t format       = ins[8];
+        if (s->n_img >= FS_MAX_IMG)
+        {
+            STEREO_LOG(
+                "FS_IMAGE_OVERFLOW n_img=%u max=%u",
+                s->n_img,
+                FS_MAX_IMG);
+            break;
+        }
         if (dim == SpvDim2D &&
             s->n_img < FS_MAX_IMG)
         {
@@ -2999,6 +3007,13 @@ fs_scan_type_instruction(
                 (void *)s,
                 s->n_img,
                 type_id);
+            STEREO_LOG(
+                "FS_IMAGE_APPEND_ADDR ptr=%p images_base=%p offset=%zu sizeof=%zu max=%u",
+                (void *)s,
+                (void *)s->images,
+                (size_t)((uintptr_t)&s->images[s->n_img] - (uintptr_t)s),
+                sizeof(FsImageInfo),
+                FS_MAX_IMG);
             FsImageInfo *img =
                 &s->images[s->n_img++];
             memset(img, 0, sizeof(*img));
