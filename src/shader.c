@@ -2855,8 +2855,20 @@ fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
     for (uint32_t i = 0; i < s->n_img; ++i)
     {
         const FsImageInfo *img = &s->images[i];
-        if (img->id == src->id)
-            continue;
+        STEREO_LOG(
+            "FS_MATCH_CHECK cur=%u cand=%u "
+            "stype=%u/%u dim=%u/%u depth=%u/%u "
+            "arr=%u/%u ms=%u/%u sampled=%u/%u fmt=%u/%u",
+            src->id,
+            img->id,
+            src->sampled_type, img->sampled_type,
+            src->dim,          img->dim,
+            src->depth,        img->depth,
+            src->arrayed,      img->arrayed,
+            src->ms,           img->ms,
+            src->sampled,      img->sampled,
+            src->format,       img->format);
+        if (img->id           == src->id)           continue;
         if (img->dim          != src->dim)          continue;
         if (img->sampled_type != src->sampled_type) continue;
         if (img->depth        != src->depth)        continue;
@@ -2937,7 +2949,7 @@ fs_scan_type_instruction(
     {
         if (wc < 9)
             break;
-        uint32_t type_id = ins[1];
+        uint32_t type_id      = ins[1];
         uint32_t sampled_type = ins[2];
         uint32_t dim          = ins[3];
         uint32_t depth        = ins[4];
@@ -2951,16 +2963,16 @@ fs_scan_type_instruction(
             FsImageInfo *img =
                 &s->images[s->n_img++];
             memset(img, 0, sizeof(*img));
-            img->id            = type_id;
-            img->sampled_type  = sampled_type;
-            img->dim           = dim;
-            img->depth         = depth;
-            img->arrayed       = arrayed;
-            img->ms            = ms;
-            img->sampled       = sampled;
-            img->format        = format;
-            img->patchable     = true;
-            img->stereo        = false;
+            img->id               = type_id;
+            img->sampled_type     = sampled_type;
+            img->dim              = dim;
+            img->depth            = depth;
+            img->arrayed          = arrayed;
+            img->ms               = ms;
+            img->sampled          = sampled;
+            img->format           = format;
+            img->patchable        = (arrayed == 0);
+            img->stereo           = (arrayed != 0);
             img->replacement_type = 0;
         }
         break;
