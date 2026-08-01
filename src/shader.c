@@ -5450,31 +5450,23 @@ bool spirv_patch_stereo_fs(
                 descriptor_var =
                     s.loads[load].owner_var;
             int img_idx = -1;
-            if (descriptor_var != 0)
+            for (uint32_t ii = 0; ii < s.n_img; ++ii)
             {
-                int vi =
-                    fs_var_index(
-                        &s,
-                        descriptor_var);
-                if (vi >= 0)
-                {
-                    uint32_t binding =
-                        s.vars[vi].binding;
-                    for (uint32_t ii = 0; ii < s.n_img; ++ii)
-                    {
-                        if (s.images[ii].binding == binding &&
-                            s.images[ii].stereo)
-                        {
-                            img_idx = (int)ii;
-                            break;
-                        }
-                    }
-                }
+                if (s.images[ii].owner_var != descriptor_var)
+                    continue;
+                img_idx = (int)ii;
+                STEREO_LOG(
+                    "FS_QSIZE_OWNER_MATCH imageType=%u owner=%u stereo=%u binding=%u",
+                    s.images[ii].id,
+                    descriptor_var,
+                    s.images[ii].stereo,
+                    s.images[ii].binding);
+                break;
             }
             if (img_idx < 0)
             {
                 STEREO_LOG(
-                    "FS_QSIZE_NO_IMAGE image=%u descriptor=%u",
+                    "FS_QSIZE_NO_OWNER image=%u descriptor=%u",
                     image_ssa,
                     descriptor_var);
                 sb_push_n(&ob, &in[i], wc);
@@ -5486,7 +5478,7 @@ bool spirv_patch_stereo_fs(
                 in[i + 3],
                 load,
                 descriptor_var);
-            if (img_idx < 0 || !s.images[img_idx].stereo)
+            if (!s.images[img_idx].stereo)
             {
                 STEREO_LOG(
                     "FS_QSIZE_SKIP image=%u descriptor=%u stereo=%u",
