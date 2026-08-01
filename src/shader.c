@@ -2996,6 +2996,10 @@ fs_scan_type_instruction(
         {
             FsImageInfo *img =
                 &s->images[s->n_img++];
+            STEREO_LOG(
+                "FS_AFTER_INCREMENT n_img=%u ptr=%p",
+                s->n_img,
+                (void *)s);
             memset(img, 0, sizeof(*img));
             img->id               = type_id;
             img->sampled_type     = sampled_type;
@@ -3009,9 +3013,15 @@ fs_scan_type_instruction(
             img->stereo           = (arrayed != 0);
             img->replacement_type = 0;
             STEREO_LOG(
-                "FS_ADD_IMAGE idx=%u id=%u",
+                "FS_BEFORE_ADD_LOG n_img=%u ptr=%p",
+                s->n_img,
+                (void *)s);
+            STEREO_LOG(
+                "FS_ADD_IMAGE idx=%u n_img=%u id=%u ptr=%p",
                 s->n_img - 1,
-                img->id);
+                s->n_img,
+                img->id,
+                (void *)s);
         }
         break;
     }
@@ -3985,11 +3995,11 @@ fs_scan_instruction(
             ins,
             op,
             wc);
+        STEREO_LOG(
+            "FS_SCAN_STATE_END op=%s n_img=%u",
+            spv_op_name(op),
+            s->n_img);
         break;
-    STEREO_LOG(
-        "FS_SCAN_STATE_END op=%s n_img=%u",
-        spv_op_name(op),
-        s->n_img);
     /*
      * Decorations may appear before OpVariable.
      *
