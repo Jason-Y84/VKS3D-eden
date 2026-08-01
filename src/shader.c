@@ -5429,8 +5429,17 @@ bool spirv_patch_stereo_fs(
             if (load >= 0)
                 descriptor_var =
                     s.loads[load].owner_var;
+            STEREO_LOG(
+                "FS_QSIZE_RESOLVE image=%u load=%d descriptor=%u",
+                in[i + 3],
+                load,
+                descriptor_var);
             if (!fs_should_patch_sample(&s, h, descriptor_var))
             {
+                STEREO_LOG(
+                    "FS_QSIZE_SKIP image=%u descriptor=%u",
+                    in[i + 3],
+                    descriptor_var);
                 sb_push_n(&ob, &in[i], wc);
                 i += wc;
                 continue;
