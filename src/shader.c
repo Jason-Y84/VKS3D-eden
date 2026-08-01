@@ -2991,11 +2991,12 @@ fs_scan_type_instruction(
         {
             if (s->images[i].id == ins[2])
             {
-                s->images[i].sampled_type = ins[1];
+                /* Wrapper type (OpTypeSampledImage) */
+                s->images[i].sampled_type_id = ins[1];
                 STEREO_LOG(
-                    "FS_TYPE_SAMPLED_IMAGE_MAP imageType=%u sampledType=%u",
+                    "FS_TYPE_SAMPLED_IMAGE_MAP imageType=%u sampledImageType=%u",
                     s->images[i].id,
-                    s->images[i].sampled_type);
+                    s->images[i].sampled_type_id);
                 found = true;
                 break;
             }
@@ -3003,14 +3004,6 @@ fs_scan_type_instruction(
         if (found && s->n_si < FS_MAX_SI)
         {
             s->si_ids[s->n_si++] = ins[1];
-            //STEREO_LOG(
-            //    "FS_SAMPLED_IMAGE_LINK sampledType=%u imageType=%u",
-            //    ins[1],
-            //    ins[2]);
-            //STEREO_LOG(
-            //    "FS_SAMPLED_IMAGE_TYPE id=%u imageType=%u",
-            //    ins[1],
-            //    ins[2]);
         }
         break;
     }
