@@ -2297,7 +2297,6 @@ typedef struct
     uint32_t binding;
     uint32_t set;
     bool     stereo;
-    uint32_t replacement_type; /* existing array image type if reused */
 } FsImageInfo;
 
 typedef struct
