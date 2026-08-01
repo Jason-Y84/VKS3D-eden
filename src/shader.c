@@ -2887,12 +2887,18 @@ fs_find_image_by_sampled_image(
     FsScan *s,
     uint32_t sampled_image_type)
 {
+    STEREO_LOG(
+        "FS_FIND_IMAGE_BY_SAMPLE target=%u n_img=%u",
+        sampled_image_type,
+        s->n_img);
     for (uint32_t i = 0; i < s->n_img; ++i)
     {
-        /*
-         * sampled_type is currently the field used everywhere else in the
-         * patcher. Match against it to preserve existing behaviour.
-         */
+        STEREO_LOG(
+            "FS_FIND_IMAGE_BY_SAMPLE_ENTRY idx=%u img=%u sampled=%u sampled_id=%u",
+            i,
+            s->images[i].id,
+            s->images[i].sampled_type,
+            s->images[i].sampled_type_id);
         if (s->images[i].sampled_type == sampled_image_type)
             return (int)i;
     }
