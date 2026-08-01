@@ -5442,16 +5442,6 @@ bool spirv_patch_stereo_fs(
         {
             uint32_t descriptor_var = 0;
             uint32_t image_ssa = in[i + 3];
-            bool patch_sample =
-                fs_should_patch_sample(
-                    &s,
-                    h,
-                    descriptor_var);
-            STEREO_LOG(
-                "FS_QSIZE_POLICY image=%u descriptor=%u patch_sample=%u",
-                image_ssa,
-                descriptor_var,
-                patch_sample);
             int load =
                 fs_find_load(
                     &s,
@@ -5496,12 +5486,15 @@ bool spirv_patch_stereo_fs(
                 in[i + 3],
                 load,
                 descriptor_var);
-            if (!patch_sample)
+            if (!fs_should_patch_sample(&s, h, descriptor_var))
             {
                 STEREO_LOG(
                     "FS_QSIZE_SKIP image=%u descriptor=%u",
                     in[i + 3],
                     descriptor_var);
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
             }
             uint32_t id_size3 = samp_nid++;
             STEREO_LOG(
