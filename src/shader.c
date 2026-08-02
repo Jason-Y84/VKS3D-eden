@@ -5261,6 +5261,12 @@ bool spirv_patch_stereo_fs(
             }
             /* Emit the original type unchanged. */
             sb_push_n(&ob, &in[i], wc);
+            if (patch_img_idx < 0)
+            {
+                sb_push_n(&ob, &in[i], wc);
+                i += wc;
+                continue;
+            }
             /* Emit the reserved cloned array type. */
             uint32_t new_array_type = s.images[patch_img_idx].replacement_type;
             uint32_t w[9];
@@ -5274,6 +5280,7 @@ bool spirv_patch_stereo_fs(
                 new_array_type,
                 s.images[patch_img_idx].owner_var,
                 s.images[patch_img_idx].binding);
+            i += wc;
             continue;
         }
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
