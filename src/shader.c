@@ -3949,6 +3949,12 @@ fs_scan_instruction(
         s ? s->n_img : 999u);
     if (!s || !ins)
         return;
+    STEREO_LOG(
+        "FS_SCAN op=%s(%u) wc=%u n_img=%u",
+        spv_op_name(op),
+        op,
+        wc,
+        s->n_img);
     /*
      * Diagnostic: log every image operation encountered during
      * the prescan so we know exactly which SPIR-V instructions
@@ -3995,6 +4001,10 @@ fs_scan_instruction(
             ins,
             op,
             wc);
+        STEREO_LOG(
+            "FS_AFTER_TYPE op=%s n_img=%u",
+            spv_op_name(op),
+            s->n_img);
         STEREO_LOG(
             "FS_SCAN_STATE_END op=%s n_img=%u",
             spv_op_name(op),
@@ -4440,6 +4450,16 @@ fs_prescan(
                 s->vars[v].set,
                 s->vars[v].binding);
         }
+    }
+    for (uint32_t i = 0; i < s->n_img; ++i)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_FINAL idx=%u id=%u sampledImage=%u owner=%u binding=%u",
+            i,
+            s->images[i].id,
+            s->images[i].sampled_type,
+            s->images[i].owner_var,
+            s->images[i].binding);
     }
     STEREO_LOG(
         "FS_PRESCAN_EXIT");
