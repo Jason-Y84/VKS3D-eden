@@ -21,16 +21,16 @@ jobs:
         Configuration: [Release]
         Settings:
         - {
-            Name: "Win32",
-            Platform: "Win32",
-            Architecture: "x86",
-            Bits: "32"
-          }
-        - {
             Name: "Win64",
             Platform: "x64",
             Architecture: "x64",
             Bits: "64"
+          }
+        - {
+            Name: "Win32",
+            Platform: "Win32",
+            Architecture: "x86",
+            Bits: "32"
           }
 
     steps:
