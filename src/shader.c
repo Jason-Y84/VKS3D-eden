@@ -5560,6 +5560,29 @@ bool spirv_patch_stereo_fs(
                 in[i + 2],
                 in[i + 1],
                 in[i + 3]);
+            STEREO_LOG(
+                "FS_IMAGE_DETAIL result=%u type=%u sampledImage=%u",
+                in[i+2],
+                in[i+1],
+                in[i+3]);
+            int load = fs_find_load(&s, in[i+3]);
+            if (load >= 0)
+            {
+                uint32_t var = s.loads[load].owner_var;
+                STEREO_LOG(
+                    "FS_IMAGE_DETAIL ownerVar=%u",
+                    var);
+                for (uint32_t v = 0; v < s.n_var; ++v)
+                {
+                    if (s.vars[v].id == var)
+                    {
+                        STEREO_LOG(
+                            "FS_IMAGE_DETAIL ptrType=%u",
+                            s.vars[v].type);
+                        break;
+                    }
+                }
+            }
         }
         if (in_func &&
             (op == SpvOpImageQuerySizeLod || op == SpvOpImageQuerySize) &&
