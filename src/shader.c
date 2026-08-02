@@ -5277,14 +5277,14 @@ bool spirv_patch_stereo_fs(
             in_func    = true;
             /* BuiltIn decoration is emitted earlier in the annotation section. */
             if (!s.int_id) {
-                uint32_t w[]={(4u<<16)|21, new_int_id, 32, 1};
+                uint32_t w[]={(4u<<16)|SpvOpTypeInt, new_int_id, 32, 1};
                 sb_push_n(&ob,w,4); }
             if (!s.v3float_id) {
-                uint32_t w[]={(4u<<16)|23, new_v3f_id, s.float_id, 3};
+                uint32_t w[]={(4u<<16)|SpvOpTypeVector, new_v3f_id, s.float_id, 3};
                 sb_push_n(&ob,w,4); }
             if (!s.v3int_id)
             {
-                uint32_t w[]={(4u<<16)|23, new_v3i_id, new_int_id, 3};
+                uint32_t w[]={(4u<<16)|SpvOpTypeVector, new_v3i_id, new_int_id, 3};
                 sb_push_n(&ob,w,4);
             }
             if (!s.v3uint_id && s.uint_id)
