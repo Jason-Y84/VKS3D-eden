@@ -5011,9 +5011,6 @@ bool spirv_patch_stereo_fs(
     uint32_t new_int_id    = s.int_id        ? s.int_id        : nid++;
     uint32_t new_v3f_id    = s.v3float_id    ? s.v3float_id    : nid++;
     uint32_t new_v3i_id    = s.v3int_id ? s.v3int_id : nid++;
-    STEREO_LOG(
-        "FS_NEW_V3INT id=%u",
-        new_v3i_id);
     uint32_t new_v3u_id    = 0;
     if (s.uint_id)
         new_v3u_id = s.v3uint_id ? s.v3uint_id : nid++;
@@ -5601,19 +5598,19 @@ bool spirv_patch_stereo_fs(
                         id_size3,
                         image_ssa,
                         in[i + 4]
-                        STEREO_LOG(
-                            "FS_QSIZE_EMIT "
-                            "opcode=%u "
-                            "resultType=%u "
-                            "result=%u "
-                            "image=%u "
-                            "lod=%u",
-                            w[0] & 0xffffu,
-                            w[1],
-                            w[2],
-                            w[3],
-                            w[4]);
                     };
+                    STEREO_LOG(
+                        "FS_QSIZE_EMIT "
+                        "opcode=%u "
+                        "resultType=%u "
+                        "result=%u "
+                        "image=%u "
+                        "lod=%u",
+                        w[0] & 0xffffu,
+                        w[1],
+                        w[2],
+                        w[3],
+                        w[4]);
                     STEREO_LOG(
                         "FS_REWRITE_QUERYSIZELOD oldResult=%u newResult=%u image=%u lod=%u",
                         in[i + 1],
