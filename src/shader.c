@@ -3478,6 +3478,11 @@ fs_scan_load_instruction(
     uint32_t result_id   = ins[2];
     uint32_t source_id   = ins[3];
 
+    STEREO_LOG(
+        "FS_LOAD_INPUT result=%u source=%u type=%u",
+        result_id,
+        source_id,
+        result_type);
     uint32_t owner = 0;
     bool have_owner = fs_resolve_load_owner(s, source_id, &owner);
 
@@ -3494,6 +3499,12 @@ fs_scan_load_instruction(
             source_id);
     }
 
+    STEREO_LOG(
+        "FS_LOAD_OWNER result=%u source=%u owner=%u resolved=%u",
+        result_id,
+        source_id,
+        owner,
+        have_owner);
     int owner_var_index = fs_var_index(s, owner);
     bool from_projection_ubo =
         (owner_var_index >= 0 &&
