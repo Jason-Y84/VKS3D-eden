@@ -4252,6 +4252,11 @@ fs_prescan(
         s,
         0,
         sizeof(*s));
+    STEREO_LOG(
+        "FS_PRESCAN_MODULE ptr=%p bound=%u words=%zu",
+        (void *)w,
+        w[3],
+        c);
     /*
      * SPIR-V module layout:
      *
