@@ -5223,62 +5223,26 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
-            STEREO_LOG(
-                "FS_IMAGE_PATCH_DETAIL type=%u sampled=%u dim=%u depth=%u arrayed=%u ms=%u format=%u",
-                in[i+1],
-                in[i+7],
-                in[i+3],
-                in[i+4],
-                in[i+5],
-                in[i+6],
-                in[i+8]);
+            /* Emit the original type unchanged. */
             sb_push_n(&ob, &in[i], wc);
-            ob.w[ob.n - wc + 5] = 1;   /* Arrayed */
-            STEREO_LOG(
-                "FS_TYPEIMAGE_PATCHED "
-                "id=%u "
-                "sampledType=%u "
-                "dim=%u "
-                "depth=%u "
-                "arrayed=%u "
-                "ms=%u "
-                "sampled=%u "
-                "format=%u",
-                ob.w[ob.n - wc + 1],
-                ob.w[ob.n - wc + 2],
-                ob.w[ob.n - wc + 3],
-                ob.w[ob.n - wc + 4],
-                ob.w[ob.n - wc + 5],
-                ob.w[ob.n - wc + 6],
-                ob.w[ob.n - wc + 7],
-                ob.w[ob.n - wc + 8]);
-            STEREO_LOG(
-                "FS_IMAGE_ARRAY_PATCH type=%u oldArrayed=%u newArrayed=%u ms=%u",
-                in[i+1],
-                in[i+5],
-                ob.w[ob.n - wc + 5],
-                in[i+6]);
-            STEREO_LOG(
-                "FS_PATCH_IMAGE word=%zu type=%u dim=%u depth=%u arrayed=%u",
-                i,
-                in[i+1],
-                in[i+3],
-                in[i+4],
-                in[i+5]);
-            STEREO_LOG(
-                "FS discovered image type id=%u depth=%u arrayed=%u sampled=%u",
-                in[i+1],
-                in[i+4],
-                in[i+5],
-                in[i+7]);
-            STEREO_LOG(
-                "FS_ARRAY_UPGRADE type=%u",
-                in[i+1]);
-            STEREO_LOG(
-                "FS converting image type id=%u depth=%u arrayed=%u",
-                in[i+1],
-                in[i+4],
-                in[i+5]);
+            /* Emit a cloned array type. */
+            uint32_t new_array_type = nid++;
+            uint32_t w[9];
+            memcpy(w, &in[i], wc * sizeof(uint32_t));
+            w[0] = in[i];
+            w[1] = new_array_type;
+            w[5] = 1;                 /* Arrayed = true */
+            sb_push_n(&ob, w, 9);
+            if (img_idx >= 0)
+            {
+                s.images[img_idx].replacement_type = new_array_type;
+                STEREO_LOG(
+                    "FS_NEW_ARRAY_TYPE old=%u new=%u owner=%u binding=%u",
+                    s.images[img_idx].id,
+                    new_array_type,
+                    s.images[img_idx].owner_var,
+                    s.images[img_idx].binding);
+            }
             i += wc;
             continue;
         }
