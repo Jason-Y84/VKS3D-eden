@@ -5163,6 +5163,23 @@ bool spirv_patch_stereo_fs(
             }
             i += wc; continue;
         }
+        if (op == SpvOpTypeSampledImage &&
+            wc >= 3)
+        {
+            STEREO_LOG(
+                "FS_SAMPLED_IMAGE type=%u imageType=%u",
+                in[i + 1],
+                in[i + 2]);
+        }
+        if (op == SpvOpTypePointer &&
+            wc >= 4)
+        {
+            STEREO_LOG(
+                "FS_PTR type=%u storage=%u pointee=%u",
+                in[i + 1],
+                in[i + 2],
+                in[i + 3]);
+        }
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == SpvOpTypeImage &&
             wc >= 9 &&
@@ -5283,6 +5300,15 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
+        if (op == SpvOpVariable &&
+            wc >= 4)
+        {
+            STEREO_LOG(
+                "FS_VAR id=%u ptrType=%u storage=%u",
+                in[i + 2],
+                in[i + 1],
+                in[i + 3]);
+        }
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
         if (op == 54 && !types_done) {
             types_done = true;
@@ -5336,6 +5362,16 @@ bool spirv_patch_stereo_fs(
          *
          * Used to identify SSAO/deferred lighting outputs.
          */
+        if (in_func &&
+            op == SpvOpLoad &&
+            wc >= 4)
+        {
+            STEREO_LOG(
+                "FS_LOAD result=%u type=%u from=%u",
+                in[i + 2],
+                in[i + 1],
+                in[i + 3]);
+        }
         if (in_func && op == 62 && wc >= 3)
         {
             uint32_t target = in[i+1];
@@ -5514,6 +5550,16 @@ bool spirv_patch_stereo_fs(
                 in[i + 2],
                 id_c3);
             i += wc; continue;
+        }
+        if (in_func &&
+            op == SpvOpImage &&
+            wc >= 4)
+        {
+            STEREO_LOG(
+                "FS_IMAGE result=%u resultType=%u sampledImage=%u",
+                in[i + 2],
+                in[i + 1],
+                in[i + 3]);
         }
         if (in_func &&
             (op == SpvOpImageQuerySizeLod || op == SpvOpImageQuerySize) &&
