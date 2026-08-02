@@ -5045,6 +5045,18 @@ bool spirv_patch_stereo_fs(
         s.v2uint_id,
         s.v3int_id,
         s.v3uint_id);
+    for (uint32_t img = 0; img < s.n_img; ++img)
+    {
+        if (!s.images[img].stereo)
+            continue;
+        s.images[img].replacement_type = nid++;
+        STEREO_LOG(
+            "FS_RESERVE_ARRAY_TYPE old=%u new=%u owner=%u binding=%u",
+            s.images[img].id,
+            s.images[img].replacement_type,
+            s.images[img].owner_var,
+            s.images[img].binding);
+    }
     uint32_t samp_nid      = nid;
     /*
      * ImageSample/ImageFetch consume 5 ids.
@@ -5210,6 +5222,7 @@ bool spirv_patch_stereo_fs(
                 in[i + 7],
                 in[i + 8]);
             bool patch_this_type = false;
+            int patch_img_idx = -1;
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
                 if (s.images[img].id != in[i + 1])
@@ -5225,7 +5238,20 @@ bool spirv_patch_stereo_fs(
                     s.images[img].binding,
                     s.images[img].stereo);
                 if (s.images[img].stereo)
+                {
                     patch_this_type = true;
+                    patch_img_idx = (int)img;
+                }
+            }
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (s.images[img].stereo)
+                {
+                    STEREO_LOG(
+                        "FS_RESERVED image=%u replacement=%u",
+                        s.images[img].id,
+                        s.images[img].replacement_type);
+                }
             }
             if (!patch_this_type)
             {
@@ -5235,26 +5261,19 @@ bool spirv_patch_stereo_fs(
             }
             /* Emit the original type unchanged. */
             sb_push_n(&ob, &in[i], wc);
-            /* Emit a cloned array type. */
-            uint32_t new_array_type = nid++;
-            STEREO_LOG("FS_NID_ALLOC assigned=%u next=%u", new_array_type, nid);
+            /* Emit the reserved cloned array type. */
+            uint32_t new_array_type = s.images[patch_img_idx].replacement_type;
             uint32_t w[9];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
-            w[0] = in[i];
             w[1] = new_array_type;
-            w[5] = 1;                 /* Arrayed = true */
-            sb_push_n(&ob, w, 9);
-            if (img_idx >= 0)
-            {
-                s.images[img_idx].replacement_type = new_array_type;
-                STEREO_LOG(
-                    "FS_NEW_ARRAY_TYPE old=%u new=%u owner=%u binding=%u",
-                    s.images[img_idx].id,
-                    new_array_type,
-                    s.images[img_idx].owner_var,
-                    s.images[img_idx].binding);
-            }
-            i += wc;
+            w[5] = 1; /* Arrayed = true */
+            sb_push_n(&ob, w, wc);
+            STEREO_LOG(
+                "FS_NEW_ARRAY_TYPE old=%u new=%u owner=%u binding=%u",
+                s.images[patch_img_idx].id,
+                new_array_type,
+                s.images[patch_img_idx].owner_var,
+                s.images[patch_img_idx].binding);
             continue;
         }
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
