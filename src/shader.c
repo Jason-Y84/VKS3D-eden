@@ -5038,10 +5038,6 @@ bool spirv_patch_stereo_fs(
     bool     emit_vi_decorate  = is_new_vi;
     bool     emit_vi_variable  = is_new_vi;
     STEREO_LOG(
-        "FS_NID_INIT bound=%u nid=%u",
-        bound,
-        nid);
-    STEREO_LOG(
         "FS_SCAN_SUMMARY int=%u uint=%u v2i=%u v2u=%u v3i=%u v3u=%u",
         s.int_id,
         s.uint_id,
@@ -5056,6 +5052,10 @@ bool spirv_patch_stereo_fs(
      * but reserving 5 keeps accounting simple.
      */
     uint32_t new_bound     = samp_nid + n_patches * 5 + 8;
+    STEREO_LOG(
+        "FS_NID_INIT bound=%u nid=%u",
+        new_bound,
+        nid);
     SpvBuf ob;
     if (!sb_init(&ob, in_c + 60 + (size_t)n_patches * 28)) return false;
     bool mv_added   = s.has_mv_cap;
