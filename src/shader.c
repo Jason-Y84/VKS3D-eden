@@ -5020,17 +5020,27 @@ bool spirv_patch_stereo_fs(
     /* Allocate new IDs above current bound */
     uint32_t nid           = in[3];
     uint32_t new_int_id    = s.int_id        ? s.int_id        : nid++;
+    STEREO_LOG("FS_NID_ALLOC assigned=%u next=%u", x, nid);
     uint32_t new_v3f_id    = s.v3float_id    ? s.v3float_id    : nid++;
+    STEREO_LOG("FS_NID_ALLOC assigned=%u next=%u", x, nid);
     uint32_t new_v3i_id    = s.v3int_id ? s.v3int_id : nid++;
+    STEREO_LOG("FS_NID_ALLOC assigned=%u next=%u", x, nid);
     uint32_t new_v3u_id    = 0;
     if (s.uint_id)
         new_v3u_id = s.v3uint_id ? s.v3uint_id : nid++;
+    STEREO_LOG("FS_NID_ALLOC assigned=%u next=%u", x, nid);
     uint32_t new_pin_id    = s.ptr_int_in_id ? s.ptr_int_in_id : nid++;
+    STEREO_LOG("FS_NID_ALLOC assigned=%u next=%u", x, nid);
     uint32_t new_vi_id     = s.vi_var_id     ? s.vi_var_id     : nid++;
+    STEREO_LOG("FS_NID_ALLOC assigned=%u next=%u", x, nid);
     uint32_t new_vi_type   = s.int_id ? s.int_id : new_int_id;
     bool     is_new_vi     = (s.vi_var_id == 0);
     bool     emit_vi_decorate  = is_new_vi;
     bool     emit_vi_variable  = is_new_vi;
+    STEREO_LOG(
+        "FS_NID_INIT bound=%u nid=%u",
+        bound,
+        nid);
     STEREO_LOG(
         "FS_SCAN_SUMMARY int=%u uint=%u v2i=%u v2u=%u v3i=%u v3u=%u",
         s.int_id,
@@ -5227,6 +5237,7 @@ bool spirv_patch_stereo_fs(
             sb_push_n(&ob, &in[i], wc);
             /* Emit a cloned array type. */
             uint32_t new_array_type = nid++;
+            STEREO_LOG("FS_NID_ALLOC assigned=%u next=%u", x, nid);
             uint32_t w[9];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             w[0] = in[i];
@@ -5425,10 +5436,15 @@ bool spirv_patch_stereo_fs(
                 in_c,
                 descriptor_var);
             uint32_t id_lv  = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             uint32_t id_cvt = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             uint32_t id_u   = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             uint32_t id_v   = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             uint32_t id_c3  = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             /* OpLoad %int %vi → id_lv */
             { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
@@ -5545,6 +5561,7 @@ bool spirv_patch_stereo_fs(
                 continue;
             }
             uint32_t id_size3 = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             STEREO_LOG(
                 "FS_ALLOC_QUERYSIZE id_size3=%u next=%u",
                 id_size3,
@@ -5760,9 +5777,13 @@ bool spirv_patch_stereo_fs(
                 in_c,
                 descriptor_var);
             uint32_t id_lv = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             uint32_t id_x  = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             uint32_t id_y  = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             uint32_t id_c3 = samp_nid++;
+            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
             { uint32_t w[]={(4u<<16)|61, new_vi_type, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
             STEREO_LOG(
@@ -5789,6 +5810,7 @@ bool spirv_patch_stereo_fs(
                 if (new_vi_type != s.uint_id)
                 {
                     id_layer = samp_nid++;
+                    STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
                     uint32_t w[] = {
                         (4u << 16) | SpvOpBitcast,
                         s.uint_id,
@@ -5801,6 +5823,7 @@ bool spirv_patch_stereo_fs(
             else if (new_vi_type != new_int_id)
             {
                 id_layer = samp_nid++;
+                STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", x, samp_nid);
                 uint32_t w[] = {
                     (4u << 16) | SpvOpBitcast,
                     new_int_id,
@@ -5882,6 +5905,12 @@ bool spirv_patch_stereo_fs(
         (unsigned long long)hash_spv(in, in_c),
         in_c,
         ob.n);
+    STEREO_LOG(
+        "FS_FINAL_BOUND old=%u new=%u nid=%u samp_nid=%u",
+        in[3],
+        ob.w[3],
+        nid,
+        samp_nid);
     return true;
 }
 
