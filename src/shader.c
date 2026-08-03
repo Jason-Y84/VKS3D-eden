@@ -3811,6 +3811,12 @@ fs_track_sampled_image(
     *dst = s->loads[src];
     dst->id = result_id;
     STEREO_LOG(
+        "FS_SAMPLED_IMAGE_REGISTER result=%u image=%u owner=%u binding=%u",
+        result_id,
+        image_id,
+        dst->owner_var,
+        dst->binding);
+    STEREO_LOG(
         "FS_SAMPLED_IMAGE result=%u image=%u sampler=%u owner=%u source=%u",
         result_id,
         image_id,
@@ -4182,6 +4188,11 @@ fs_scan_instruction(
                 ins[2],
                 ins[3],
                 ins[4]);
+            int src = fs_find_load(s, ins[3]);
+            STEREO_LOG(
+                "FS_SAMPLED_IMAGE_LOOKUP image=%u load=%d",
+                ins[3],
+                src);
         }
         fs_track_sampled_image(
             s,
