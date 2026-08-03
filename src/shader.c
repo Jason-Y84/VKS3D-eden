@@ -2302,13 +2302,6 @@ typedef struct
 
 typedef struct
 {
-    uint32_t id;          /* OpImage result id */
-    uint32_t owner_var;
-    bool stereo;
-} FsImageResultInfo;
-
-typedef struct
-{
     //Image type declarations
     FsImageInfo images[FS_MAX_IMG];
     uint32_t    n_img;
@@ -2350,9 +2343,6 @@ typedef struct
     bool     in_function;
     uint32_t current_function_id;
     uint32_t current_param_index;
-    //Image Result Info
-    FsImageResultInfo image_results[256];
-    uint32_t n_image_results;
 } FsScan;
 
 static bool
@@ -5584,33 +5574,6 @@ bool spirv_patch_stereo_fs(
             op == SpvOpImage &&
             wc >= 4)
         {
-            uint32_t image_result = in[i + 2];
-            uint32_t sampled_id   = in[i + 3];
-            int track_load = fs_find_load(&s, sampled_id);
-            if (track_load >= 0)
-            {
-                uint32_t owner = s.loads[track_load].owner_var;
-                for (uint32_t img = 0; img < s.n_img; ++img)
-                {
-                    if (s.images[img].owner_var == owner &&
-                        s.images[img].stereo)
-                    {
-                        if (s.n_image_results < 256)
-                        {
-                            s.image_results[s.n_image_results].id = image_result;
-                            s.image_results[s.n_image_results].owner_var = owner;
-                            s.image_results[s.n_image_results].stereo = true;
-                            s.n_image_results++;
-                        }
-                        STEREO_LOG(
-                            "FS_IMAGE_RESULT_TRACK id=%u owner=%u",
-                            image_result,
-                            owner);
-                        break;
-                    }
-                }
-            }
-            //Old section below
             uint32_t w[4];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             int load = fs_find_load(&s, in[i + 3]);
@@ -5688,12 +5651,16 @@ bool spirv_patch_stereo_fs(
             }
             else
             {
-                for (uint32_t ii = 0; ii < s.n_image_results; ++ii)
+                /*
+                 * Search previous OpImage result owner.
+                 */
+                for (uint32_t ii = 0; ii < s.n_img; ++ii)
                 {
-                    if (s.image_results[ii].id == image_ssa)
+                    if (s.images[ii].replacement_type == image_ssa ||
+                        s.images[ii].id == image_ssa)
                     {
                         descriptor_var =
-                            s.image_results[ii].owner_var;
+                            s.images[ii].owner_var;
                         STEREO_LOG(
                             "FS_QSIZE_IMAGE_RESULT_MATCH image=%u owner=%u",
                             image_ssa,
