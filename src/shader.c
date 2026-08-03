@@ -5286,6 +5286,10 @@ bool spirv_patch_stereo_fs(
             }
             /* Emit the reserved cloned array type. */
             uint32_t new_array_type = s.images[patch_img_idx].replacement_type;
+            STEREO_LOG(
+                "FS_ARRAY_TYPE_MAP image=%u replacement=%u",
+                s.images[patch_img_idx].id,
+                new_array_type);
             uint32_t w[9];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             w[1] = new_array_type;
@@ -5556,29 +5560,29 @@ bool spirv_patch_stereo_fs(
             wc >= 4)
         {
             STEREO_LOG(
-                "FS_IMAGE result=%u resultType=%u sampledImage=%u",
+                "FS_IMAGE_RESULT result=%u resultType=%u sampledImage=%u",
                 in[i + 2],
                 in[i + 1],
                 in[i + 3]);
-            STEREO_LOG(
-                "FS_IMAGE_DETAIL result=%u type=%u sampledImage=%u",
-                in[i+2],
-                in[i+1],
-                in[i+3]);
-            int load = fs_find_load(&s, in[i+3]);
+            int load = fs_find_load(&s, in[i + 3]);
             if (load >= 0)
             {
-                uint32_t var = s.loads[load].owner_var;
+                uint32_t owner = s.loads[load].owner_var;
                 STEREO_LOG(
-                    "FS_IMAGE_DETAIL ownerVar=%u",
-                    var);
-                for (uint32_t v = 0; v < s.n_var; ++v)
+                    "FS_IMAGE_OWNER sampledImage=%u owner=%u",
+                    in[i + 3],
+                    owner);
+                for (uint32_t ii = 0; ii < s.n_img; ++ii)
                 {
-                    if (s.vars[v].id == var)
+                    if (s.images[ii].owner_var == owner)
                     {
                         STEREO_LOG(
-                            "FS_IMAGE_DETAIL ptrType=%u",
-                            s.vars[v].type);
+                            "FS_IMAGE_MATCH imageType=%u replacement=%u sampledType=%u sampledTypeId=%u stereo=%u",
+                            s.images[ii].id,
+                            s.images[ii].replacement_type,
+                            s.images[ii].sampled_type,
+                            s.images[ii].sampled_type_id,
+                            s.images[ii].stereo);
                         break;
                     }
                 }
