@@ -2997,9 +2997,10 @@ fs_scan_type_instruction(
             FsImageInfo *img =
                 &s->images[s->n_img++];
             STEREO_LOG(
-                "FS_AFTER_INCREMENT n_img=%u ptr=%p",
-                s->n_img,
-                (void *)s);
+                "FS_IMAGE_NEW idx=%u imageType=%u n_img=%u",
+                s->n_img - 1,
+                type_id,
+                s->n_img);
             memset(img, 0, sizeof(*img));
             img->id               = type_id;
             img->sampled_type     = sampled_type;
@@ -3023,10 +3024,18 @@ fs_scan_type_instruction(
                 img->id,
                 (void *)s);
         }
+        STEREO_LOG(
+            "FS_IMAGE_TABLE_SIZE n_img=%u",
+            s->n_img);
         break;
     }
     case SpvOpTypeSampledImage:
     {
+        STEREO_LOG(
+            "FS_SAMPLED_BEGIN sampledType=%u imageType=%u n_img=%u",
+            (wc >= 2) ? ins[1] : 0,
+            (wc >= 3) ? ins[2] : 0,
+            s->n_img);
         if (wc < 3)
             break;
         uint32_t sampled_image_id = ins[1];
@@ -3037,6 +3046,11 @@ fs_scan_type_instruction(
             image_type_id);
         for (uint32_t ii = 0; ii < s->n_img; ++ii)
         {
+            STEREO_LOG(
+                "FS_SAMPLED_COMPARE idx=%u imageType=%u wanted=%u",
+                ii,
+                s->images[ii].id,
+                image_type_id);
             if (s->images[ii].id == image_type_id)
             {
                 /*
