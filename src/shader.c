@@ -5580,22 +5580,18 @@ bool spirv_patch_stereo_fs(
             if (load >= 0)
             {
                 uint32_t owner = s.loads[load].owner_var;
-                STEREO_LOG(
-                    "FS_IMAGE_REWRITE_SCAN result=%u type=%u sampled=%u",
-                    in[i+2],
-                    in[i+1],
-                    in[i+3]);
                 for (uint32_t img = 0; img < s.n_img; ++img)
                 {
-                    if (s.images[img].replacement_type &&
-                        s.images[img].id == w[1])
+                    if (s.images[img].owner_var != owner)
+                        continue;
+                    if (s.images[img].stereo &&
+                        s.images[img].replacement_type)
                     {
                         STEREO_LOG(
-                            "FS_PATCH_IMAGE_REWRITE result=%u oldType=%u newType=%u owner=%u",
+                            "FS_PATCH_IMAGE_REWRITE result=%u oldType=%u newType=%u",
                             w[2],
                             w[1],
-                            s.images[img].replacement_type,
-                            s.images[img].owner_var);
+                            s.images[img].replacement_type);
                         w[1] = s.images[img].replacement_type;
                         break;
                     }
