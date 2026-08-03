@@ -3781,6 +3781,13 @@ fs_track_sampled_image(
             s->n_si,
             ins[1]))
     {
+        STEREO_LOG(
+            "FS_SAMPLED_IMAGE_SKIP resultType=%u result=%u image=%u sampler=%u n_si=%u",
+            ins[1],
+            (wc >= 3) ? ins[2] : 0,
+            (wc >= 4) ? ins[3] : 0,
+            (wc >= 5) ? ins[4] : 0,
+            s->n_si);
         return;
     }
     uint32_t result_id  = ins[2];
@@ -4180,6 +4187,12 @@ fs_scan_instruction(
         break;
     case SpvOpSampledImage:
     {
+        STEREO_LOG(
+            "FS_ENTER_TRACK_SAMPLED resultType=%u result=%u image=%u sampler=%u",
+            (wc >= 2) ? ins[1] : 0,
+            (wc >= 3) ? ins[2] : 0,
+            (wc >= 4) ? ins[3] : 0,
+            (wc >= 5) ? ins[4] : 0);
         if (wc >= 5)
         {
             STEREO_LOG(
