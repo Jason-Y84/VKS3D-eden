@@ -3047,6 +3047,14 @@ fs_scan_type_instruction(
                 /* Keep this mirrored for the new lookup helper. */
                 s->images[ii].sampled_type_id = sampled_image_id;
                 STEREO_LOG(
+                    "FS_IMAGE_TYPE_BIND "
+                    "idx=%u "
+                    "imageType=%u "
+                    "sampledType=%u",
+                    ii,
+                    image_type_id,
+                    sampled_image_id);
+                STEREO_LOG(
                     "FS_TYPE_SAMPLED_IMAGE_MAP imageType=%u sampledImage=%u",
                     image_type_id,
                     sampled_image_id);
@@ -3080,6 +3088,16 @@ fs_scan_type_instruction(
                 if (s->images[img].sampled_type == ins[3])
                 {
                     s->images[img].pointer_type = ins[1];
+                    STEREO_LOG(
+                        "FS_POINTER_BIND "
+                        "idx=%u "
+                        "imageType=%u "
+                        "sampledType=%u "
+                        "pointerType=%u",
+                        img,
+                        s->images[img].id,
+                        s->images[img].sampled_type,
+                        ins[1]);
                     STEREO_LOG(
                         "FS_IMAGE_POINTER image=%u sampled=%u pointer=%u",
                         s->images[img].id,
@@ -3273,6 +3291,18 @@ fs_scan_variable_instruction(
             var->binding = dec->binding;
         if (dec->location != 0xffffffffu)
             var->location = dec->location;
+        STEREO_LOG(
+            "FS_REGISTER_VAR "
+            "id=%u "
+            "type=%u "
+            "storage=%u "
+            "set=%u "
+            "binding=%u",
+            var->id,
+            var->type,
+            var->storage,
+            var->set,
+            var->binding);
     }
 
     if (var->storage == SpvStorageClassUniform &&
