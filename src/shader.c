@@ -5624,18 +5624,51 @@ bool spirv_patch_stereo_fs(
          */
         if (in_func &&
             (op == SpvOpImageQuerySizeLod || op == SpvOpImageQuerySize) &&
-            wc >= 4 &&
-            fs_find_load(&s, in[i + 3]) >= 0)
+            wc >= 4)
         {
             uint32_t descriptor_var = 0;
             uint32_t image_ssa = in[i + 3];
+            STEREO_LOG(
+                "FS_QSIZE_INPUT image=%u resultType=%u",
+                image_ssa,
+                in[i + 1]);
+            /*
+             * Operand may be:
+             *
+             *   OpLoad sampled image
+             *       OR
+             *
+             *   OpImage result after Arrayed conversion
+             */
             int load =
                 fs_find_load(
                     &s,
                     image_ssa);
             if (load >= 0)
+            {
                 descriptor_var =
                     s.loads[load].owner_var;
+            }
+            else
+            {
+                /*
+                 * Search previous OpImage result owner.
+                 */
+                for (uint32_t ii = 0; ii < s.n_img; ++ii)
+                {
+                    if (s.images[ii].replacement_type == image_ssa ||
+                        s.images[ii].id == image_ssa)
+                    {
+                        descriptor_var =
+                            s.images[ii].owner_var;
+                        STEREO_LOG(
+                            "FS_QSIZE_IMAGE_RESULT_MATCH image=%u owner=%u",
+                            image_ssa,
+                            descriptor_var);
+                        break;
+                    }
+                }
+            }
             int img_idx = -1;
             for (uint32_t ii = 0; ii < s.n_img; ++ii)
             {
