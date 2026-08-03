@@ -4497,6 +4497,18 @@ fs_prescan(
                 image->owner_var = s->vars[v].id;
                 image->binding   = s->vars[v].binding;
                 STEREO_LOG(
+                    "FS_OWNER_CANDIDATE "
+                    "imageType=%u "
+                    "pointer=%u "
+                    "var=%u "
+                    "binding=%u "
+                    "storage=%u",
+                    image->id,
+                    image->pointer_type,
+                    s->vars[v].id,
+                    s->vars[v].binding,
+                    s->vars[v].storage);
+                STEREO_LOG(
                     "FS_OWNER_ASSIGN "
                     "imageType=%u "
                     "owner=%u "
@@ -4527,6 +4539,14 @@ fs_prescan(
                     "FS_IMAGE_STEREO imageType=%u stereo=%u",
                     image->id,
                     image->stereo);
+                STEREO_LOG(
+                    "FS_OWNER_FINAL "
+                    "imageType=%u "
+                    "owner=%u "
+                    "binding=%u",
+                    image->id,
+                    image->owner_var,
+                    image->binding);
                 break;
             }
         }
