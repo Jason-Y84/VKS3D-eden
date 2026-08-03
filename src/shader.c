@@ -5654,17 +5654,60 @@ bool spirv_patch_stereo_fs(
             uint32_t w[4];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             int load = fs_find_load(&s, in[i + 3]);
+            if (load < 0)
+            {
+                for (uint32_t ii = 0; ii < s.n_load; ++ii)
+                {
+                    STEREO_LOG(
+                        "FS_LOAD_ENTRY "
+                        "idx=%u "
+                        "id=%u "
+                        "owner=%u "
+                        "source=%u",
+                        ii,
+                        s.loads[ii].id,
+                        s.loads[ii].owner_var,
+                        s.loads[ii].source_id);
+                }
+            }
             STEREO_LOG(
                 "FS_PATCH_IMAGE load=%d sampledImage=%u",
                 load,
                 in[i + 3]);
             if (load >= 0)
             {
+                STEREO_LOG(
+                    "FS_PATCH_IMAGE_LOAD "
+                    "sampledImage=%u "
+                    "owner=%u "
+                    "binding=%u",
+                    in[i + 3],
+                    s.loads[load].owner_var,
+                    s.loads[load].binding);
                 uint32_t owner = s.loads[load].owner_var;
+                STEREO_LOG(
+                    "FS_PATCH_OWNER sampledImage=%u owner=%u",
+                    in[i + 3],
+                    owner);
                 for (uint32_t img = 0; img < s.n_img; ++img)
                 {
+                    STEREO_LOG(
+                        "FS_PATCH_COMPARE "
+                        "idx=%u "
+                        "imageType=%u "
+                        "owner=%u "
+                        "stereo=%u "
+                        "replacement=%u",
+                        img,
+                        s.images[img].id,
+                        s.images[img].owner_var,
+                        s.images[img].stereo,
+                        s.images[img].replacement_type);
                     if (s.images[img].owner_var != owner)
                         continue;
+                    STEREO_LOG(
+                        "FS_PATCH_OWNER_MATCH idx=%u",
+                        img);
                     if (s.images[img].stereo &&
                         s.images[img].replacement_type)
                     {
