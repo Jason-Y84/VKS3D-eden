@@ -2877,7 +2877,13 @@ fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
         if (img->sampled      != src->sampled)      continue;
         if (img->format       != src->format)       continue;
         if (img->arrayed == 1)
+        {
+            STEREO_LOG(
+                "FS_MATCH_FOUND src=%u reuse=%u",
+                src->id,
+                img->id);
             return (int)i;
+        }
     }
     return -1;
 }
