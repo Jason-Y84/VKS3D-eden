@@ -3507,7 +3507,10 @@ fs_scan_load_instruction(
     uint32_t result_type = ins[1];
     uint32_t result_id   = ins[2];
     uint32_t source_id   = ins[3];
-
+    STEREO_LOG(
+        "FS_LOAD_SOURCE result=%u variable=%u",
+        ins[2],
+        source_id);
     STEREO_LOG(
         "FS_LOAD_INPUT result=%u source=%u type=%u",
         result_id,
@@ -3530,7 +3533,7 @@ fs_scan_load_instruction(
     }
 
     STEREO_LOG(
-        "FS_LOAD_OWNER result=%u source=%u owner=%u resolved=%u",
+        "FS_LOAD_OWNER_FINAL result=%u source=%u owner=%u resolved=%u",
         result_id,
         source_id,
         owner,
