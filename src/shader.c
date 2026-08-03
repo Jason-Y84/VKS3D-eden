@@ -5527,19 +5527,19 @@ bool spirv_patch_stereo_fs(
             uint32_t id_c3  = samp_nid++;
             STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", id_c3, samp_nid);
             /* OpLoad %int %vi → id_lv */
-            { uint32_t w[]={(4u<<16)|61, new_int_id, id_lv, new_vi_id};
+            { uint32_t w[]={(4u<<16)|SpvOpLoad, new_int_id, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
             /* OpConvertSToF %float id_lv → id_cvt */
-            { uint32_t w[]={(4u<<16)|111, s.float_id, id_cvt, id_lv};
+            { uint32_t w[]={(4u<<16)|SpvOpConvertSToF, s.float_id, id_cvt, id_lv};
               sb_push_n(&ob,w,4); }
             /* OpCompositeExtract %float coord 0 → id_u */
-            { uint32_t w[]={(5u<<16)|81, s.float_id, id_u, coord_id, 0};
+            { uint32_t w[]={(5u<<16)|SpvOpCompositeExtract, s.float_id, id_u, coord_id, 0};
               sb_push_n(&ob,w,5); }
             /* OpCompositeExtract %float coord 1 → id_v */
-            { uint32_t w[]={(5u<<16)|81, s.float_id, id_v, coord_id, 1};
+            { uint32_t w[]={(5u<<16)|SpvOpCompositeExtract, s.float_id, id_v, coord_id, 1};
               sb_push_n(&ob,w,5); }
             /* OpCompositeConstruct %v3float id_u id_v id_cvt → id_c3 */
-            { uint32_t w[]={(6u<<16)|80, new_v3f_id, id_c3, id_u, id_v, id_cvt};
+            { uint32_t w[]={(6u<<16)|SpvOpCompositeConstruct, new_v3f_id, id_c3, id_u, id_v, id_cvt};
               sb_push_n(&ob,w,6); }
             /* Emit modified sample instruction: word[4] = new coord */
             STEREO_LOG(
@@ -5577,6 +5577,10 @@ bool spirv_patch_stereo_fs(
             uint32_t w[4];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             int load = fs_find_load(&s, in[i + 3]);
+            STEREO_LOG(
+                "FS_PATCH_IMAGE load=%d sampledImage=%u",
+                load,
+                in[i + 3]);
             if (load >= 0)
             {
                 uint32_t owner = s.loads[load].owner_var;
@@ -5896,7 +5900,7 @@ bool spirv_patch_stereo_fs(
             STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", id_y, samp_nid);
             uint32_t id_c3 = samp_nid++;
             STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", id_c3, samp_nid);
-            { uint32_t w[]={(4u<<16)|61, new_vi_type, id_lv, new_vi_id};
+            { uint32_t w[]={(4u<<16)|SpvOpLoad, new_vi_type, id_lv, new_vi_id};
               sb_push_n(&ob,w,4); }
             STEREO_LOG(
                 "FS_VIEWINDEX_LOAD result=%u actualType=%u finalType=%u",
@@ -5962,11 +5966,11 @@ bool spirv_patch_stereo_fs(
                 id_layer,
                 id_x,
                 id_y);
-            { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_x, coord_id, 0};
+            { uint32_t w[]={(5u<<16)|SpvOpCompositeExtract, coord_scalar_type, id_x, coord_id, 0};
               sb_push_n(&ob,w,5); }
-            { uint32_t w[]={(5u<<16)|81, coord_scalar_type, id_y, coord_id, 1};
+            { uint32_t w[]={(5u<<16)|SpvOpCompositeExtract, coord_scalar_type, id_y, coord_id, 1};
               sb_push_n(&ob,w,5); }
-            { uint32_t w[]={(6u<<16)|80, coord_vector_type, id_c3,
+            { uint32_t w[]={(6u<<16)|SpvOpCompositeConstruct, coord_vector_type, id_c3,
                             id_x, id_y, id_layer};
               sb_push_n(&ob,w,6); }
             sb_push(&ob, in[i]);
