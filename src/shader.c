@@ -5375,32 +5375,10 @@ bool spirv_patch_stereo_fs(
                 in[i + 8]);
             bool patch_this_type = false;
             int patch_img_idx = -1;
-            /*
-             * Resolve OpImage source ownership.
-             *
-             * Multiple descriptors can share the same OpTypeImage.
-             * Do not select FsImageInfo by type id alone.
-             */
-            uint32_t image_owner = 0;
-            int load_idx = fs_find_load(&s, in[i + 3]);
-            if (load_idx >= 0)
-            {
-                image_owner = s.loads[load_idx].owner_var;
-            }
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
                 if (s.images[img].id != in[i + 1])
                     continue;
-                if (image_owner &&
-                    s.images[img].owner_var != image_owner)
-                    {
-                        STEREO_LOG(
-                            "FS_IMAGE_OWNER_SKIP type=%u wantedOwner=%u candidateOwner=%u",
-                            s.images[img].id,
-                            image_owner,
-                            s.images[img].owner_var);
-                        continue;
-                    }
                 STEREO_LOG(
                     "FS_IMAGE_TYPE_USER "
                     "type=%u "
