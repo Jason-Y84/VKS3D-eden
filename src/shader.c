@@ -5574,34 +5574,32 @@ bool spirv_patch_stereo_fs(
             op == SpvOpImage &&
             wc >= 4)
         {
-            STEREO_LOG(
-                "FS_IMAGE_RESULT result=%u resultType=%u sampledImage=%u",
-                in[i + 2],
-                in[i + 1],
-                in[i + 3]);
+            uint32_t w[4];
+            memcpy(w, &in[i], wc * sizeof(uint32_t));
             int load = fs_find_load(&s, in[i + 3]);
             if (load >= 0)
             {
                 uint32_t owner = s.loads[load].owner_var;
-                STEREO_LOG(
-                    "FS_IMAGE_OWNER sampledImage=%u owner=%u",
-                    in[i + 3],
-                    owner);
-                for (uint32_t ii = 0; ii < s.n_img; ++ii)
+                for (uint32_t img = 0; img < s.n_img; ++img)
                 {
-                    if (s.images[ii].owner_var == owner)
+                    if (s.images[img].owner_var != owner)
+                        continue;
+                    if (s.images[img].stereo &&
+                        s.images[img].replacement_type)
                     {
                         STEREO_LOG(
-                            "FS_IMAGE_MATCH imageType=%u replacement=%u sampledType=%u sampledTypeId=%u stereo=%u",
-                            s.images[ii].id,
-                            s.images[ii].replacement_type,
-                            s.images[ii].sampled_type,
-                            s.images[ii].sampled_type_id,
-                            s.images[ii].stereo);
+                            "FS_PATCH_IMAGE_REWRITE result=%u oldType=%u newType=%u",
+                            w[2],
+                            w[1],
+                            s.images[img].replacement_type);
+                        w[1] = s.images[img].replacement_type;
                         break;
                     }
                 }
             }
+            sb_push_n(&ob, w, wc);
+            i += wc;
+            continue;
         }
         if (in_func &&
             (op == SpvOpImageQuerySizeLod || op == SpvOpImageQuerySize) &&
