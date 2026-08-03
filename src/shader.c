@@ -4453,17 +4453,40 @@ fs_prescan(
      */
     for (uint32_t img = 0; img < s->n_img; ++img)
     {
+        STEREO_LOG(
+            "FS_OWNER_SCAN imageIdx=%u imageType=%u pointerType=%u",
+            img,
+            s->images[img].id,
+            s->images[img].pointer_type);
         FsImageInfo *image = &s->images[img];
         image->owner_var = UINT32_MAX;
         image->binding   = UINT32_MAX;
         image->set       = UINT32_MAX;
         for (uint32_t v = 0; v < s->n_var; ++v)
         {
+            STEREO_LOG(
+                "FS_OWNER_COMPARE "
+                "imageType=%u "
+                "imagePointer=%u "
+                "var=%u "
+                "varType=%u",
+                image->id,
+                image->pointer_type,
+                s->vars[v].id,
+                s->vars[v].type);
             if (image->pointer_type &&
                 s->vars[v].type == image->pointer_type)
             {
                 image->owner_var = s->vars[v].id;
                 image->binding   = s->vars[v].binding;
+                STEREO_LOG(
+                    "FS_OWNER_ASSIGN "
+                    "imageType=%u "
+                    "owner=%u "
+                    "binding=%u",
+                    image->id,
+                    image->owner_var,
+                    image->binding);
                 image->set       = s->vars[v].set;
                 STEREO_LOG(
                     "FS_IMAGE_OWNER "
