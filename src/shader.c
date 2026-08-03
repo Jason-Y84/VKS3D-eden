@@ -5651,9 +5651,18 @@ bool spirv_patch_stereo_fs(
             op == SpvOpImage &&
             wc >= 4)
         {
+            STEREO_LOG(
+                "FS_PATCH_IMAGE_VISIT result=%u resultType=%u sampledImage=%u",
+                in[i + 2],
+                in[i + 1],
+                in[i + 3]);
             uint32_t w[4];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             int load = fs_find_load(&s, in[i + 3]);
+            STEREO_LOG(
+                "FS_PATCH_IMAGE_LOADINDEX sampledImage=%u load=%d",
+                in[i + 3],
+                load);
             if (load < 0)
             {
                 for (uint32_t ii = 0; ii < s.n_load; ++ii)
@@ -5721,6 +5730,11 @@ bool spirv_patch_stereo_fs(
                     }
                 }
             }
+            STEREO_LOG(
+                "FS_PATCH_IMAGE_EMIT result=%u type=%u sampledImage=%u",
+                w[2],
+                w[1],
+                w[3]);
             sb_push_n(&ob, w, wc);
             i += wc;
             continue;
