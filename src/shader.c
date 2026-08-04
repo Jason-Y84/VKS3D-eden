@@ -5897,6 +5897,12 @@ bool spirv_patch_stereo_fs(
                 id_c3,
                 spv_op_name(op));
             STEREO_LOG(
+                "FS_SAMPLE_REWRITE_DONE "
+                "opcode=%s "
+                "result=%u",
+                spv_op_name(op),
+                in[i + 1]);
+            STEREO_LOG(
                 "FS_EMIT_SAMPLE before sampled=%u coord=%u",
                 in[i + 3],
                 in[i + 4]);
@@ -6399,6 +6405,20 @@ bool spirv_patch_stereo_fs(
                 id_c3);
             i += wc;
             continue;
+        }
+        if (op >= SpvOpImageSampleImplicitLod &&
+            op <= SpvOpImageSparseDrefGather)
+        {
+            STEREO_LOG(
+                "FS_SAMPLE_NOT_PATCHED "
+                "opcode=%s "
+                "result=%u "
+                "sampledImage=%u "
+                "coord=%u",
+                spv_op_name(op),
+                (wc >= 2) ? in[i + 1] : 0,
+                (wc >= 3) ? in[i + 2] : 0,
+                (wc >= 4) ? in[i + 3] : 0);
         }
         sb_push_n(&ob, &in[i], wc);
         i += wc;
