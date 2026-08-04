@@ -5199,7 +5199,8 @@ bool spirv_patch_stereo_fs(
             op <= SpvOpImageSparseTexelsResident)
         {
             STEREO_LOG(
-                "FS_IMAGE_OPCODE op=%u (%s) wc=%u resultType=%u result=%u sampled=%u coord=%u",
+                "FS_IMAGE_OPCODE off=%zu op=%u (%s) wc=%u resultType=%u result=%u sampled=%u coord=%u",
+                i,
                 op,
                 spv_op_name(op),
                 wc,
@@ -5682,18 +5683,34 @@ bool spirv_patch_stereo_fs(
                 coord_id,
                 id_c3,
                 spv_op_name(op));
+            STEREO_LOG(
+                "FS_EMIT_SAMPLE before sampled=%u coord=%u",
+                in[i + 3],
+                in[i + 4]);
             sb_push(&ob, in[i]);          /* opcode */
             sb_push(&ob, in[i+1]);        /* result type */
             sb_push(&ob, in[i+2]);        /* result id */
             sb_push(&ob, in[i+3]);        /* sampled image (unchanged) */
             sb_push(&ob, id_c3);          /* new 3D coordinate */
             if (wc > 5) sb_push_n(&ob, &in[i+5], wc-5); /* image operands */
+            size_t out = ob.n - wc;
+            STEREO_LOG(
+                "FS_EMIT_WORDS %08x %08x %08x %08x %08x",
+                ob.w[out + 0],
+                ob.w[out + 1],
+                ob.w[out + 2],
+                ob.w[out + 3],
+                ob.w[out + 4]);
             STEREO_LOG(
                 "FS_SAMPLE_WRITTEN "
-                "result=%u "
-                "coord=%u",
-                in[i + 2],
-                id_c3);
+                "opcode=%s "
+                "sampled=%u "
+                "coord=%u "
+                "wc=%u",
+                spv_op_name(op),
+                in[i + 3],
+                id_c3,
+                wc);
             i += wc; continue;
         }
         if (in_func &&
