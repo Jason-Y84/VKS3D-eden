@@ -6422,6 +6422,15 @@ bool spirv_patch_stereo_fs(
                 ob.w[j + 7],
                 ob.w[j + 8]);
         }
+        if (op == SpvOpTypeSampledImage && wc >= 3)
+        {
+            STEREO_LOG(
+                "FS_OUTPUT_SAMPLEDIMAGE "
+                "id=%u "
+                "imageType=%u",
+                ob.w[j + 1],
+                ob.w[j + 2]);
+        }
         j += wc;
     }
     ob.w[3] = samp_nid + 1;
