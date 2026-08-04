@@ -6500,6 +6500,29 @@ bool spirv_patch_stereo_fs(
                 ob.w[j + 1],
                 ob.w[j + 2]);
         }
+        if (op == SpvOpSampledImage && wc >= 4)
+        {
+            STEREO_LOG(
+                "FS_INPUT_OPSAMPLEDIMAGE "
+                "result=%u "
+                "type=%u "
+                "image=%u "
+                "sampler=%u",
+                in[i + 2],
+                in[i + 1],
+                in[i + 3],
+                (wc >= 5) ? in[i + 4] : 0);
+            STEREO_LOG(
+                "FS_OUTPUT_OPSAMPLEDIMAGE "
+                "result=%u "
+                "type=%u "
+                "image=%u "
+                "sampler=%u",
+                ob.w[j + 2],
+                ob.w[j + 1],
+                ob.w[j + 3],
+                (wc >= 5) ? ob.w[j + 4] : 0);
+        }
         if (op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSampleProjDrefExplicitLod &&
             wc >= 5)
