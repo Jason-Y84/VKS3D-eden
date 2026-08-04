@@ -3289,7 +3289,6 @@ fs_scan_variable_instruction(
 {
     if (!s || !ins || wc < 4)
         return;
-
     if (s->n_var >= FS_MAX_VARS)
     {
         STEREO_LOG(
@@ -3297,10 +3296,8 @@ fs_scan_variable_instruction(
             ins[2]);
         return;
     }
-
     FsVariableInfo *var = &s->vars[s->n_var++];
     memset(var, 0, sizeof(*var));
-
     var->id       = ins[2];
     var->type     = ins[1];
     var->storage  = ins[3];
@@ -3308,7 +3305,6 @@ fs_scan_variable_instruction(
     var->binding  = 0xffffffffu;
     var->location = 0xffffffffu;
     var->is_projection_ubo = false;
-
     /*
      * Decorations may legally appear before OpVariable.
      * Apply cached DescriptorSet, Binding, and Location values now.
@@ -3318,7 +3314,6 @@ fs_scan_variable_instruction(
         FsDecorationInfo *dec = &s->decorations[i];
         if (dec->target != var->id)
             continue;
-
         if (dec->set != 0xffffffffu)
             var->set = dec->set;
         if (dec->binding != 0xffffffffu)
@@ -3338,7 +3333,45 @@ fs_scan_variable_instruction(
             var->set,
             var->binding);
     }
-
+    STEREO_LOG(
+        "FS_DESCRIPTOR_CREATE "
+        "var=%u "
+        "type=%u "
+        "storage=%u "
+        "set=%u "
+        "binding=%u",
+        var->id,
+        var->type,
+        var->storage,
+        var->set,
+        var->binding);
+    
+    if (var->storage == SpvStorageClassUniformConstant)
+    {
+        for (uint32_t ii = 0; ii < s->n_img; ++ii)
+        {
+            if (s->images[ii].id == var->type)
+            {
+                STEREO_LOG(
+                    "FS_TYPE_IMAGE "
+                    "var=%u "
+                    "imageType=%u "
+                    "sampledType=%u "
+                    "dim=%u "
+                    "arrayed=%u "
+                    "set=%u "
+                    "binding=%u",
+                    var->id,
+                    s->images[ii].id,
+                    s->images[ii].sampled_type,
+                    s->images[ii].dim,
+                    s->images[ii].arrayed,
+                    var->set,
+                    var->binding);
+                break;
+            }
+        }
+    }
     if (var->storage == SpvStorageClassUniform &&
         var->binding == 4u)
     {
@@ -3350,7 +3383,6 @@ fs_scan_variable_instruction(
             var->set,
             var->binding);
     }
-
     if (var->id == 15)
     {
         STEREO_LOG(
@@ -3361,7 +3393,6 @@ fs_scan_variable_instruction(
             var->binding,
             var->location);
     }
-
     if (var->storage == SpvStorageClassUniform ||
         var->storage == SpvStorageClassUniformConstant)
     {
