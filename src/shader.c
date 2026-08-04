@@ -5568,6 +5568,16 @@ bool spirv_patch_stereo_fs(
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             w[1] = new_array_type;
             w[5] = 1; /* Arrayed = true */
+            STEREO_LOG(
+                "FS_ARRAY_TYPE_PATCH "
+                "imageType=%u "
+                "sampledType=%u "
+                "arrayed_before=%u "
+                "arrayed_after=%u",
+                type_id,
+                sampled_type,
+                arrayed,
+                1u);
             sb_push_n(&ob, w, wc);
             i += wc;
             continue;
