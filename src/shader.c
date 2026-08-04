@@ -5210,6 +5210,12 @@ bool spirv_patch_stereo_fs(
                 (wc >= 5) ? in[i + 4] : 0);
             int load = fs_find_load(&s, in[i + 3]);
             STEREO_LOG(
+                "FS_PATCH_BEGIN "
+                "sampled=%u "
+                "load=%d",
+                in[i + 3],
+                load);
+            STEREO_LOG(
                 "FS_LOAD_LOOKUP sampled=%u load=%d",
                 in[i + 3],
                 load);
@@ -5231,6 +5237,13 @@ bool spirv_patch_stereo_fs(
                             spv_op_name(op2),
                             j,
                             wc2);
+                        for (uint32_t w = 0; w < prod_wc; ++w)
+                        {
+                            STEREO_LOG(
+                                "FS_SAMPLE_PRODUCER_WORD[%u]=%08x",
+                                w,
+                                in[prod_off + w]);
+                        }
                         break;
                     }
                     j += wc2;
@@ -5583,6 +5596,21 @@ bool spirv_patch_stereo_fs(
                 in[i+4],
                 in[i+2]);
             uint32_t coord_id = in[i+4];
+            int coord_type = -1;
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].id == coord_id)
+                {
+                    coord_type = s.vars[v].type;
+                    break;
+                }
+            }
+            STEREO_LOG(
+                "FS_COORD "
+                "coord=%u "
+                "type=%d",
+                coord_id,
+                coord_type);
             uint32_t descriptor_var = 0;
             int load =
                 fs_find_load(
@@ -5628,6 +5656,14 @@ bool spirv_patch_stereo_fs(
                     load,
                     descriptor_var);
             }
+            STEREO_LOG(
+                "FS_PATCH_DECISION "
+                "sampled=%u "
+                "descriptor=%u "
+                "patch=%d",
+                in[i + 3],
+                descriptor_var,
+                fs_should_patch_sample(&s, h, descriptor_var));
             if (!fs_should_patch_sample(&s, h, descriptor_var))
             {
                 STEREO_LOG(
@@ -5639,6 +5675,12 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
+            STEREO_LOG(
+                "FS_PATCH_ENTER "
+                "sampled=%u "
+                "descriptor=%u",
+                in[i + 3],
+                descriptor_var);
             int vi = fs_var_index(&s, descriptor_var);
             STEREO_LOG(
                 "FS_SAMPLE_PATCH_APPLY "
