@@ -3345,7 +3345,26 @@ fs_scan_variable_instruction(
         var->storage,
         var->set,
         var->binding);
-    
+    STEREO_LOG(
+        "FS_VAR_TYPE_LOOKUP "
+        "var=%u "
+        "type=%u",
+        var->id,
+        var->type);
+
+    for (uint32_t ii = 0; ii < s->n_img; ++ii)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_TYPE "
+            "idx=%u "
+            "id=%u "
+            "sampledType=%u "
+            "arrayed=%u",
+            ii,
+            s->images[ii].id,
+            s->images[ii].sampled_type,
+            s->images[ii].arrayed);
+    }
     if (var->storage == SpvStorageClassUniformConstant)
     {
         for (uint32_t ii = 0; ii < s->n_img; ++ii)
