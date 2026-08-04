@@ -6400,6 +6400,41 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
+        if (op == SpvOpLoad && wc >= 4)
+        {
+            uint32_t w[4];
+            memcpy(w, &in[i], wc * sizeof(uint32_t));
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].id != w[3])
+                    continue;
+                if (s.vars[v].storage == SpvStorageClassUniformConstant)
+                {
+                    int img = fs_find_image_by_owner(&s, s.vars[v].id);
+                    if (img >= 0 &&
+                        s.images[img].replacement_var)
+                    {
+                        STEREO_LOG(
+                            "FS_LOAD_PATCH "
+                            "off=%zu "
+                            "result=%u "
+                            "oldPtr=%u "
+                            "newPtr=%u "
+                            "binding=%u",
+                            i,
+                            w[2],
+                            w[3],
+                            s.images[img].replacement_var,
+                            s.images[img].binding);
+                        w[3] = s.images[img].replacement_var;
+                    }
+                }
+                break;
+            }
+            sb_push_n(&ob, w, wc);
+            i += wc;
+            continue;
+        }
         sb_push_n(&ob, &in[i], wc);
         i += wc;
     }
