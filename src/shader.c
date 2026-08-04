@@ -4320,6 +4320,16 @@ fs_scan_instruction(
             (wc >= 3) ? ins[2] : 0,
             (wc >= 4) ? ins[3] : 0,
             (wc >= 5) ? ins[4] : 0);
+        STEREO_LOG(
+            "FS_INPUT_OPSAMPLEDIMAGE "
+            "result=%u "
+            "type=%u "
+            "image=%u "
+            "sampler=%u",
+            (wc >= 3) ? ins[2] : 0,
+            (wc >= 2) ? ins[1] : 0,
+            (wc >= 4) ? ins[3] : 0,
+            (wc >= 5) ? ins[4] : 0);
         if (wc >= 5)
         {
             STEREO_LOG(
@@ -6502,16 +6512,6 @@ bool spirv_patch_stereo_fs(
         }
         if (op == SpvOpSampledImage && wc >= 4)
         {
-            STEREO_LOG(
-                "FS_INPUT_OPSAMPLEDIMAGE "
-                "result=%u "
-                "type=%u "
-                "image=%u "
-                "sampler=%u",
-                in[i + 2],
-                in[i + 1],
-                in[i + 3],
-                (wc >= 5) ? in[i + 4] : 0);
             STEREO_LOG(
                 "FS_OUTPUT_OPSAMPLEDIMAGE "
                 "result=%u "
