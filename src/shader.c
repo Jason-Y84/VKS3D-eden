@@ -5873,6 +5873,12 @@ bool spirv_patch_stereo_fs(
                 in,
                 in_c,
                 descriptor_var);
+            STEREO_LOG(
+                "FS_DESCRIPTOR_CHAIN_DONE "
+                "descriptor=%u "
+                "sampledType=%d",
+                descriptor_var,
+                sampled_type);
             uint32_t id_lv  = samp_nid++;
             STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", id_lv, samp_nid);
             uint32_t id_cvt = samp_nid++;
@@ -5934,14 +5940,26 @@ bool spirv_patch_stereo_fs(
                 in[i + 4],
                 id_c3);
             STEREO_LOG(
-                "FS_EMIT_SAMPLE before sampled=%u coord=%u",
+                "FS_EMIT_SAMPLE "
+                "opcode=%s "
+                "sampledImage=%u "
+                "coordOld=%u "
+                "coordNew=%u",
+                spv_op_name(op),
                 in[i + 3],
-                in[i + 4]);
+                in[i + 4],
+                id_c3);
             sb_push(&ob, in[i]);          /* opcode */
             sb_push(&ob, in[i+1]);        /* result type */
             sb_push(&ob, in[i+2]);        /* result id */
             sb_push(&ob, in[i+3]);        /* sampled image (unchanged) */
             sb_push(&ob, id_c3);          /* new 3D coordinate */
+            STEREO_LOG(
+                "FS_EMIT_SAMPLE_IDS "
+                "sampledImage=%u "
+                "coord=%u",
+                ob.w[out + 3],
+                ob.w[out + 4]);
             if (wc > 5) sb_push_n(&ob, &in[i+5], wc-5); /* image operands */
             size_t out = ob.n - wc;
             STEREO_LOG(
@@ -6492,12 +6510,14 @@ bool spirv_patch_stereo_fs(
                 "opcode=%s "
                 "result=%u "
                 "sampledImage=%u "
-                "coord=%u",
+                "coord=%u "
+                "resultType=%u",
                 j,
                 spv_op_name(op),
                 ob.w[j + 2],
                 ob.w[j + 3],
-                ob.w[j + 4]);
+                ob.w[j + 4],
+                ob.w[j + 1]);
         }
         j += wc;
     }
