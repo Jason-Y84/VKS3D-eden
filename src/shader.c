@@ -2564,11 +2564,10 @@ fs_should_patch_sample(
     int vi = fs_var_index(s, descriptor_var);
     if (vi < 0)
         return false;
-
     uint32_t binding = s->vars[vi].binding;
-
+    uint32_t set     = s->vars[vi].set;
     /*
-     * SSAO noise is a mono lookup texture.  In the SSAO generator shader
+     * SSAO noise is a mono lookup texture. In the SSAO generator shader
      * (35d504ebec7cf2d7) it must not be arrayed or ViewIndex-shifted.
      */
     if (spv_hash == 0x35d504ebec7cf2d7ULL && binding == 2)
@@ -2578,9 +2577,19 @@ fs_should_patch_sample(
             (unsigned long long)spv_hash,
             descriptor_var,
             binding);
+        STEREO_LOG(
+            "FS_NOISE_REASON "
+            "hash=%016llx "
+            "descriptor=%u "
+            "set=%u "
+            "binding=%u "
+            "reason=SSAO_NOISE_BINDING2",
+            (unsigned long long)spv_hash,
+            descriptor_var,
+            set,
+            binding);
         return false;
     }
-
     return fs_binding_is_stereo_attachment(s, descriptor_var);
 }
 
