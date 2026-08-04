@@ -5237,6 +5237,14 @@ bool spirv_patch_stereo_fs(
                             spv_op_name(op2),
                             j,
                             wc2);
+                        if (op2 == SpvOpLoad && wc2 >= 4)
+                        {
+                            STEREO_LOG(
+                                "FS_PRODUCER_LOAD result=%u type=%u ptr=%u",
+                                in[j + 2],
+                                in[j + 1],
+                                in[j + 3]);
+                        }
                         for (uint32_t w = 0; w < wc2; ++w)
                         {
                             STEREO_LOG(
