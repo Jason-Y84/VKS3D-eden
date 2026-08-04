@@ -5674,6 +5674,25 @@ bool spirv_patch_stereo_fs(
                 in[i + 2],
                 in[i + 1],
                 in[i + 3]);
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].id == in[i + 3])
+                {
+                    STEREO_LOG(
+                        "FS_LOAD_PTR "
+                        "ptr=%u "
+                        "type=%u "
+                        "storage=%u "
+                        "set=%u "
+                        "binding=%u",
+                        s.vars[v].id,
+                        s.vars[v].type,
+                        s.vars[v].storage,
+                        s.vars[v].set,
+                        s.vars[v].binding);
+                    break;
+                }
+            }
         }
         if (in_func && op == 62 && wc >= 3)
         {
