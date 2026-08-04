@@ -5171,6 +5171,12 @@ bool spirv_patch_stereo_fs(
             continue;
         s.images[img].replacement_type = nid++;
         STEREO_LOG(
+            "FS_RESERVE_OWNER image=%u owner=%u binding=%u replacement=%u",
+            s.images[img].id,
+            s.images[img].owner_var,
+            s.images[img].binding,
+            s.images[img].replacement_type);
+        STEREO_LOG(
             "FS_RESERVE_ARRAY_TYPE old=%u new=%u owner=%u binding=%u",
             s.images[img].id,
             s.images[img].replacement_type,
@@ -5391,6 +5397,12 @@ bool spirv_patch_stereo_fs(
                     s.images[img].stereo);
                 if (s.images[img].stereo)
                 {
+                    STEREO_LOG(
+                        "FS_PATCH_SELECT image=%u owner=%u binding=%u replacement=%u",
+                        s.images[img].id,
+                        s.images[img].owner_var,
+                        s.images[img].binding,
+                        s.images[img].replacement_type);
                     patch_this_type = true;
                     patch_img_idx = (int)img;
                 }
