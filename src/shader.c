@@ -3945,6 +3945,18 @@ fs_track_sampled_image(
     *dst = s->loads[src];
     dst->id = result_id;
     STEREO_LOG(
+        "FS_LOAD_REGISTER "
+        "id=%u "
+        "source=%u "
+        "owner=%u "
+        "binding=%u "
+        "set=%u",
+        dst->id,
+        dst->source_id,
+        dst->owner_var,
+        dst->binding,
+        dst->set);
+    STEREO_LOG(
         "FS_SAMPLED_IMAGE_REGISTER result=%u image=%u owner=%u binding=%u",
         result_id,
         image_id,
@@ -5552,6 +5564,18 @@ bool spirv_patch_stereo_fs(
                         s.images[img].owner_var,
                         s.images[img].binding,
                         s.images[img].replacement_type);
+                    STEREO_LOG(
+                        "FS_LOAD_WILL_REWRITE "
+                        "image=%u "
+                        "owner=%u "
+                        "binding=%u "
+                        "oldType=%u "
+                        "newType=%u",
+                        s.images[img].id,
+                        s.images[img].owner_var,
+                        s.images[img].binding,
+                        s.images[img].type,
+                        s.images[img].replacement_type);
                     patch_this_type = true;
                     patch_img_idx = (int)img;
                 }
@@ -5675,6 +5699,18 @@ bool spirv_patch_stereo_fs(
             wc >= 4)
         {
             STEREO_LOG(
+                "FS_LOAD_REWRITE_CHECK "
+                "ptr=%u",
+                in[i + 3]);
+            STEREO_LOG(
+                "FS_LOAD_WILL_REWRITE "
+                "oldPtr=%u "
+                "newPtr=%u "
+                "binding=%u",
+                w[3],
+                s.images[img].replacement_var,
+                s.images[img].binding);
+            STEREO_LOG(
                 "FS_LOAD "
                 "off=%zu "
                 "result=%u "
@@ -5688,6 +5724,16 @@ bool spirv_patch_stereo_fs(
             {
                 if (s.vars[v].id == in[i + 3])
                 {
+                    STEREO_LOG(
+                        "FS_LOAD_MATCH "
+                        "ptr=%u "
+                        "storage=%u "
+                        "binding=%u "
+                        "type=%u",
+                        s.vars[v].id,
+                        s.vars[v].storage,
+                        s.vars[v].binding,
+                        s.vars[v].type);
                     STEREO_LOG(
                         "FS_LOAD_PTR "
                         "ptr=%u "
