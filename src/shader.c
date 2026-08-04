@@ -2905,7 +2905,12 @@ fs_find_image_by_sampled_image(
             s->images[i].id,
             s->images[i].sampled_type,
             s->images[i].sampled_type_id);
-        if (s->images[i].sampled_type == sampled_image_type)
+        STEREO_LOG(
+            "FS_FIND_COMPARE target=%u sampled=%u sampled_id=%u",
+            sampled_image_type,
+            s->images[i].sampled_type,
+            s->images[i].sampled_type_id);
+        if (s->images[i].sampled_type_id == sampled_image_type)
             return (int)i;
     }
     return -1;
@@ -5194,12 +5199,14 @@ bool spirv_patch_stereo_fs(
             op <= SpvOpImageSparseTexelsResident)
         {
             STEREO_LOG(
-                "FS_IMAGE_OPCODE op=%u (%s) wc=%u resultType=%u result=%u",
+                "FS_IMAGE_OPCODE op=%u (%s) wc=%u resultType=%u result=%u sampled=%u coord=%u",
                 op,
                 spv_op_name(op),
                 wc,
                 (wc >= 2) ? in[i + 1] : 0,
-                (wc >= 3) ? in[i + 2] : 0);
+                (wc >= 3) ? in[i + 2] : 0,
+                (wc >= 4) ? in[i + 3] : 0,
+                (wc >= 5) ? in[i + 4] : 0);
         }
         /* Emit MultiView capability immediately before the first non-capability. */
         if (!mv_added &&
