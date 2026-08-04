@@ -5909,6 +5909,14 @@ bool spirv_patch_stereo_fs(
                 in[i + 3],
                 in[i + 4]);
             STEREO_LOG(
+                "FS_COORD_PATCH "
+                "off=%zu "
+                "oldCoord=%u "
+                "newCoord=%u",
+                i,
+                in[i + 4],
+                id_c3);
+            STEREO_LOG(
                 "FS_EMIT_SAMPLE before sampled=%u coord=%u",
                 in[i + 3],
                 in[i + 4]);
@@ -6413,7 +6421,7 @@ bool spirv_patch_stereo_fs(
             continue;
         }
         if (op >= SpvOpImageSampleImplicitLod &&
-            op <= SpvOpImageSparseDrefGather)
+            op <= SpvOpImageSampleProjDrefExplicitLod)
         {
             STEREO_LOG(
                 "FS_SAMPLE_NOT_PATCHED "
