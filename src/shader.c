@@ -6542,6 +6542,35 @@ bool spirv_patch_stereo_fs(
                 ob.w[j + 4],
                 ob.w[j + 1]);
         }
+        if (wc >= 3 &&
+            (ob.w[j + 2] == 14 ||
+             ob.w[j + 2] == 24 ||
+             ob.w[j + 2] == 37 ||
+             ob.w[j + 2] == 58 ||
+             ob.w[j + 2] == 66 ||
+             ob.w[j + 2] == 71 ||
+             ob.w[j + 2] == 174))
+        {
+            STEREO_LOG(
+                "FS_PRODUCER "
+                "result=%u "
+                "opcode=%s "
+                "type=%u "
+                "wc=%u",
+                ob.w[j + 2],
+                spv_op_name(op),
+                ob.w[j + 1],
+                wc);
+            if (op == SpvOpLoad && wc >= 4)
+            {
+                STEREO_LOG(
+                    "FS_PRODUCER_LOAD "
+                    "result=%u "
+                    "ptr=%u",
+                    ob.w[j + 2],
+                    ob.w[j + 3]);
+            }
+        }
         j += wc;
     }
     ob.w[3] = samp_nid + 1;
