@@ -5237,12 +5237,12 @@ bool spirv_patch_stereo_fs(
                             spv_op_name(op2),
                             j,
                             wc2);
-                        for (uint32_t w = 0; w < prod_wc; ++w)
+                        for (uint32_t w = 0; w < wc2; ++w)
                         {
                             STEREO_LOG(
                                 "FS_SAMPLE_PRODUCER_WORD[%u]=%08x",
                                 w,
-                                in[prod_off + w]);
+                                in[j + w]);
                         }
                         break;
                     }
