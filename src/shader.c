@@ -5050,6 +5050,24 @@ bool spirv_patch_stereo_fs(
         in_c);
     FsScan s;
     fs_prescan(&s, in, in_c);
+    for (uint32_t v = 0; v < s.n_var; ++v)
+    {
+        if (s.vars[v].storage == SpvStorageClassUniformConstant)
+        {
+            STEREO_LOG(
+                "FS_DESCRIPTOR "
+                "id=%u "
+                "type=%u "
+                "storage=%u "
+                "set=%u "
+                "binding=%u",
+                s.vars[v].id,
+                s.vars[v].type,
+                s.vars[v].storage,
+                s.vars[v].set,
+                s.vars[v].binding);
+        }
+    }
     for (uint32_t i = 0; i < s.n_img; ++i)
     {
         STEREO_LOG(
