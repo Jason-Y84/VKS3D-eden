@@ -5208,6 +5208,34 @@ bool spirv_patch_stereo_fs(
                 (wc >= 3) ? in[i + 2] : 0,
                 (wc >= 4) ? in[i + 3] : 0,
                 (wc >= 5) ? in[i + 4] : 0);
+            int load = fs_find_load(&s, in[i + 3]);
+            STEREO_LOG(
+                "FS_LOAD_LOOKUP sampled=%u load=%d",
+                in[i + 3],
+                load);
+            if (load < 0)
+            {
+                for (size_t j = 5; j < in_c;)
+                {
+                    uint32_t word2 = in[j];
+                    uint32_t op2 = word2 & 0xffffu;
+                    uint32_t wc2 = word2 >> 16;
+                    if (wc2 == 0 || j + wc2 > in_c)
+                        break;
+                    if (wc2 >= 3 && in[j + 2] == in[i + 3])
+                    {
+                        STEREO_LOG(
+                            "FS_SAMPLE_PRODUCER id=%u op=%u (%s) off=%zu wc=%u",
+                            in[i + 3],
+                            op2,
+                            spv_op_name(op2),
+                            j,
+                            wc2);
+                        break;
+                    }
+                    j += wc2;
+                }
+            }
         }
         /* Emit MultiView capability immediately before the first non-capability. */
         if (!mv_added &&
