@@ -6867,22 +6867,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                             fm.proj_binding,
                             fm.proj_member_mask,
                             fm.proj_var);
-                        for (uint32_t v = 0; v < s.n_var; ++v)
-                        {
-                            if (s.vars[v].storage == SpvStorageClassUniformConstant)
-                            {
-                                STEREO_LOG(
-                                    "FS_DESCRIPTOR "
-                                    "id=%u "
-                                    "type=%u "
-                                    "set=%u "
-                                    "binding=%u",
-                                    s.vars[v].id,
-                                    s.vars[v].type,
-                                    s.vars[v].set,
-                                    s.vars[v].binding);
-                            }
-                        }
                     }
                 }
                 free_spv_provenance(&fm);
