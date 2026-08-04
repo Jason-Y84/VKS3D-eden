@@ -4469,92 +4469,56 @@ fs_prescan(
      * Dump the final ownership graph after fixups.
      */
     fs_dump_scan_summary(s);
-    /*
-     * Resolve descriptor ownership for every image type.
-     * This allows spirv_patch_stereo_fs() to know which binding
-     * owns a given OpTypeImage.
-     */
-    for (uint32_t img = 0; img < s->n_img; ++img)
+    FsImageInfo original_images[FS_MAX_IMG];
+    uint32_t original_count = s->n_img;
+    STEREO_LOG(
+        "FS_IMAGE_REBUILD original=%u",
+        original_count);
+    memcpy(original_images, s->images,
+           original_count * sizeof(FsImageInfo));
+    s->n_img = 0;
+    for (uint32_t img = 0; img < original_count; ++img)
     {
-        STEREO_LOG(
-            "FS_OWNER_SCAN imageIdx=%u imageType=%u pointerType=%u",
-            img,
-            s->images[img].id,
-            s->images[img].pointer_type);
-        FsImageInfo *image = &s->images[img];
-        image->owner_var = UINT32_MAX;
-        image->binding   = UINT32_MAX;
-        image->set       = UINT32_MAX;
+        const FsImageInfo *src = &original_images[img];
+        bool found = false;
         for (uint32_t v = 0; v < s->n_var; ++v)
         {
-            STEREO_LOG(
-                "FS_OWNER_COMPARE "
-                "imageType=%u "
-                "imagePointer=%u "
-                "var=%u "
-                "varType=%u",
-                image->id,
-                image->pointer_type,
-                s->vars[v].id,
-                s->vars[v].type);
-            if (image->pointer_type &&
-                s->vars[v].type == image->pointer_type)
+            if (src->pointer_type &&
+                s->vars[v].type == src->pointer_type)
             {
-                image->owner_var = s->vars[v].id;
-                image->binding   = s->vars[v].binding;
-                STEREO_LOG(
-                    "FS_OWNER_CANDIDATE "
-                    "imageType=%u "
-                    "pointer=%u "
-                    "var=%u "
-                    "binding=%u "
-                    "storage=%u",
-                    image->id,
-                    image->pointer_type,
-                    s->vars[v].id,
-                    s->vars[v].binding,
-                    s->vars[v].storage);
-                STEREO_LOG(
-                    "FS_OWNER_ASSIGN "
-                    "imageType=%u "
-                    "owner=%u "
-                    "binding=%u",
-                    image->id,
-                    image->owner_var,
-                    image->binding);
-                image->set       = s->vars[v].set;
-                STEREO_LOG(
-                    "FS_IMAGE_OWNER "
-                    "imageType=%u "
-                    "sampledType=%u "
-                    "pointerType=%u "
-                    "owner=%u "
-                    "set=%u "
-                    "binding=%u",
-                    image->id,
-                    image->sampled_type,
-                    image->pointer_type,
-                    image->owner_var,
-                    image->set,
-                    image->binding);
-                image->stereo =
+                if (s->n_img >= FS_MAX_IMG)
+                    break;
+                FsImageInfo *dst = &s->images[s->n_img++];
+                *dst = *src;
+                dst->owner_var = UINT32_MAX;
+                dst->binding   = UINT32_MAX;
+                dst->set       = UINT32_MAX;
+                dst->owner_var = s->vars[v].id;
+                dst->binding   = s->vars[v].binding;
+                dst->set       = s->vars[v].set;
+                dst->stereo =
                     fs_binding_is_stereo_attachment(
                         s,
-                        image->owner_var);
+                        dst->owner_var);
                 STEREO_LOG(
-                    "FS_IMAGE_STEREO imageType=%u stereo=%u",
-                    image->id,
-                    image->stereo);
-                STEREO_LOG(
-                    "FS_OWNER_FINAL "
-                    "imageType=%u "
-                    "owner=%u "
-                    "binding=%u",
-                    image->id,
-                    image->owner_var,
-                    image->binding);
-                break;
+                    "FS_DUP_IMAGE idx=%u image=%u owner=%u binding=%u stereo=%u",
+                    s->n_img - 1,
+                    dst->id,
+                    dst->owner_var,
+                    dst->binding,
+                    dst->stereo);
+                found = true;
             }
+        }
+        if (!found)
+        {
+            if (s->n_img >= FS_MAX_IMG)
+                break;
+            FsImageInfo *dst = &s->images[s->n_img++];
+            *dst = *src;
+            dst->owner_var = UINT32_MAX;
+            dst->binding   = UINT32_MAX;
+            dst->set       = UINT32_MAX;
         }
     }
     for (uint32_t l = 0; l < s->n_load; ++l)
