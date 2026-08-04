@@ -5898,10 +5898,16 @@ bool spirv_patch_stereo_fs(
                 spv_op_name(op));
             STEREO_LOG(
                 "FS_SAMPLE_REWRITE_DONE "
+                "off=%zu "
                 "opcode=%s "
-                "result=%u",
+                "result=%u "
+                "sampledImage=%u "
+                "coord=%u",
+                i,
                 spv_op_name(op),
-                in[i + 1]);
+                in[i + 2],
+                in[i + 3],
+                in[i + 4]);
             STEREO_LOG(
                 "FS_EMIT_SAMPLE before sampled=%u coord=%u",
                 in[i + 3],
