@@ -5133,7 +5133,20 @@ bool spirv_patch_stereo_fs(
     {
         if (!s.images[img].stereo)
             continue;
-        s.images[img].replacement_type = nid++;
+        /* Reuse an already-reserved replacement for this OpTypeImage. */
+        uint32_t replacement = 0;
+        for (uint32_t j = 0; j < img; ++j)
+        {
+            if (s.images[j].id == s.images[img].id &&
+                s.images[j].replacement_type)
+            {
+                replacement = s.images[j].replacement_type;
+                break;
+            }
+        }
+        if (replacement == 0)
+            replacement = nid++;
+        s.images[img].replacement_type = replacement;
         STEREO_LOG(
             "FS_RESERVE_OWNER image=%u owner=%u binding=%u replacement=%u",
             s.images[img].id,
