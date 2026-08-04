@@ -5694,7 +5694,24 @@ bool spirv_patch_stereo_fs(
                 }
             }
         }
-        if (in_func && op == 62 && wc >= 3)
+        if (op >= SpvOpImageSampleImplicitLod &&
+            op <= SpvOpImageSampleProjDrefExplicitLod &&
+            wc >= 5)
+        {
+            STEREO_LOG(
+                "FS_SAMPLE_FOUND "
+                "off=%zu "
+                "opcode=%s "
+                "result=%u "
+                "sampledImage=%u "
+                "coord=%u",
+                i,
+                spv_op_name(op),
+                in[i + 2],
+                in[i + 3],
+                in[i + 4]);
+        }
+        if (in_func && op == SpvOpStore && wc >= 3)
         {
             uint32_t target = in[i+1];
             int vi = fs_var_index(&s, target);
@@ -6433,6 +6450,18 @@ bool spirv_patch_stereo_fs(
                 (wc >= 2) ? in[i + 1] : 0,
                 (wc >= 3) ? in[i + 2] : 0,
                 (wc >= 4) ? in[i + 3] : 0);
+            STEREO_LOG(
+                "FS_OUTPUT_SAMPLE "
+                "off=%zu "
+                "opcode=%s "
+                "result=%u "
+                "sampledImage=%u "
+                "coord=%u",
+                j,
+                spv_op_name(op),
+                ob.w[j + 2],
+                ob.w[j + 3],
+                ob.w[j + 4]);
         }
         sb_push_n(&ob, &in[i], wc);
         i += wc;
