@@ -5436,6 +5436,14 @@ bool spirv_patch_stereo_fs(
                         s.images[img].binding,
                         s.images[img].replacement_type);
                     w[2] = s.images[img].replacement_type;
+                    STEREO_LOG(
+                        "FS_SAMPLEDIMAGE_PATCH "
+                        "sampledImageType=%u "
+                        "oldImageType=%u "
+                        "newImageType=%u",
+                        w[1],          /* OpTypeSampledImage result id */
+                        in[i + 2],     /* original OpTypeImage */
+                        w[2]);         /* replacement OpTypeImage */
                     break;
                 }
             }
@@ -5577,6 +5585,14 @@ bool spirv_patch_stereo_fs(
             uint32_t w[9];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             w[1] = new_array_type;
+            STEREO_LOG(
+                "FS_TYPEIMAGE_PATCH "
+                "sampledImageType=%u "
+                "oldImageType=%u "
+                "newImageType=%u",
+                w[1],
+                in[i + 2],
+                new_array_type);
             w[5] = 1; /* Arrayed = true */
             sb_push_n(&ob, w, wc);
             i += wc;
@@ -5649,7 +5665,12 @@ bool spirv_patch_stereo_fs(
             wc >= 4)
         {
             STEREO_LOG(
-                "FS_LOAD result=%u type=%u from=%u",
+                "FS_LOAD "
+                "off=%zu "
+                "result=%u "
+                "type=%u "
+                "ptr=%u",
+                i,
                 in[i + 2],
                 in[i + 1],
                 in[i + 3]);
