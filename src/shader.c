@@ -3034,6 +3034,16 @@ fs_scan_type_instruction(
             img->stereo           = (arrayed != 0);
             img->replacement_type = 0;
             STEREO_LOG(
+                "FS_ARRAY_TYPE_PATCH "
+                "imageType=%u "
+                "sampledType=%u "
+                "arrayed_before=%u "
+                "arrayed_after=%u",
+                type_id,
+                sampled_type,
+                arrayed,
+                1u);
+            STEREO_LOG(
                 "FS_BEFORE_ADD_LOG n_img=%u ptr=%p",
                 s->n_img,
                 (void *)s);
