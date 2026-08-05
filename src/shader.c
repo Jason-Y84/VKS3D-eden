@@ -5495,6 +5495,11 @@ bool spirv_patch_stereo_fs(
         if (op == SpvOpTypePointer &&
             wc >= 4)
         {
+            STEREO_LOG(
+                "FS_PTR type=%u storage=%u pointee=%u",
+                in[i + 1],
+                in[i + 2],
+                in[i + 3]);
             uint32_t w[4];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             bool cloned = false;
@@ -5513,11 +5518,6 @@ bool spirv_patch_stereo_fs(
             sb_push_n(&ob, &in[i], wc);
             i += wc;
             continue;
-            STEREO_LOG(
-                "FS_PTR type=%u storage=%u pointee=%u",
-                in[i + 1],
-                in[i + 2],
-                in[i + 3]);
         }
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == SpvOpTypeImage &&
@@ -5672,6 +5672,11 @@ bool spirv_patch_stereo_fs(
         if (op == SpvOpVariable &&
             wc >= 4)
         {
+            STEREO_LOG(
+                "FS_VAR id=%u ptrType=%u storage=%u",
+                in[i + 2],
+                in[i + 1],
+                in[i + 3]);
             uint32_t w[4];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             bool cloned = false;
@@ -5692,11 +5697,6 @@ bool spirv_patch_stereo_fs(
             sb_push_n(&ob, &in[i], wc);
             i += wc;
             continue;
-            STEREO_LOG(
-                "FS_VAR id=%u ptrType=%u storage=%u",
-                in[i + 2],
-                in[i + 1],
-                in[i + 3]);
         }
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
         if (op == 54 && !types_done) {
