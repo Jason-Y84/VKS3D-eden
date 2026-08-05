@@ -5287,6 +5287,11 @@ bool spirv_patch_stereo_fs(
             s.images[img].replacement_type,
             s.images[img].owner_var,
             s.images[img].binding);
+        STEREO_LOG(
+            "IMAGE_RESERVED image=%u replacementImage=%u replacementPointer=%u",
+            s.images[img].id,
+            s.images[img].replacement_type,
+            s.images[img].replacement_pointer_type);
     }
     for (uint32_t img = 0; img < s.n_img; ++img)
     {
@@ -5652,6 +5657,13 @@ bool spirv_patch_stereo_fs(
             }
             /* Emit the reserved cloned array type. */
             uint32_t new_array_type = s.images[patch_img_idx].replacement_type;
+            STEREO_LOG(
+                "IMAGE_EMIT oldImage=%u replacementImage=%u replacementPointer=%u replacementVar=%u sampledType=%u",
+                s.images[patch_img_idx].id,
+                s.images[patch_img_idx].replacement_type,
+                s.images[patch_img_idx].replacement_pointer_type,
+                s.images[patch_img_idx].replacement_owner_var,
+                s.images[patch_img_idx].sampled_type);
             STEREO_LOG(
                 "FS_EMIT_ARRAY_TYPE "
                 "image=%u "
