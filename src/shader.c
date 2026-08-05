@@ -4381,11 +4381,24 @@ fs_scan_instruction(
         break;
     }
     case SpvOpLoad:
+    {
+        if (wc >= 4)
+        {
+            STEREO_LOG(
+                "FS_LOAD_SCAN "
+                "result=%u "
+                "ptr=%u "
+                "type=%u",
+                ins[2],
+                ins[3],
+                ins[1]);
+        }
         fs_scan_load_instruction(
             s,
             ins,
             wc);
         break;
+    }
     case SpvOpSampledImage:
     {
         STEREO_LOG(
@@ -6662,6 +6675,20 @@ bool spirv_patch_stereo_fs(
         uint32_t op = ob.w[j] & 0xffff;
         if (!wc || j + wc > ob.n)
             break;
+        if (op == SpvOpVariable && wc >= 4)
+        {
+            if (ob.w[j + 2] == 43 || ob.w[j + 2] == 48)
+            {
+                STEREO_LOG(
+                    "FS_VAR43 "
+                    "id=%u "
+                    "type=%u "
+                    "storage=%u",
+                    ob.w[j + 2],
+                    ob.w[j + 1],
+                    ob.w[j + 3]);
+            }
+        }
         if (op == SpvOpTypeImage && wc >= 9)
         {
             STEREO_LOG(
