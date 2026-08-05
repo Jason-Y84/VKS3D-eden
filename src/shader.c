@@ -6767,6 +6767,28 @@ bool spirv_patch_stereo_fs(
                     ob.w[j + 3]);
             }
         }
+        if (wc >= 3 && ob.w[j + 2] == 71)
+        {
+            STEREO_LOG(
+                "FS_RESULT71 "
+                "opcode=%s "
+                "wc=%u "
+                "type=%u",
+                spv_op_name(op),
+                wc,
+                ob.w[j + 1]);
+        }
+        if (wc >= 3 && ob.w[j + 2] == 72)
+        {
+            STEREO_LOG(
+                "FS_RESULT72 "
+                "opcode=%s "
+                "wc=%u "
+                "type=%u",
+                spv_op_name(op),
+                wc,
+                ob.w[j + 1]);
+        }
         j += wc;
     }
     ob.w[3] = samp_nid + 1;
