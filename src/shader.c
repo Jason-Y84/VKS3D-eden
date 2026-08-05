@@ -5513,6 +5513,11 @@ bool spirv_patch_stereo_fs(
             sb_push_n(&ob, &in[i], wc);
             i += wc;
             continue;
+            STEREO_LOG(
+                "FS_PTR type=%u storage=%u pointee=%u",
+                in[i + 1],
+                in[i + 2],
+                in[i + 3]);
         }
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == SpvOpTypeImage &&
@@ -5687,6 +5692,11 @@ bool spirv_patch_stereo_fs(
             sb_push_n(&ob, &in[i], wc);
             i += wc;
             continue;
+            STEREO_LOG(
+                "FS_VAR id=%u ptrType=%u storage=%u",
+                in[i + 2],
+                in[i + 1],
+                in[i + 3]);
         }
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
         if (op == 54 && !types_done) {
