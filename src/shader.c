@@ -6048,9 +6048,13 @@ bool spirv_patch_stereo_fs(
             if (!fs_should_patch_sample(&s, h, descriptor_var))
             {
                 STEREO_LOG(
-                    "FS_SAMPLE_SKIP_MONO image=%u descriptor=%u",
-                    in[i+3],
-                    descriptor_var);
+                    "FS_PATCH_REJECT "
+                    "sampledImage=%u "
+                    "descriptorVar=%u "
+                    "coord=%u",
+                    in[i + 3],
+                    descriptor_var,
+                    in[i + 4]);
             
                 sb_push_n(&ob, &in[i], wc);
                 i += wc;
