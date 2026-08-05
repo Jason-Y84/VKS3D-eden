@@ -6692,13 +6692,15 @@ bool spirv_patch_stereo_fs(
             STEREO_LOG(
                 "FS_SAMPLE_NOT_PATCHED "
                 "opcode=%s "
+                "resultType=%u "
                 "result=%u "
                 "sampledImage=%u "
                 "coord=%u",
                 spv_op_name(op),
                 (wc >= 2) ? in[i + 1] : 0,
                 (wc >= 3) ? in[i + 2] : 0,
-                (wc >= 4) ? in[i + 3] : 0);
+                (wc >= 4) ? in[i + 3] : 0,
+                (wc >= 5) ? in[i + 4] : 0);
         }
         sb_push_n(&ob, &in[i], wc);
         i += wc;
