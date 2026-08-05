@@ -2704,12 +2704,20 @@ fs_find_load(
     uint32_t value_id)
 {
     if (!s)
+    {
+        STEREO_LOG(
+            "FS_FIND_LOAD_MISS value=%u",
+            value_id);
         return -1;
+    }
     for (uint32_t i = 0; i < s->n_load; ++i)
     {
         if (s->loads[i].id == value_id)
             return (int)i;
     }
+    STEREO_LOG(
+        "FS_FIND_LOAD_MISS value=%u",
+        value_id);
     return -1;
 }
 static int
@@ -4267,6 +4275,14 @@ fs_scan_instruction(
                 if (fs_var_index(s, base_id) >= 0)
                     owner = base_id;
             }
+            STEREO_LOG(
+                "FS_LOAD_RECORD "
+                "op=%s "
+                "result=%u "
+                "owner=%u",
+                spv_op_name(op),
+                result_id,
+                owner);
             fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
                 "FS_CHAIN result=%u base=%u owner=%u op=%s",
@@ -4283,6 +4299,14 @@ fs_scan_instruction(
         if (wc >= 4)
         {
             uint32_t result_id = ins[2];
+            STEREO_LOG(
+                "FS_COPY_OBJECT "
+                "result=%u "
+                "src=%u "
+                "type=%u",
+                result_id,
+                ins[3],
+                ins[1]);
             uint32_t source_id = ins[3];
             uint32_t owner     = source_id;
             if (!fs_resolve_load_owner(s, source_id, &owner))
@@ -4290,6 +4314,14 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
+            STEREO_LOG(
+                "FS_LOAD_RECORD "
+                "op=%s "
+                "result=%u "
+                "owner=%u",
+                spv_op_name(op),
+                result_id,
+                owner);
             fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
                 "FS_PROPAGATE_OBJECT op=%s src=%u dst=%u owner=%u",
@@ -4312,6 +4344,14 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
+            STEREO_LOG(
+                "FS_LOAD_RECORD "
+                "op=%s "
+                "result=%u "
+                "owner=%u",
+                spv_op_name(op),
+                result_id,
+                owner);
             fs_add_load_mapping(s, result_id, owner);
         }
         break;
@@ -4328,6 +4368,14 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
+            STEREO_LOG(
+                "FS_LOAD_RECORD "
+                "op=%s "
+                "result=%u "
+                "owner=%u",
+                spv_op_name(op),
+                result_id,
+                owner);
             fs_add_load_mapping(s, result_id, owner);
         }
         break;
