@@ -6708,21 +6708,21 @@ bool spirv_patch_stereo_fs(
                 ob.w[j + 3],
                 ob.w[j + 1]);
         }
-        if (wc >= 4 && ob.w[j + 3] == 71)
-        {
-            STEREO_LOG(
-                "FS_IMAGE71_USE "
-                "opcode=%s "
-                "result=%u "
-                "coord=%u",
-                spv_op_name(op),
-                ob.w[j + 2],
-                (wc >= 5) ? ob.w[j + 4] : 0);
-        }
         if (op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSampleProjDrefExplicitLod &&
             wc >= 5)
         {
+            if (wc >= 4 && ob.w[j + 3] == 71)
+            {
+                STEREO_LOG(
+                    "FS_IMAGE71_USE "
+                    "opcode=%s "
+                    "result=%u "
+                    "coord=%u",
+                    spv_op_name(op),
+                    ob.w[j + 2],
+                    (wc >= 5) ? ob.w[j + 4] : 0);
+            }
             STEREO_LOG(
                 "FS_PATCHED_SAMPLE "
                 "off=%zu "
