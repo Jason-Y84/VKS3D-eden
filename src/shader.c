@@ -2298,6 +2298,7 @@ typedef struct
     uint32_t set;
     bool     stereo;
     uint32_t replacement_type; /* existing array image type if reused */
+    uint32_t replacement_pointer_type;
     uint32_t replacement_owner_var;
 } FsImageInfo;
 
@@ -5286,6 +5287,12 @@ bool spirv_patch_stereo_fs(
             s.images[img].owner_var,
             s.images[img].binding);
     }
+    for (uint32_t img = 0; img < s.n_img; ++img)
+    {
+        if (!s.images[img].stereo)
+            continue;
+        s.images[img].replacement_pointer_type = nid++;
+    }
     uint32_t samp_nid      = nid;
     /*
      * ImageSample/ImageFetch consume 5 ids.
@@ -5488,11 +5495,24 @@ bool spirv_patch_stereo_fs(
         if (op == SpvOpTypePointer &&
             wc >= 4)
         {
-            STEREO_LOG(
-                "FS_PTR type=%u storage=%u pointee=%u",
-                in[i + 1],
-                in[i + 2],
-                in[i + 3]);
+            uint32_t w[4];
+            memcpy(w, &in[i], wc * sizeof(uint32_t));
+            bool cloned = false;
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (!s.images[img].stereo)
+                    continue;
+                if (w[3] != s.images[img].id)
+                    continue;
+                w[1] = s.images[img].replacement_pointer_type;
+                w[3] = s.images[img].replacement_type;
+                sb_push_n(&ob, w, wc);
+                cloned = true;
+                break;
+            }
+            sb_push_n(&ob, &in[i], wc);
+            i += wc;
+            continue;
         }
         /* Patch OpTypeImage: Dim=2D Arrayed=0 → Arrayed=1 (in-place word change) */
         if (op == SpvOpTypeImage &&
@@ -5647,11 +5667,26 @@ bool spirv_patch_stereo_fs(
         if (op == SpvOpVariable &&
             wc >= 4)
         {
-            STEREO_LOG(
-                "FS_VAR id=%u ptrType=%u storage=%u",
-                in[i + 2],
-                in[i + 1],
-                in[i + 3]);
+            uint32_t w[4];
+            memcpy(w, &in[i], wc * sizeof(uint32_t));
+            bool cloned = false;
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (!s.images[img].stereo)
+                    continue;
+                if (w[1] != s.images[img].pointer_type)
+                    continue;
+                uint32_t new_var = samp_nid++;
+                w[1] = s.images[img].replacement_pointer_type;
+                w[2] = new_var;
+                s.images[img].replacement_owner_var = new_var;
+                sb_push_n(&ob, w, wc);
+                cloned = true;
+                break;
+            }
+            sb_push_n(&ob, &in[i], wc);
+            i += wc;
+            continue;
         }
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
         if (op == 54 && !types_done) {
