@@ -2769,6 +2769,14 @@ fs_add_load_mapping(
     uint32_t value_id,
     uint32_t owner)
 {
+    STEREO_LOG(
+        "FS_LOAD_RECORD "
+        "op=%s "
+        "result=%u "
+        "owner=%u",
+        spv_op_name(op),
+        result_id,
+        owner);
     if (!s)
         return;
     int index =
@@ -4275,14 +4283,6 @@ fs_scan_instruction(
                 if (fs_var_index(s, base_id) >= 0)
                     owner = base_id;
             }
-            STEREO_LOG(
-                "FS_LOAD_RECORD "
-                "op=%s "
-                "result=%u "
-                "owner=%u",
-                spv_op_name(op),
-                result_id,
-                owner);
             fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
                 "FS_CHAIN result=%u base=%u owner=%u op=%s",
@@ -4314,14 +4314,6 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
-            STEREO_LOG(
-                "FS_LOAD_RECORD "
-                "op=%s "
-                "result=%u "
-                "owner=%u",
-                spv_op_name(op),
-                result_id,
-                owner);
             fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
                 "FS_PROPAGATE_OBJECT op=%s src=%u dst=%u owner=%u",
@@ -4344,14 +4336,6 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
-            STEREO_LOG(
-                "FS_LOAD_RECORD "
-                "op=%s "
-                "result=%u "
-                "owner=%u",
-                spv_op_name(op),
-                result_id,
-                owner);
             fs_add_load_mapping(s, result_id, owner);
         }
         break;
@@ -4368,14 +4352,6 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
-            STEREO_LOG(
-                "FS_LOAD_RECORD "
-                "op=%s "
-                "result=%u "
-                "owner=%u",
-                spv_op_name(op),
-                result_id,
-                owner);
             fs_add_load_mapping(s, result_id, owner);
         }
         break;
@@ -6623,6 +6599,16 @@ bool spirv_patch_stereo_fs(
             if (wc > 5)
                 sb_push_n(&ob, &in[i+5], wc - 5);
             STEREO_LOG(
+                "FS_FETCH_PATCHED "
+                "result=%u "
+                "image=%u "
+                "coordOld=%u "
+                "coordNew=%u",
+                in[i + 2],
+                in[i + 3],
+                coord_id,
+                id_c3);
+            STEREO_LOG(
                 "FS_FETCH_PATCH_DONE image=%u newCoord=%u",
                 in[i+3],
                 id_c3);
@@ -6692,7 +6678,7 @@ bool spirv_patch_stereo_fs(
             wc >= 5)
         {
             STEREO_LOG(
-                "FS_OUTPUT_SAMPLE "
+                "FS_PATCHED_SAMPLE "
                 "off=%zu "
                 "opcode=%s "
                 "result=%u "
