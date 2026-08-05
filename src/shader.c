@@ -6712,6 +6712,16 @@ bool spirv_patch_stereo_fs(
             op <= SpvOpImageSampleProjDrefExplicitLod &&
             wc >= 5)
         {
+            STEREO_LOG(
+                "FS_SAMPLE_TYPES "
+                "resultType=%u "
+                "result=%u "
+                "sampledImage=%u "
+                "coord=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3],
+                ob.w[j + 4]);
             if (wc >= 4 && ob.w[j + 3] == 71)
             {
                 STEREO_LOG(
@@ -6770,25 +6780,21 @@ bool spirv_patch_stereo_fs(
         if (wc >= 3 && ob.w[j + 2] == 71)
         {
             STEREO_LOG(
-                "FS_RESULT71 "
-                "opcode=%s "
-                "wc=%u "
-                "type=%u",
+                "FS_RESULT71 opcode=%s wc=%u type=%u ptr=%u",
                 spv_op_name(op),
                 wc,
-                ob.w[j + 1]);
+                ob.w[j + 1],
+                (wc >= 4) ? ob.w[j + 3] : 0);
         }
         if (wc >= 3 && ob.w[j + 2] == 72)
         {
             STEREO_LOG(
-                "FS_RESULT72 "
-                "opcode=%s "
-                "wc=%u "
-                "type=%u",
+                "FS_RESULT72 opcode=%s wc=%u type=%u ptr=%u",
                 spv_op_name(op),
                 wc,
-                ob.w[j + 1]);
-        }
+                ob.w[j + 1],
+                (wc >= 4) ? ob.w[j + 3] : 0);
+                }
         j += wc;
     }
     ob.w[3] = samp_nid + 1;
