@@ -2769,14 +2769,6 @@ fs_add_load_mapping(
     uint32_t value_id,
     uint32_t owner)
 {
-    STEREO_LOG(
-        "FS_LOAD_RECORD "
-        "op=%s "
-        "result=%u "
-        "owner=%u",
-        spv_op_name(op),
-        result_id,
-        owner);
     if (!s)
         return;
     int index =
@@ -4283,6 +4275,14 @@ fs_scan_instruction(
                 if (fs_var_index(s, base_id) >= 0)
                     owner = base_id;
             }
+            STEREO_LOG(
+                "FS_LOAD_RECORD "
+                "op=%s "
+                "result=%u "
+                "owner=%u",
+                spv_op_name(op),
+                result_id,
+                owner);
             fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
                 "FS_CHAIN result=%u base=%u owner=%u op=%s",
@@ -4314,6 +4314,14 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
+            STEREO_LOG(
+                "FS_LOAD_RECORD "
+                "op=%s "
+                "result=%u "
+                "owner=%u",
+                spv_op_name(op),
+                result_id,
+                owner);
             fs_add_load_mapping(s, result_id, owner);
             STEREO_LOG(
                 "FS_PROPAGATE_OBJECT op=%s src=%u dst=%u owner=%u",
@@ -4336,6 +4344,14 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
+            STEREO_LOG(
+                "FS_LOAD_RECORD "
+                "op=%s "
+                "result=%u "
+                "owner=%u",
+                spv_op_name(op),
+                result_id,
+                owner);
             fs_add_load_mapping(s, result_id, owner);
         }
         break;
@@ -4352,6 +4368,14 @@ fs_scan_instruction(
                 if (fs_var_index(s, source_id) >= 0)
                     owner = source_id;
             }
+            STEREO_LOG(
+                "FS_LOAD_RECORD "
+                "op=%s "
+                "result=%u "
+                "owner=%u",
+                spv_op_name(op),
+                result_id,
+                owner);
             fs_add_load_mapping(s, result_id, owner);
         }
         break;
