@@ -2300,6 +2300,7 @@ typedef struct
     uint32_t replacement_type; /* existing array image type if reused */
     uint32_t replacement_pointer_type;
     uint32_t replacement_owner_var;
+    uint32_t replacement_sampled_type;
 } FsImageInfo;
 
 typedef struct
@@ -5509,19 +5510,21 @@ bool spirv_patch_stereo_fs(
                     "PTR_COMPARE ptrPointee=%u img.id=%u sampled=%u replacement=%u",
                     w[3],
                     s.images[img].id,
-                    s.images[img].sampled_type_id,
+                    s.images[img].sampled_type,
                     s.images[img].replacement_pointer_type);
                 if (!s.images[img].stereo)
                     continue;
+                /* pointer points to OpTypeSampledImage */
                 if (w[3] != s.images[img].sampled_type)
                     continue;
                 w[1] = s.images[img].replacement_pointer_type;
-                w[3] = s.images[img].replacement_type;
+                w[3] = s.images[img].replacement_sampled_type;
                 sb_push_n(&ob, w, wc);
                 cloned = true;
                 break;
             }
-            sb_push_n(&ob, &in[i], wc);
+            if (!cloned)
+                sb_push_n(&ob, &in[i], wc);
             i += wc;
             continue;
         }
@@ -5690,17 +5693,17 @@ bool spirv_patch_stereo_fs(
             {
                 if (!s.images[img].stereo)
                     continue;
-                if (w[1] != s.images[img].pointer_type)
+                if (w[1] != s.images[img].replacement_pointer_type)
                     continue;
                 uint32_t new_var = samp_nid++;
-                w[1] = s.images[img].replacement_pointer_type;
                 w[2] = new_var;
                 s.images[img].replacement_owner_var = new_var;
                 sb_push_n(&ob, w, wc);
                 cloned = true;
                 break;
             }
-            sb_push_n(&ob, &in[i], wc);
+            if (!cloned)
+                sb_push_n(&ob, &in[i], wc);
             i += wc;
             continue;
         }
