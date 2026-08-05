@@ -2926,6 +2926,19 @@ fs_find_image_by_sampled_image(
     return -1;
 }
 
+static int
+fs_find_image_by_owner(
+    FsScan *s,
+    uint32_t owner_var)
+{
+    for (uint32_t i = 0; i < s->n_img; ++i)
+    {
+        if (s->images[i].owner_var == owner_var)
+            return (int)i;
+    }
+    return -1;
+}
+
 static void
 fs_scan_type_instruction(
     FsScan *s,
@@ -5575,7 +5588,7 @@ bool spirv_patch_stereo_fs(
                         s.images[img].id,
                         s.images[img].owner_var,
                         s.images[img].binding,
-                        s.images[img].type,
+                        s.images[img].pointer_type,
                         s.images[img].replacement_type);
                     patch_this_type = true;
                     patch_img_idx = (int)img;
@@ -5736,12 +5749,10 @@ bool spirv_patch_stereo_fs(
                         "ptr=%u "
                         "type=%u "
                         "storage=%u "
-                        "set=%u "
                         "binding=%u",
                         s.vars[v].id,
                         s.vars[v].type,
                         s.vars[v].storage,
-                        s.vars[v].set,
                         s.vars[v].binding);
                     int img = fs_find_image_by_owner(&s, s.vars[v].id);
                     if (img >= 0)
