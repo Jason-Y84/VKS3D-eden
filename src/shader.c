@@ -2490,6 +2490,16 @@ uint32_t var)
         v->storage,
         v->set,
         v->binding);
+    STEREO_LOG(
+        "FS_BINDING_TYPE var=%u "
+        "storage=%u "
+        "type=%u "
+        "sampledImage=%u "
+        "n_img=%u",
+        v->id,
+        v->storage,
+        v->type,
+        s->n_img);
     /*
      * Input attachments are framebuffer attachments.
      */
