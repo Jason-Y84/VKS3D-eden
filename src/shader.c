@@ -2298,6 +2298,7 @@ typedef struct
     uint32_t set;
     bool     stereo;
     uint32_t replacement_type; /* existing array image type if reused */
+    uint32_t replacement_owner_var;
 } FsImageInfo;
 
 typedef struct
@@ -5698,18 +5699,12 @@ bool spirv_patch_stereo_fs(
             op == SpvOpLoad &&
             wc >= 4)
         {
+            uint32_t w[4];
+            memcpy(w, &in[i], wc * sizeof(uint32_t));
             STEREO_LOG(
                 "FS_LOAD_REWRITE_CHECK "
                 "ptr=%u",
                 in[i + 3]);
-            STEREO_LOG(
-                "FS_LOAD_WILL_REWRITE "
-                "oldPtr=%u "
-                "newPtr=%u "
-                "binding=%u",
-                w[3],
-                s.images[img].replacement_var,
-                s.images[img].binding);
             STEREO_LOG(
                 "FS_LOAD "
                 "off=%zu "
@@ -5717,12 +5712,14 @@ bool spirv_patch_stereo_fs(
                 "type=%u "
                 "ptr=%u",
                 i,
-                in[i + 2],
-                in[i + 1],
-                in[i + 3]);
+                w[2],
+                w[1],
+                w[3]);
             for (uint32_t v = 0; v < s.n_var; ++v)
             {
-                if (s.vars[v].id == in[i + 3])
+                if (s.vars[v].id != w[3])
+                    continue;
+                if (s.vars[v].storage == SpvStorageClassUniformConstant)
                 {
                     STEREO_LOG(
                         "FS_LOAD_MATCH "
@@ -5746,9 +5743,47 @@ bool spirv_patch_stereo_fs(
                         s.vars[v].storage,
                         s.vars[v].set,
                         s.vars[v].binding);
+                    int img = fs_find_image_by_owner(&s, s.vars[v].id);
+                    if (img >= 0)
+                    {
+                        uint32_t new_ptr = s.images[img].replacement_owner_var;
+                        if (new_ptr)
+                        {
+                            STEREO_LOG(
+                                "FS_LOAD_REWRITE "
+                                "result=%u "
+                                "oldPtr=%u "
+                                "newPtr=%u "
+                                "binding=%u",
+                                w[2],
+                                w[3],
+                                new_ptr,
+                                s.images[img].binding);
+                            w[3] = new_ptr;
+                        }
+                        else
+                        {
+                            STEREO_LOG(
+                                "FS_LOAD_NO_REPLACEMENT "
+                                "ptr=%u "
+                                "binding=%u",
+                                w[3],
+                                s.images[img].binding);
+                        }
+                    }
+                    else
+                    {
+                        STEREO_LOG(
+                            "FS_LOAD_NO_IMAGE "
+                            "ptr=%u",
+                            w[3]);
+                    }
                     break;
                 }
             }
+        sb_push_n(&ob, w, wc);
+        i += wc;
+        continue;
         }
         if (op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSampleProjDrefExplicitLod &&
