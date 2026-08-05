@@ -5505,6 +5505,12 @@ bool spirv_patch_stereo_fs(
             bool cloned = false;
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
+                STEREO_LOG(
+                    "PTR_COMPARE ptrPointee=%u img.id=%u sampled=%u replacement=%u",
+                    w[3],
+                    s.images[img].id,
+                    s.images[img].sampled_type_id,
+                    s.images[img].replacement_pointer_type);
                 if (!s.images[img].stereo)
                     continue;
                 if (w[3] != s.images[img].id)
