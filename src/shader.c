@@ -2710,10 +2710,44 @@ fs_find_load(
             value_id);
         return -1;
     }
+    if (value_id == 71)
+    {
+        STEREO_LOG(
+            "FS_FIND71_BEGIN n_load=%u",
+            s->n_load);
+    }
     for (uint32_t i = 0; i < s->n_load; ++i)
     {
+        if (value_id == 71)
+        {
+            STEREO_LOG(
+                "FS_FIND71_ENTRY "
+                "idx=%u "
+                "id=%u "
+                "owner=%u "
+                "binding=%u "
+                "source=%u",
+                i,
+                s->loads[i].id,
+                s->loads[i].owner_var,
+                s->loads[i].binding,
+                s->loads[i].source_id);
+        }
         if (s->loads[i].id == value_id)
+        {
+            if (value_id == 71)
+            {
+                STEREO_LOG(
+                    "FS_FIND71_HIT idx=%u",
+                    i);
+            }
             return (int)i;
+        }
+    }
+    if (value_id == 71)
+    {
+        STEREO_LOG(
+            "FS_FIND71_MISS");
     }
     STEREO_LOG(
         "FS_FIND_LOAD_MISS value=%u",
