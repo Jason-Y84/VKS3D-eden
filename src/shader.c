@@ -3963,13 +3963,11 @@ fs_track_sampled_image(
         "id=%u "
         "source=%u "
         "owner=%u "
-        "binding=%u "
-        "set=%u",
+        "binding=%u",
         dst->id,
         dst->source_id,
         dst->owner_var,
-        dst->binding,
-        dst->set);
+        dst->binding);
     STEREO_LOG(
         "FS_SAMPLED_IMAGE_REGISTER result=%u image=%u owner=%u binding=%u",
         result_id,
