@@ -5249,6 +5249,25 @@ bool spirv_patch_stereo_fs(
         in_c);
     FsScan s;
     fs_prescan(&s, in, in_c);
+    for (uint32_t ii = 0; ii < s.n_img; ++ii)
+    {
+        STEREO_LOG(
+            "FS_IMAGE_FINAL "
+            "idx=%u "
+            "image=%u "
+            "sampled_type=%u "
+            "sampled_type_id=%u "
+            "pointer=%u "
+            "binding=%u "
+            "owner=%u",
+            ii,
+            s.images[ii].id,
+            s.images[ii].sampled_type,
+            s.images[ii].sampled_type_id,
+            s.images[ii].pointer_type,
+            s.images[ii].binding,
+            s.images[ii].owner_var);
+    }
     for (uint32_t v = 0; v < s.n_var; ++v)
     {
         if (s.vars[v].storage == SpvStorageClassUniformConstant)
