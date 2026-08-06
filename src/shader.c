@@ -3069,6 +3069,18 @@ fs_scan_type_instruction(
         if (dim == SpvDim2D &&
             s->n_img < FS_MAX_IMG)
         {
+            STEREO_LOG(
+                "FS_NEW_IMAGE_SCAN "
+                "idx=%u "
+                "id=%u "
+                "sampled=%u "
+                "dim=%u "
+                "arrayed=%u",
+                s->n_img,
+                type_id,
+                sampled_type,
+                dim,
+                arrayed);
             FsImageInfo *img =
                 &s->images[s->n_img++];
             STEREO_LOG(
@@ -3088,6 +3100,12 @@ fs_scan_type_instruction(
             img->patchable        = (arrayed == 0);
             img->stereo           = (arrayed != 0);
             img->replacement_type = 0;
+            STEREO_LOG(
+                "FS_NEW_IMAGE_DONE "
+                "idx=%u "
+                "id=%u",
+                s->n_img - 1,
+                img->id);
             STEREO_LOG(
                 "FS_ARRAY_TYPE_PATCH "
                 "imageType=%u "
