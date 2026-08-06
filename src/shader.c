@@ -2227,7 +2227,6 @@ void spirv_patched_free(uint32_t *w) { free(w); }
 #define FS_MAX_CALLS      256
 #define FS_MAX_FUNCTIONS   64
 #define FS_MAX_VARS       128
-#define FS_MAX_IDS      65535
 
 typedef struct
 {
@@ -5478,7 +5477,16 @@ bool spirv_patch_stereo_fs(
         new_bound,
         nid);
     SpvBuf ob;
-    if (!sb_init(&ob, in_c + 60 + (size_t)n_patches * 28)) return false;
+    if (!sb_init(&ob, in_c + 60 + (size_t)n_patches * 28))
+        return false;
+    uint32_t id_bound = new_bound;
+    bool *emitted_type = calloc(id_bound, sizeof(*emitted_type));
+    if (!emitted_type)
+    {
+        free(emitted_type);
+        sb_free(&ob);
+        return false;
+    }
     bool mv_added   = s.has_mv_cap;
     bool ext_done   = false;
     uint32_t spv_version = in[1];
@@ -5621,7 +5629,7 @@ bool spirv_patch_stereo_fs(
                 sb_push(&ob, new_vi_id);
             } else {
                 sb_push_n(&ob, &in[i], wc);
-                if (in[i + 1] < FS_MAX_IDS)
+                if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
                     STEREO_LOG(
@@ -5674,7 +5682,7 @@ bool spirv_patch_stereo_fs(
                 w[1],
                 w[2]);
             sb_push_n(&ob, w, wc);
-            if (w[1] < FS_MAX_IDS)
+            if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
                 STEREO_LOG(
@@ -5703,7 +5711,7 @@ bool spirv_patch_stereo_fs(
                 in[i + 1],
                 in[i + 2],
                 in[i + 3]);
-            if (in[i + 3] < FS_MAX_IDS)
+            if (in[i + 3] < id_bound)
             {
                 STEREO_LOG(
                     "FS_POINTER_TARGET "
@@ -5715,7 +5723,7 @@ bool spirv_patch_stereo_fs(
                     emitted_type[in[i + 3]]);
             }
             sb_push_n(&ob, &in[i], wc);
-            if (in[i + 1] < FS_MAX_IDS)
+            if (in[i + 1] < id_bound)
             {
                 emitted_type[in[i + 1]] = true;
                 STEREO_LOG(
@@ -5799,7 +5807,7 @@ bool spirv_patch_stereo_fs(
                         s.images[existing].sampled_type_id);
                     /* keep original declaration unchanged */
                     sb_push_n(&ob, &in[i], wc);
-                    if (in[i + 1] < FS_MAX_IDS)
+                    if (in[i + 1] < id_bound)
                     {
                         emitted_type[in[i + 1]] = true;
                         STEREO_LOG(
@@ -5888,7 +5896,7 @@ bool spirv_patch_stereo_fs(
             if (!patch_this_type)
             {
                 sb_push_n(&ob, &in[i], wc);
-                if (in[i + 1] < FS_MAX_IDS)
+                if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
                     STEREO_LOG(
@@ -5903,7 +5911,7 @@ bool spirv_patch_stereo_fs(
             }
             /* Emit the original type unchanged. */
             sb_push_n(&ob, &in[i], wc);
-            if (in[i + 1] < FS_MAX_IDS)
+            if (in[i + 1] < id_bound)
             {
                 emitted_type[in[i + 1]] = true;
                 STEREO_LOG(
@@ -5916,7 +5924,7 @@ bool spirv_patch_stereo_fs(
             if (patch_img_idx < 0)
             {
                 sb_push_n(&ob, &in[i], wc);
-                if (in[i + 1] < FS_MAX_IDS)
+                if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
                     STEREO_LOG(
@@ -5975,7 +5983,7 @@ bool spirv_patch_stereo_fs(
                 w[1],
                 in[i + 1]);
             sb_push_n(&ob, w, wc);
-            if (w[1] < FS_MAX_IDS)
+            if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
                 STEREO_LOG(
@@ -5997,7 +6005,7 @@ bool spirv_patch_stereo_fs(
                 in[i + 1],
                 in[i + 3]);
             sb_push_n(&ob, &in[i], wc);
-            if (in[i + 1] < FS_MAX_IDS)
+            if (in[i + 1] < id_bound)
             {
                 emitted_type[in[i + 1]] = true;
                 STEREO_LOG(
@@ -6052,7 +6060,7 @@ bool spirv_patch_stereo_fs(
                 uint32_t w[]={(4u<<16)|SpvOpVariable, new_pin_id, new_vi_id, SpvStorageClassInput};
                 sb_push_n(&ob,w,4); }
             sb_push_n(&ob, &in[i], wc);
-            if (in[i + 1] < FS_MAX_IDS)
+            if (in[i + 1] < id_bound)
             {
                 emitted_type[in[i + 1]] = true;
                 STEREO_LOG(
@@ -6165,17 +6173,8 @@ bool spirv_patch_stereo_fs(
             in[i + 1],
             in[i + 2],
             in[i + 3]);
-        if (in[i + 1] < FS_MAX_IDS)
-        {
-            STEREO_LOG(
-                "FS_LOAD_RESULT_TYPE "
-                "type=%u "
-                "emitted=%u",
-                in[i + 1],
-                emitted_type[in[i + 1]]);
-        }
         sb_push_n(&ob, w, wc);
-        if (w[1] < FS_MAX_IDS)
+        if (w[1] < id_bound)
         {
             emitted_type[w[1]] = true;
             STEREO_LOG(
@@ -6321,7 +6320,7 @@ bool spirv_patch_stereo_fs(
                     descriptor_var,
                     in[i + 4]);
                 sb_push_n(&ob, &in[i], wc);
-                if (in[i + 1] < FS_MAX_IDS)
+                if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
                     STEREO_LOG(
@@ -6569,7 +6568,7 @@ bool spirv_patch_stereo_fs(
                 w[1],
                 w[3]);
             sb_push_n(&ob, w, wc);
-            if (w[1] < FS_MAX_IDS)
+            if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
                 STEREO_LOG(
@@ -6634,7 +6633,7 @@ bool spirv_patch_stereo_fs(
                     image_ssa,
                     descriptor_var);
                 sb_push_n(&ob, &in[i], wc);
-                if (in[i + 1] < FS_MAX_IDS)
+                if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
                     STEREO_LOG(
@@ -6660,7 +6659,7 @@ bool spirv_patch_stereo_fs(
                     descriptor_var,
                     (img_idx >= 0) ? s.images[img_idx].stereo : 0);
                 sb_push_n(&ob, &in[i], wc);
-                if (in[i + 1] < FS_MAX_IDS)
+                if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
                     STEREO_LOG(
@@ -6863,7 +6862,7 @@ bool spirv_patch_stereo_fs(
                     in[i+3],
                     descriptor_var);
                 sb_push_n(&ob, &in[i], wc);
-                if (in[i + 1] < FS_MAX_IDS)
+                if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
                     STEREO_LOG(
@@ -7021,7 +7020,7 @@ bool spirv_patch_stereo_fs(
                 (wc >= 5) ? in[i + 4] : 0);
         }
         sb_push_n(&ob, &in[i], wc);
-        if (in[i + 1] < FS_MAX_IDS)
+        if (in[i + 1] < id_bound)
         {
             emitted_type[in[i + 1]] = true;
             STEREO_LOG(
