@@ -5735,14 +5735,18 @@ bool spirv_patch_stereo_fs(
                         "existingIdx=%d "
                         "existingImage=%u "
                         "existingOwner=%u "
-                        "existingBinding=%u",
+                        "existingBinding=%u"
+                        "oldSampled=%u "
+                        "existingSampled=%u ",
                         img->id,
                         old_replacement,
                         img->replacement_type,
                         existing,
                         s.images[existing].id,
                         s.images[existing].owner_var,
-                        s.images[existing].binding);
+                        s.images[existing].binding
+                        img->sampled_type_id,
+                        s.images[existing].sampled_type_id,);
                     /* keep original declaration unchanged */
                     sb_push_n(&ob, &in[i], wc);
                     i += wc;
