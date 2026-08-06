@@ -3138,6 +3138,11 @@ fs_scan_type_instruction(
                 image_type_id);
             if (s->images[ii].id == image_type_id)
             {
+                STEREO_LOG(
+                    "FS_SAMPLED_STORE idx=%u image=%u sampled=%u",
+                    ii,
+                    s->images[ii].id,
+                    s->images[ii].sampled_type);
                 /*
                  * Keep sampled_type as the OpTypeImage component type (%float, etc.).
                  * Store the OpTypeSampledImage wrapper separately.
@@ -3163,6 +3168,14 @@ fs_scan_type_instruction(
         break;
     }
     case SpvOpTypePointer:
+        for (uint32_t img = 0; img < s->n_img; ++img)
+        {
+            STEREO_LOG(
+                "FS_BEFORE_PTR idx=%u image=%u sampled=%u",
+                img,
+                s->images[img].id,
+                s->images[img].sampled_type);
+        }
         STEREO_LOG(
             "FS_TYPE_POINTER id=%u storage=%u target=%u",
             (wc >= 2) ? ins[1] : 0,
