@@ -2579,39 +2579,39 @@ fs_should_patch_sample(
         return false;
     uint32_t binding = s->vars[vi].binding;
     uint32_t set     = s->vars[vi].set;
-    /*
-     * SSAO noise is a mono lookup texture. In the SSAO generator shader
-     * (35d504ebec7cf2d7) it must not be arrayed or ViewIndex-shifted.
-     */
-    if (spv_hash == 0x35d504ebec7cf2d7ULL && binding == 2)
-    {
-        STEREO_LOG(
-            "FS_SAMPLE_SKIP_NOISE "
-            "hash=%016llx "
-            "descriptor=%u "
-            "set=%u "
-            "binding=%u "
-            "storage=%u "
-            "type=%u",
-            (unsigned long long)spv_hash,
-            descriptor_var,
-            set,
-            binding,
-            s->vars[vi].storage,
-            s->vars[vi].type);
-        STEREO_LOG(
-            "FS_NOISE_REASON "
-            "hash=%016llx "
-            "descriptor=%u "
-            "set=%u "
-            "binding=%u "
-            "reason=SSAO_NOISE_BINDING2",
-            (unsigned long long)spv_hash,
-            descriptor_var,
-            set,
-            binding);
-        return false;
-    }
+    ///*
+    // * SSAO noise is a mono lookup texture. In the SSAO generator shader
+    // * (35d504ebec7cf2d7) it must not be arrayed or ViewIndex-shifted.
+    // */
+    //if (spv_hash == 0x35d504ebec7cf2d7ULL && binding == 2)
+    //{
+    //    STEREO_LOG(
+    //        "FS_SAMPLE_SKIP_NOISE "
+    //        "hash=%016llx "
+    //        "descriptor=%u "
+    //        "set=%u "
+    //        "binding=%u "
+    //        "storage=%u "
+    //        "type=%u",
+    //        (unsigned long long)spv_hash,
+    //        descriptor_var,
+    //        set,
+    //        binding,
+    //        s->vars[vi].storage,
+    //        s->vars[vi].type);
+    //    STEREO_LOG(
+    //        "FS_NOISE_REASON "
+    //        "hash=%016llx "
+    //        "descriptor=%u "
+    //        "set=%u "
+    //        "binding=%u "
+    //        "reason=SSAO_NOISE_BINDING2",
+    //        (unsigned long long)spv_hash,
+    //        descriptor_var,
+    //        set,
+    //        binding);
+    //    return false;
+    //}
     STEREO_LOG(
         "FS_PATCH_DECISION "
         "hash=%016llx "
