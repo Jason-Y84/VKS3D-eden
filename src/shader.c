@@ -5674,6 +5674,14 @@ bool spirv_patch_stereo_fs(
                 in[i + 1],
                 in[i + 2],
                 in[i + 3]);
+            STEREO_LOG(
+                "FS_POINTER_DECL "
+                "result=%u "
+                "storage=%u "
+                "type=%u",
+                in[i + 1],
+                in[i + 2],
+                in[i + 3]);
             sb_push_n(&ob, &in[i], wc);
             i += wc;
             continue;
@@ -6037,6 +6045,14 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
+        STEREO_LOG(
+            "FS_LOAD_DECL "
+            "resultType=%u "
+            "result=%u "
+            "pointer=%u",
+            in[i + 1],
+            in[i + 2],
+            in[i + 3]);
         sb_push_n(&ob, w, wc);
         i += wc;
         continue;
