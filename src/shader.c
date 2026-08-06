@@ -2586,10 +2586,19 @@ fs_should_patch_sample(
     if (spv_hash == 0x35d504ebec7cf2d7ULL && binding == 2)
     {
         STEREO_LOG(
-            "FS_SAMPLE_SKIP_NOISE hash=%016llx descriptor=%u binding=%u",
+            "FS_SAMPLE_SKIP_NOISE "
+            "hash=%016llx "
+            "descriptor=%u "
+            "set=%u "
+            "binding=%u "
+            "storage=%u "
+            "type=%u",
             (unsigned long long)spv_hash,
             descriptor_var,
-            binding);
+            set,
+            binding,
+            s->vars[vi].storage,
+            s->vars[vi].type);
         STEREO_LOG(
             "FS_NOISE_REASON "
             "hash=%016llx "
@@ -2603,6 +2612,16 @@ fs_should_patch_sample(
             binding);
         return false;
     }
+    STEREO_LOG(
+        "FS_PATCH_DECISION "
+        "hash=%016llx "
+        "descriptor=%u "
+        "set=%u "
+        "binding=%u",
+        (unsigned long long)spv_hash,
+        descriptor_var,
+        set,
+        binding);
     return fs_binding_is_stereo_attachment(s, descriptor_var);
 }
 
