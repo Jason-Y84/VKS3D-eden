@@ -3195,6 +3195,18 @@ fs_scan_type_instruction(
         {
             for (uint32_t img = 0; img < s->n_img; ++img)
             {
+                STEREO_LOG(
+                    "FS_PTR_COMPARE "
+                    "idx=%u "
+                    "image=%u "
+                    "sampled_type=%u "
+                    "sampled_type_id=%u "
+                    "ptrTarget=%u",
+                    img,
+                    s->images[img].id,
+                    s->images[img].sampled_type,
+                    s->images[img].sampled_type_id,
+                    ins[3]);
                 if (s->images[img].sampled_type_id == ins[3])
                 {
                     s->images[img].pointer_type = ins[1];
