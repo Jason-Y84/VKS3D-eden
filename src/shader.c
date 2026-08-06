@@ -3139,11 +3139,9 @@ fs_scan_type_instruction(
             if (s->images[ii].id == image_type_id)
             {
                 /*
-                 * Existing patcher logic expects sampled_type to hold the
-                 * OpTypeSampledImage id. Preserve that behaviour.
+                 * Keep sampled_type as the OpTypeImage component type (%float, etc.).
+                 * Store the OpTypeSampledImage wrapper separately.
                  */
-                s->images[ii].sampled_type    = sampled_image_id;
-                /* Keep this mirrored for the new lookup helper. */
                 s->images[ii].sampled_type_id = sampled_image_id;
                 STEREO_LOG(
                     "FS_IMAGE_TYPE_BIND "
@@ -3184,7 +3182,7 @@ fs_scan_type_instruction(
         {
             for (uint32_t img = 0; img < s->n_img; ++img)
             {
-                if (s->images[img].sampled_type == ins[3])
+                if (s->images[img].sampled_type_id == ins[3])
                 {
                     s->images[img].pointer_type = ins[1];
                     STEREO_LOG(
