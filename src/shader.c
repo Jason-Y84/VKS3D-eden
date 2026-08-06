@@ -5628,6 +5628,12 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
+            STEREO_LOG(
+                "FS_OUTPUT_SAMPLED "
+                "result=%u "
+                "imageType=%u",
+                w[1],
+                w[2]);
             sb_push_n(&ob, w, wc);
             i += wc;
             continue;
