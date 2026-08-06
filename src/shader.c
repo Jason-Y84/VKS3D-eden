@@ -6899,19 +6899,6 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
-        if (op == SpvOpImageFetch && wc >= 5)
-        {
-            STEREO_LOG(
-                "FS_OUT_FETCH "
-                "resultType=%u "
-                "result=%u "
-                "image=%u "
-                "coord=%u",
-                ob.w[j + 1],
-                ob.w[j + 2],
-                ob.w[j + 3],
-                ob.w[j + 4]);
-        }
         if (op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSampleProjDrefExplicitLod)
         {
@@ -6963,6 +6950,19 @@ bool spirv_patch_stereo_fs(
                 ob.w[j + 6],
                 ob.w[j + 7],
                 ob.w[j + 8]);
+        }
+        if (op == SpvOpImageFetch && wc >= 5)
+        {
+            STEREO_LOG(
+                "FS_OUT_FETCH "
+                "resultType=%u "
+                "result=%u "
+                "image=%u "
+                "coord=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3],
+                ob.w[j + 4]);
         }
         if (op == SpvOpTypeSampledImage && wc >= 3)
         {
