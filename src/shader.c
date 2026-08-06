@@ -5410,6 +5410,16 @@ bool spirv_patch_stereo_fs(
             replacement = nid++;
         s.images[img].replacement_type = replacement;
         STEREO_LOG(
+            "FS_REPLACEMENT_ASSIGN "
+            "idx=%u "
+            "image=%u "
+            "sampledType=%u "
+            "replacement=%u",
+            img,
+            s.images[img].id,
+            s.images[img].sampled_type,
+            s.images[img].replacement_type);
+        STEREO_LOG(
             "FS_RESERVE_OWNER image=%u owner=%u binding=%u replacement=%u",
             s.images[img].id,
             s.images[img].owner_var,
@@ -5727,10 +5737,14 @@ bool spirv_patch_stereo_fs(
                 if (s.images[img].stereo)
                 {
                     STEREO_LOG(
-                        "FS_PATCH_SELECT image=%u owner=%u binding=%u replacement=%u",
+                        "FS_PATCH_SELECT "
+                        "idx=%u "
+                        "image=%u "
+                        "sampledType=%u "
+                        "replacement=%u",
+                        img,
                         s.images[img].id,
-                        s.images[img].owner_var,
-                        s.images[img].binding,
+                        s.images[img].sampled_type,
                         s.images[img].replacement_type);
                     STEREO_LOG(
                         "FS_LOAD_WILL_REWRITE "
@@ -5774,6 +5788,14 @@ bool spirv_patch_stereo_fs(
             }
             /* Emit the reserved cloned array type. */
             uint32_t new_array_type = s.images[patch_img_idx].replacement_type;
+            STEREO_LOG(
+                "FS_EMIT_ARRAY "
+                "idx=%d "
+                "image=%u "
+                "replacement=%u",
+                patch_img_idx,
+                s.images[patch_img_idx].id,
+                new_array_type);
             STEREO_LOG(
                 "IMAGE_EMIT oldImage=%u replacementImage=%u replacementPointer=%u replacementVar=%u sampledType=%u",
                 s.images[patch_img_idx].id,
