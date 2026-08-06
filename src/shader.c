@@ -5620,6 +5620,16 @@ bool spirv_patch_stereo_fs(
                 sb_push(&ob, new_vi_id);
             } else {
                 sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < FS_MAX_IDS)
+                {
+                    emitted_type[in[i + 1]] = true;
+                    STEREO_LOG(
+                        "FS_EMIT_TYPE "
+                        "op=%s "
+                        "id=%u",
+                        spv_op_name(op),
+                        in[i + 1]);
+                }
             }
             i += wc; continue;
         }
@@ -5663,6 +5673,16 @@ bool spirv_patch_stereo_fs(
                 w[1],
                 w[2]);
             sb_push_n(&ob, w, wc);
+            if (w[1] < FS_MAX_IDS)
+            {
+                emitted_type[w[1]] = true;
+                STEREO_LOG(
+                    "FS_EMIT_TYPE "
+                    "op=%s "
+                    "id=%u",
+                    spv_op_name(op),
+                    w[1]);
+            }
             i += wc;
             continue;
         }
@@ -5682,7 +5702,28 @@ bool spirv_patch_stereo_fs(
                 in[i + 1],
                 in[i + 2],
                 in[i + 3]);
+            if (in[i + 3] < FS_MAX_IDS)
+            {
+                STEREO_LOG(
+                    "FS_POINTER_TARGET "
+                    "pointer=%u "
+                    "target=%u "
+                    "emitted=%u",
+                    in[i + 1],
+                    in[i + 3],
+                    emitted_type[in[i + 3]]);
+            }
             sb_push_n(&ob, &in[i], wc);
+            if (in[i + 1] < FS_MAX_IDS)
+            {
+                emitted_type[in[i + 1]] = true;
+                STEREO_LOG(
+                    "FS_EMIT_TYPE "
+                    "op=%s "
+                    "id=%u",
+                    spv_op_name(op),
+                    in[i + 1]);
+            }
             i += wc;
             continue;
         }
@@ -5757,6 +5798,16 @@ bool spirv_patch_stereo_fs(
                         s.images[existing].sampled_type_id);
                     /* keep original declaration unchanged */
                     sb_push_n(&ob, &in[i], wc);
+                    if (in[i + 1] < FS_MAX_IDS)
+                    {
+                        emitted_type[in[i + 1]] = true;
+                        STEREO_LOG(
+                            "FS_EMIT_TYPE "
+                            "op=%s "
+                            "id=%u",
+                            spv_op_name(op),
+                            in[i + 1]);
+                    }
                     i += wc;
                     continue;
                 }
@@ -5836,14 +5887,44 @@ bool spirv_patch_stereo_fs(
             if (!patch_this_type)
             {
                 sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < FS_MAX_IDS)
+                {
+                    emitted_type[in[i + 1]] = true;
+                    STEREO_LOG(
+                        "FS_EMIT_TYPE "
+                        "op=%s "
+                        "id=%u",
+                        spv_op_name(op),
+                        in[i + 1]);
+                }
                 i += wc;
                 continue;
             }
             /* Emit the original type unchanged. */
             sb_push_n(&ob, &in[i], wc);
+            if (in[i + 1] < FS_MAX_IDS)
+            {
+                emitted_type[in[i + 1]] = true;
+                STEREO_LOG(
+                    "FS_EMIT_TYPE "
+                    "op=%s "
+                    "id=%u",
+                    spv_op_name(op),
+                    in[i + 1]);
+            }
             if (patch_img_idx < 0)
             {
                 sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < FS_MAX_IDS)
+                {
+                    emitted_type[in[i + 1]] = true;
+                    STEREO_LOG(
+                        "FS_EMIT_TYPE "
+                        "op=%s "
+                        "id=%u",
+                        spv_op_name(op),
+                        in[i + 1]);
+                }
                 i += wc;
                 continue;
             }
@@ -5893,6 +5974,16 @@ bool spirv_patch_stereo_fs(
                 w[1],
                 in[i + 1]);
             sb_push_n(&ob, w, wc);
+            if (w[1] < FS_MAX_IDS)
+            {
+                emitted_type[w[1]] = true;
+                STEREO_LOG(
+                    "FS_EMIT_TYPE "
+                    "op=%s "
+                    "id=%u",
+                    spv_op_name(op),
+                    w[1]);
+            }
             i += wc;
             continue;
         }
@@ -5905,6 +5996,16 @@ bool spirv_patch_stereo_fs(
                 in[i + 1],
                 in[i + 3]);
             sb_push_n(&ob, &in[i], wc);
+            if (in[i + 1] < FS_MAX_IDS)
+            {
+                emitted_type[in[i + 1]] = true;
+                STEREO_LOG(
+                    "FS_EMIT_TYPE "
+                    "op=%s "
+                    "id=%u",
+                    spv_op_name(op),
+                    in[i + 1]);
+            }
             i += wc;
             continue;
         }
@@ -5950,6 +6051,16 @@ bool spirv_patch_stereo_fs(
                 uint32_t w[]={(4u<<16)|SpvOpVariable, new_pin_id, new_vi_id, SpvStorageClassInput};
                 sb_push_n(&ob,w,4); }
             sb_push_n(&ob, &in[i], wc);
+            if (in[i + 1] < FS_MAX_IDS)
+            {
+                emitted_type[in[i + 1]] = true;
+                STEREO_LOG(
+                    "FS_EMIT_TYPE "
+                    "op=%s "
+                    "id=%u",
+                    spv_op_name(op),
+                    in[i + 1]);
+            }
             i += wc; continue;
         }
         if (op == 54) in_func = true;
@@ -6053,7 +6164,26 @@ bool spirv_patch_stereo_fs(
             in[i + 1],
             in[i + 2],
             in[i + 3]);
+        if (in[i + 1] < FS_MAX_IDS)
+        {
+            STEREO_LOG(
+                "FS_LOAD_RESULT_TYPE "
+                "type=%u "
+                "emitted=%u",
+                in[i + 1],
+                emitted_type[in[i + 1]]);
+        }
         sb_push_n(&ob, w, wc);
+        if (w[1] < FS_MAX_IDS)
+        {
+            emitted_type[w[1]] = true;
+            STEREO_LOG(
+                "FS_EMIT_TYPE "
+                "op=%s "
+                "id=%u",
+                spv_op_name(op),
+                w[1]);
+        }
         i += wc;
         continue;
         }
@@ -6189,8 +6319,17 @@ bool spirv_patch_stereo_fs(
                     in[i + 3],
                     descriptor_var,
                     in[i + 4]);
-            
                 sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < FS_MAX_IDS)
+                {
+                    emitted_type[in[i + 1]] = true;
+                    STEREO_LOG(
+                        "FS_EMIT_TYPE "
+                        "op=%s "
+                        "id=%u",
+                        spv_op_name(op),
+                        in[i + 1]);
+                }
                 i += wc;
                 continue;
             }
@@ -6429,6 +6568,16 @@ bool spirv_patch_stereo_fs(
                 w[1],
                 w[3]);
             sb_push_n(&ob, w, wc);
+            if (w[1] < FS_MAX_IDS)
+            {
+                emitted_type[w[1]] = true;
+                STEREO_LOG(
+                    "FS_EMIT_TYPE "
+                    "op=%s "
+                    "id=%u",
+                    spv_op_name(op),
+                    w[1]);
+            }
             i += wc;
             continue;
         }
@@ -6484,6 +6633,16 @@ bool spirv_patch_stereo_fs(
                     image_ssa,
                     descriptor_var);
                 sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < FS_MAX_IDS)
+                {
+                    emitted_type[in[i + 1]] = true;
+                    STEREO_LOG(
+                        "FS_EMIT_TYPE "
+                        "op=%s "
+                        "id=%u",
+                        spv_op_name(op),
+                        in[i + 1]);
+                }
                 i += wc;
                 continue;
             }
@@ -6500,6 +6659,16 @@ bool spirv_patch_stereo_fs(
                     descriptor_var,
                     (img_idx >= 0) ? s.images[img_idx].stereo : 0);
                 sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < FS_MAX_IDS)
+                {
+                    emitted_type[in[i + 1]] = true;
+                    STEREO_LOG(
+                        "FS_EMIT_TYPE "
+                        "op=%s "
+                        "id=%u",
+                        spv_op_name(op),
+                        in[i + 1]);
+                }
                 i += wc;
                 continue;
             }
@@ -6693,6 +6862,16 @@ bool spirv_patch_stereo_fs(
                     in[i+3],
                     descriptor_var);
                 sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < FS_MAX_IDS)
+                {
+                    emitted_type[in[i + 1]] = true;
+                    STEREO_LOG(
+                        "FS_EMIT_TYPE "
+                        "op=%s "
+                        "id=%u",
+                        spv_op_name(op),
+                        in[i + 1]);
+                }
                 i += wc;
                 continue;
             }
@@ -6841,6 +7020,16 @@ bool spirv_patch_stereo_fs(
                 (wc >= 5) ? in[i + 4] : 0);
         }
         sb_push_n(&ob, &in[i], wc);
+        if (in[i + 1] < FS_MAX_IDS)
+        {
+            emitted_type[in[i + 1]] = true;
+            STEREO_LOG(
+                "FS_EMIT_TYPE "
+                "op=%s "
+                "id=%u",
+                spv_op_name(op),
+                in[i + 1]);
+        }
         i += wc;
     }
     for (size_t j = 5; j < ob.n; )
