@@ -5632,12 +5632,6 @@ bool spirv_patch_stereo_fs(
                 if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
-                    STEREO_LOG(
-                        "FS_EMIT_TYPE "
-                        "op=%s "
-                        "id=%u",
-                        spv_op_name(op),
-                        in[i + 1]);
                 }
             }
             i += wc; continue;
@@ -5685,12 +5679,6 @@ bool spirv_patch_stereo_fs(
             if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
-                STEREO_LOG(
-                    "FS_EMIT_TYPE "
-                    "op=%s "
-                    "id=%u",
-                    spv_op_name(op),
-                    w[1]);
             }
             i += wc;
             continue;
@@ -5713,25 +5701,11 @@ bool spirv_patch_stereo_fs(
                 in[i + 3]);
             if (in[i + 3] < id_bound)
             {
-                STEREO_LOG(
-                    "FS_POINTER_TARGET "
-                    "pointer=%u "
-                    "target=%u "
-                    "emitted=%u",
-                    in[i + 1],
-                    in[i + 3],
-                    emitted_type[in[i + 3]]);
             }
             sb_push_n(&ob, &in[i], wc);
             if (in[i + 1] < id_bound)
             {
                 emitted_type[in[i + 1]] = true;
-                STEREO_LOG(
-                    "FS_EMIT_TYPE "
-                    "op=%s "
-                    "id=%u",
-                    spv_op_name(op),
-                    in[i + 1]);
             }
             i += wc;
             continue;
@@ -5810,12 +5784,6 @@ bool spirv_patch_stereo_fs(
                     if (in[i + 1] < id_bound)
                     {
                         emitted_type[in[i + 1]] = true;
-                        STEREO_LOG(
-                            "FS_EMIT_TYPE "
-                            "op=%s "
-                            "id=%u",
-                            spv_op_name(op),
-                            in[i + 1]);
                     }
                     i += wc;
                     continue;
@@ -5899,12 +5867,6 @@ bool spirv_patch_stereo_fs(
                 if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
-                    STEREO_LOG(
-                        "FS_EMIT_TYPE "
-                        "op=%s "
-                        "id=%u",
-                        spv_op_name(op),
-                        in[i + 1]);
                 }
                 i += wc;
                 continue;
@@ -5914,12 +5876,6 @@ bool spirv_patch_stereo_fs(
             if (in[i + 1] < id_bound)
             {
                 emitted_type[in[i + 1]] = true;
-                STEREO_LOG(
-                    "FS_EMIT_TYPE "
-                    "op=%s "
-                    "id=%u",
-                    spv_op_name(op),
-                    in[i + 1]);
             }
             if (patch_img_idx < 0)
             {
@@ -5927,12 +5883,6 @@ bool spirv_patch_stereo_fs(
                 if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
-                    STEREO_LOG(
-                        "FS_EMIT_TYPE "
-                        "op=%s "
-                        "id=%u",
-                        spv_op_name(op),
-                        in[i + 1]);
                 }
                 i += wc;
                 continue;
@@ -5986,12 +5936,6 @@ bool spirv_patch_stereo_fs(
             if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
-                STEREO_LOG(
-                    "FS_EMIT_TYPE "
-                    "op=%s "
-                    "id=%u",
-                    spv_op_name(op),
-                    w[1]);
             }
             i += wc;
             continue;
@@ -6008,12 +5952,6 @@ bool spirv_patch_stereo_fs(
             if (in[i + 1] < id_bound)
             {
                 emitted_type[in[i + 1]] = true;
-                STEREO_LOG(
-                    "FS_EMIT_TYPE "
-                    "op=%s "
-                    "id=%u",
-                    spv_op_name(op),
-                    in[i + 1]);
             }
             i += wc;
             continue;
@@ -6063,12 +6001,6 @@ bool spirv_patch_stereo_fs(
             if (in[i + 1] < id_bound)
             {
                 emitted_type[in[i + 1]] = true;
-                STEREO_LOG(
-                    "FS_EMIT_TYPE "
-                    "op=%s "
-                    "id=%u",
-                    spv_op_name(op),
-                    in[i + 1]);
             }
             i += wc; continue;
         }
@@ -6177,12 +6109,6 @@ bool spirv_patch_stereo_fs(
         if (w[1] < id_bound)
         {
             emitted_type[w[1]] = true;
-            STEREO_LOG(
-                "FS_EMIT_TYPE "
-                "op=%s "
-                "id=%u",
-                spv_op_name(op),
-                w[1]);
         }
         i += wc;
         continue;
@@ -6323,12 +6249,6 @@ bool spirv_patch_stereo_fs(
                 if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
-                    STEREO_LOG(
-                        "FS_EMIT_TYPE "
-                        "op=%s "
-                        "id=%u",
-                        spv_op_name(op),
-                        in[i + 1]);
                 }
                 i += wc;
                 continue;
@@ -6571,12 +6491,6 @@ bool spirv_patch_stereo_fs(
             if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
-                STEREO_LOG(
-                    "FS_EMIT_TYPE "
-                    "op=%s "
-                    "id=%u",
-                    spv_op_name(op),
-                    w[1]);
             }
             i += wc;
             continue;
@@ -6636,12 +6550,6 @@ bool spirv_patch_stereo_fs(
                 if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
-                    STEREO_LOG(
-                        "FS_EMIT_TYPE "
-                        "op=%s "
-                        "id=%u",
-                        spv_op_name(op),
-                        in[i + 1]);
                 }
                 i += wc;
                 continue;
@@ -6662,12 +6570,6 @@ bool spirv_patch_stereo_fs(
                 if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
-                    STEREO_LOG(
-                        "FS_EMIT_TYPE "
-                        "op=%s "
-                        "id=%u",
-                        spv_op_name(op),
-                        in[i + 1]);
                 }
                 i += wc;
                 continue;
@@ -6865,12 +6767,6 @@ bool spirv_patch_stereo_fs(
                 if (in[i + 1] < id_bound)
                 {
                     emitted_type[in[i + 1]] = true;
-                    STEREO_LOG(
-                        "FS_EMIT_TYPE "
-                        "op=%s "
-                        "id=%u",
-                        spv_op_name(op),
-                        in[i + 1]);
                 }
                 i += wc;
                 continue;
@@ -7003,6 +6899,19 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
+        if (op == SpvOpImageFetch && wc >= 5)
+        {
+            STEREO_LOG(
+                "FS_OUT_FETCH "
+                "resultType=%u "
+                "result=%u "
+                "image=%u "
+                "coord=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3],
+                ob.w[j + 4]);
+        }
         if (op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSampleProjDrefExplicitLod)
         {
@@ -7023,12 +6932,6 @@ bool spirv_patch_stereo_fs(
         if (in[i + 1] < id_bound)
         {
             emitted_type[in[i + 1]] = true;
-            STEREO_LOG(
-                "FS_EMIT_TYPE "
-                "op=%s "
-                "id=%u",
-                spv_op_name(op),
-                in[i + 1]);
         }
         i += wc;
     }
@@ -7040,6 +6943,16 @@ bool spirv_patch_stereo_fs(
             break;
         if (op == SpvOpTypeImage && wc >= 9)
         {
+            STEREO_LOG(
+                "FS_OUT_TYPEIMAGE "
+                "result=%u "
+                "sampledType=%u "
+                "dim=%u "
+                "arrayed=%u",
+                ob.w[j + 1],
+                ob.w[j + 2],
+                ob.w[j + 3],
+                ob.w[j + 5]);
             STEREO_LOG(
                 "FS_OUTPUT_IMAGE_TYPE id=%u sampledType=%u dim=%u depth=%u arrayed=%u ms=%u sampled=%u format=%u",
                 ob.w[j + 1],
@@ -7054,8 +6967,8 @@ bool spirv_patch_stereo_fs(
         if (op == SpvOpTypeSampledImage && wc >= 3)
         {
             STEREO_LOG(
-                "FS_OUTPUT_SAMPLEDIMAGE "
-                "id=%u "
+                "FS_OUT_TYPESAMPLED "
+                "result=%u "
                 "imageType=%u",
                 ob.w[j + 1],
                 ob.w[j + 2]);
@@ -7072,6 +6985,14 @@ bool spirv_patch_stereo_fs(
                 ob.w[j + 1],
                 ob.w[j + 3],
                 (wc >= 5) ? ob.w[j + 4] : 0);
+            STEREO_LOG(
+                "FS_OUT_SAMPLEDIMAGE "
+                "result=%u "
+                "type=%u "
+                "imageType=%u",
+                ob.w[j + 2],
+                ob.w[j + 1],
+                ob.w[j + 3]);
         }
         if ((op == SpvOpCopyObject || op == SpvOpBitcast) && wc >= 4)
         {
@@ -7089,15 +7010,17 @@ bool spirv_patch_stereo_fs(
             wc >= 5)
         {
             STEREO_LOG(
-                "FS_SAMPLE_TYPES "
+                "FS_OUT_SAMPLE "
                 "resultType=%u "
                 "result=%u "
                 "sampledImage=%u "
-                "coord=%u",
+                "coord=%u "
+                "opcode=%s",
                 ob.w[j + 1],
                 ob.w[j + 2],
                 ob.w[j + 3],
-                ob.w[j + 4]);
+                ob.w[j + 4],
+                spv_op_name(op));
             STEREO_LOG(
                 "FS_PATCHED_SAMPLE "
                 "off=%zu "
@@ -7135,16 +7058,42 @@ bool spirv_patch_stereo_fs(
             if (op == SpvOpLoad && wc >= 4)
             {
                 STEREO_LOG(
-                    "FS_PRODUCER_LOAD "
+                    "FS_OUT_LOAD "
                     "result=%u "
+                    "type=%u "
                     "ptr=%u",
                     ob.w[j + 2],
+                    ob.w[j + 1],
+                    ob.w[j + 3]);
+            }
+            if (op == SpvOpImage && wc >= 4)
+            {
+                STEREO_LOG(
+                    "FS_OUT_IMAGE "
+                    "result=%u "
+                    "type=%u "
+                    "sampledImage=%u",
+                    ob.w[j + 2],
+                    ob.w[j + 1],
                     ob.w[j + 3]);
             }
         }
         j += wc;
     }
     ob.w[3] = samp_nid + 1;
+    for (uint32_t ii = 0; ii < s.n_images; ii++)
+    {
+        STEREO_LOG(
+            "FS_FINAL_IMAGE "
+            "image=%u "
+            "sampled=%u "
+            "replacement=%u "
+            "pointer=%u",
+            s.images[ii].image_type_id,
+            s.images[ii].sampled_type_id,
+            s.images[ii].replacement_image_type,
+            s.images[ii].replacement_pointer_type);
+    }
     *out   = ob.w;
     *out_c = ob.n;
     STEREO_LOG("FS patched: %u 2D img types→arr, %u samples extended, bound %u→%u",
