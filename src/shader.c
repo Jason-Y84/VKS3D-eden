@@ -5384,21 +5384,6 @@ bool spirv_patch_stereo_fs(
             s.images[img].id,
             s.images[img].replacement_type,
             s.images[img].replacement_pointer_type);
-        uint32_t sampled_replacement = 0;
-        for (uint32_t j = 0; j < img; ++j)
-        {
-            if (s.images[j].sampled_type == s.images[img].sampled_type &&
-                s.images[j].replacement_sampled_type)
-            {
-                sampled_replacement =
-                    s.images[j].replacement_sampled_type;
-                break;
-            }
-        }
-        if (sampled_replacement == 0)
-            sampled_replacement = nid++;
-        s.images[img].replacement_sampled_type =
-            sampled_replacement;
     }
     for (uint32_t img = 0; img < s.n_img; ++img)
     {
@@ -5567,20 +5552,41 @@ bool spirv_patch_stereo_fs(
         if (op == SpvOpTypeSampledImage &&
             wc >= 3)
         {
-            sb_push_n(&ob, &in[i], wc);
+            STEREO_LOG(
+                "FS_SAMPLED_IMAGE type=%u imageType=%u",
+                in[i + 1],
+                in[i + 2]);
+            uint32_t w[3];
+            memcpy(w, &in[i], wc * sizeof(uint32_t));
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
-                if (!s.images[img].stereo)
-                    continue;
-                if (s.images[img].sampled_type != in[i + 1])
-                    continue;
-                uint32_t w[3];
-                memcpy(w, &in[i], wc * sizeof(uint32_t));
-                w[1] = s.images[img].replacement_sampled_type;
-                w[2] = s.images[img].replacement_type;
-                sb_push_n(&ob, w, wc);
-                break;
+                if (s.images[img].id == w[2] &&
+                    s.images[img].stereo &&
+                    s.images[img].replacement_type)
+                {
+                    STEREO_LOG(
+                        "FS_PATCH_SAMPLED "
+                        "imageType=%u "
+                        "owner=%u "
+                        "binding=%u "
+                        "replacement=%u",
+                        w[2],
+                        s.images[img].owner_var,
+                        s.images[img].binding,
+                        s.images[img].replacement_type);
+                    w[2] = s.images[img].replacement_type;
+                    STEREO_LOG(
+                        "FS_SAMPLEDIMAGE_PATCH "
+                        "sampledImageType=%u "
+                        "oldImageType=%u "
+                        "newImageType=%u",
+                        w[1],          /* OpTypeSampledImage result id */
+                        in[i + 2],     /* original OpTypeImage */
+                        w[2]);         /* replacement OpTypeImage */
+                    break;
+                }
             }
+            sb_push_n(&ob, w, wc);
             i += wc;
             continue;
         }
