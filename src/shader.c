@@ -5582,14 +5582,6 @@ bool spirv_patch_stereo_fs(
         if (op == SpvOpTypeSampledImage &&
             wc >= 3)
         {
-        STEREO_LOG(
-            "FS_EMIT_SAMPLED "
-            "result=%u "
-            "imageType=%u "
-            "offset=%zu",
-            (wc >= 2) ? w[1] : in[i + 1],
-            (wc >= 3) ? w[2] : in[i + 2],
-            ob.n);
             sb_push_n(&ob, &in[i], wc);
             i += wc;
             continue;
