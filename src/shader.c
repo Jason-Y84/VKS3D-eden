@@ -5432,10 +5432,14 @@ bool spirv_patch_stereo_fs(
             "idx=%u "
             "image=%u "
             "sampledType=%u "
+            "owner=%u "
+            "binding=%u "
             "replacement=%u",
             img,
             s.images[img].id,
             s.images[img].sampled_type,
+            s.images[img].owner_var,
+            s.images[img].binding,
             s.images[img].replacement_type);
         STEREO_LOG(
             "FS_RESERVE_OWNER image=%u owner=%u binding=%u replacement=%u",
@@ -5704,14 +5708,45 @@ bool spirv_patch_stereo_fs(
             if (img_idx >= 0)
             {
                 FsImageInfo *img = &s.images[img_idx];
+                STEREO_LOG(
+                    "FS_IMAGE_MATCH_BEGIN "
+                    "idx=%d "
+                    "image=%u "
+                    "replacement=%u "
+                    "owner=%u "
+                    "binding=%u",
+                    img_idx,
+                    img->id,
+                    img->replacement_type,
+                    img->owner_var,
+                    img->binding);
                 int existing = fs_find_matching_array_image(&s, img);
+                STEREO_LOG(
+                    "FS_IMAGE_MATCH_RESULT "
+                    "idx=%d "
+                    "existing=%d",
+                    img_idx,
+                    existing);
                 if (existing >= 0)
                 {
+                    uint32_t old_replacement = img->replacement_type;
                     img->replacement_type = s.images[existing].id;
                     STEREO_LOG(
-                        "FS_REUSE_IMAGE_TYPE old=%u existing=%u",
+                        "FS_REUSE_IMAGE_TYPE "
+                        "image=%u "
+                        "oldReplacement=%u "
+                        "newReplacement=%u "
+                        "existingIdx=%d "
+                        "existingImage=%u "
+                        "existingOwner=%u "
+                        "existingBinding=%u",
                         img->id,
-                        img->replacement_type);
+                        old_replacement,
+                        img->replacement_type,
+                        existing,
+                        s.images[existing].id,
+                        s.images[existing].owner_var,
+                        s.images[existing].binding);
                     /* keep original declaration unchanged */
                     sb_push_n(&ob, &in[i], wc);
                     i += wc;
