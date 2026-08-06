@@ -7079,21 +7079,21 @@ bool spirv_patch_stereo_fs(
             }
         }
         j += wc;
+        for (uint32_t ii = 0; ii < s.n_images; ii++)
+        {
+            STEREO_LOG(
+                "FS_FINAL_IMAGE "
+                "image=%u "
+                "sampled=%u "
+                "replacement=%u "
+                "pointer=%u",
+                s.images[ii].image_type_id,
+                s.images[ii].sampled_type_id,
+                s.images[ii].replacement_image_type,
+                s.images[ii].replacement_pointer_type);
+        }
     }
     ob.w[3] = samp_nid + 1;
-    for (uint32_t ii = 0; ii < s.n_images; ii++)
-    {
-        STEREO_LOG(
-            "FS_FINAL_IMAGE "
-            "image=%u "
-            "sampled=%u "
-            "replacement=%u "
-            "pointer=%u",
-            s.images[ii].image_type_id,
-            s.images[ii].sampled_type_id,
-            s.images[ii].replacement_image_type,
-            s.images[ii].replacement_pointer_type);
-    }
     *out   = ob.w;
     *out_c = ob.n;
     STEREO_LOG("FS patched: %u 2D img types→arr, %u samples extended, bound %u→%u",
