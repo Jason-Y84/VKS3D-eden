@@ -2227,6 +2227,7 @@ void spirv_patched_free(uint32_t *w) { free(w); }
 #define FS_MAX_CALLS      256
 #define FS_MAX_FUNCTIONS   64
 #define FS_MAX_VARS       128
+#define FS_MAX_IDS      65535
 
 typedef struct
 {
