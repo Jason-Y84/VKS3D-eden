@@ -5627,7 +5627,9 @@ bool spirv_patch_stereo_fs(
             wc >= 3)
         {
             STEREO_LOG(
-                "FS_SAMPLED_IMAGE type=%u imageType=%u",
+                "FS_SAMPLED_IMAGE_DECL "
+                "result=%u "
+                "imageType=%u",
                 in[i + 1],
                 in[i + 2]);
             uint32_t w[3];
@@ -5639,29 +5641,23 @@ bool spirv_patch_stereo_fs(
                     s.images[img].replacement_type)
                 {
                     STEREO_LOG(
-                        "FS_PATCH_SAMPLED "
-                        "imageType=%u "
-                        "owner=%u "
-                        "binding=%u "
-                        "replacement=%u",
-                        w[2],
-                        s.images[img].owner_var,
-                        s.images[img].binding,
-                        s.images[img].replacement_type);
-                    w[2] = s.images[img].replacement_type;
-                    STEREO_LOG(
-                        "FS_SAMPLEDIMAGE_PATCH "
-                        "sampledImageType=%u "
+                        "FS_SAMPLED_IMAGE_PATCH "
+                        "result=%u "
                         "oldImageType=%u "
-                        "newImageType=%u",
-                        w[1],          /* OpTypeSampledImage result id */
-                        in[i + 2],     /* original OpTypeImage */
-                        w[2]);         /* replacement OpTypeImage */
+                        "newImageType=%u "
+                        "owner=%u "
+                        "binding=%u",
+                        w[1],
+                        w[2],
+                        s.images[img].replacement_type,
+                        s.images[img].owner_var,
+                        s.images[img].binding);
+                    w[2] = s.images[img].replacement_type;
                     break;
                 }
             }
             STEREO_LOG(
-                "FS_OUTPUT_SAMPLED "
+                "FS_SAMPLED_IMAGE_EMIT "
                 "result=%u "
                 "imageType=%u",
                 w[1],
@@ -5878,6 +5874,12 @@ bool spirv_patch_stereo_fs(
                 in[i + 2],
                 new_array_type);
             w[5] = 1; /* Arrayed = true */
+            STEREO_LOG(
+                "FS_EMIT_ARRAY_IMAGE "
+                "result=%u "
+                "from=%u",
+                w[1],
+                in[i + 1]);
             sb_push_n(&ob, w, wc);
             i += wc;
             continue;
