@@ -5744,9 +5744,9 @@ bool spirv_patch_stereo_fs(
                         existing,
                         s.images[existing].id,
                         s.images[existing].owner_var,
-                        s.images[existing].binding
+                        s.images[existing].binding,
                         img->sampled_type_id,
-                        s.images[existing].sampled_type_id,);
+                        s.images[existing].sampled_type_id);
                     /* keep original declaration unchanged */
                     sb_push_n(&ob, &in[i], wc);
                     i += wc;
