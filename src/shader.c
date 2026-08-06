@@ -2739,44 +2739,12 @@ fs_find_load(
             value_id);
         return -1;
     }
-    if (value_id == 71)
-    {
-        STEREO_LOG(
-            "FS_FIND71_BEGIN n_load=%u",
-            s->n_load);
-    }
     for (uint32_t i = 0; i < s->n_load; ++i)
     {
-        if (value_id == 71)
-        {
-            STEREO_LOG(
-                "FS_FIND71_ENTRY "
-                "idx=%u "
-                "id=%u "
-                "owner=%u "
-                "binding=%u "
-                "source=%u",
-                i,
-                s->loads[i].id,
-                s->loads[i].owner_var,
-                s->loads[i].binding,
-                s->loads[i].source_id);
-        }
         if (s->loads[i].id == value_id)
         {
-            if (value_id == 71)
-            {
-                STEREO_LOG(
-                    "FS_FIND71_HIT idx=%u",
-                    i);
-            }
             return (int)i;
         }
-    }
-    if (value_id == 71)
-    {
-        STEREO_LOG(
-            "FS_FIND71_MISS");
     }
     STEREO_LOG(
         "FS_FIND_LOAD_MISS value=%u",
@@ -6059,14 +6027,6 @@ bool spirv_patch_stereo_fs(
                     descriptor_var);
             }
             STEREO_LOG(
-                "FS_PATCH_DECISION "
-                "sampled=%u "
-                "descriptor=%u "
-                "patch=%d",
-                in[i + 3],
-                descriptor_var,
-                fs_should_patch_sample(&s, h, descriptor_var));
-            STEREO_LOG(
                 "FS_SKIP_CANDIDATE "
                 "sampledImage=%u "
                 "descriptor=%u "
@@ -6744,20 +6704,6 @@ bool spirv_patch_stereo_fs(
         uint32_t op = ob.w[j] & 0xffff;
         if (!wc || j + wc > ob.n)
             break;
-        if (op == SpvOpVariable && wc >= 4)
-        {
-            if (ob.w[j + 2] == 43 || ob.w[j + 2] == 48)
-            {
-                STEREO_LOG(
-                    "FS_VAR43 "
-                    "id=%u "
-                    "type=%u "
-                    "storage=%u",
-                    ob.w[j + 2],
-                    ob.w[j + 1],
-                    ob.w[j + 3]);
-            }
-        }
         if (op == SpvOpTypeImage && wc >= 9)
         {
             STEREO_LOG(
@@ -6818,17 +6764,6 @@ bool spirv_patch_stereo_fs(
                 ob.w[j + 2],
                 ob.w[j + 3],
                 ob.w[j + 4]);
-            if (wc >= 4 && ob.w[j + 3] == 71)
-            {
-                STEREO_LOG(
-                    "FS_IMAGE71_USE "
-                    "opcode=%s "
-                    "result=%u "
-                    "coord=%u",
-                    spv_op_name(op),
-                    ob.w[j + 2],
-                    (wc >= 5) ? ob.w[j + 4] : 0);
-            }
             STEREO_LOG(
                 "FS_PATCHED_SAMPLE "
                 "off=%zu "
@@ -6873,24 +6808,6 @@ bool spirv_patch_stereo_fs(
                     ob.w[j + 3]);
             }
         }
-        if (wc >= 3 && ob.w[j + 2] == 71)
-        {
-            STEREO_LOG(
-                "FS_RESULT71 opcode=%s wc=%u type=%u ptr=%u",
-                spv_op_name(op),
-                wc,
-                ob.w[j + 1],
-                (wc >= 4) ? ob.w[j + 3] : 0);
-        }
-        if (wc >= 3 && ob.w[j + 2] == 72)
-        {
-            STEREO_LOG(
-                "FS_RESULT72 opcode=%s wc=%u type=%u ptr=%u",
-                spv_op_name(op),
-                wc,
-                ob.w[j + 1],
-                (wc >= 4) ? ob.w[j + 3] : 0);
-                }
         j += wc;
     }
     ob.w[3] = samp_nid + 1;
