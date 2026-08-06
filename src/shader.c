@@ -5662,6 +5662,16 @@ bool spirv_patch_stereo_fs(
                 "imageType=%u",
                 w[1],
                 w[2]);
+            STEREO_LOG(
+                "FS_SAMPLE_REWRITE "
+                "sampled=%u "
+                "image=%u "
+                "replacementImage=%u "
+                "replacementSampled=%u",
+                w[1],
+                w[2],
+                s.images[img].replacement_type,
+                s.images[img].replacement_sampled_type);
             sb_push_n(&ob, w, wc);
             i += wc;
             continue;
