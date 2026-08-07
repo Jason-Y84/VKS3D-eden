@@ -5773,8 +5773,38 @@ bool spirv_patch_stereo_fs(
                     s.images[img].replacement_sampled_type == 0 ||
                     s.images[img].replacement_pointer_type == 0)
                 {
+                    STEREO_LOG(
+                        "FS_POINTER_SKIP "
+                        "idx=%u "
+                        "ptrTarget=%u "
+                        "sampled=%u "
+                        "replacementSampled=%u "
+                        "replacementPointer=%u "
+                        "owner=%u "
+                        "binding=%u",
+                        img,
+                        in[i + 3],
+                        s.images[img].sampled_type_id,
+                        s.images[img].replacement_sampled_type,
+                        s.images[img].replacement_pointer_type,
+                        s.images[img].owner_var,
+                        s.images[img].binding);
                     continue;
                 }
+                STEREO_LOG(
+                    "FS_POINTER_EMIT "
+                    "idx=%u "
+                    "ptrTarget=%u "
+                    "replacementSampled=%u "
+                    "replacementPointer=%u "
+                    "owner=%u "
+                    "binding=%u",
+                    img,
+                    in[i + 3],
+                    s.images[img].replacement_sampled_type,
+                    s.images[img].replacement_pointer_type,
+                    s.images[img].owner_var,
+                    s.images[img].binding);
                 memcpy(w, &in[i], wc * sizeof(uint32_t));
                 STEREO_LOG(
                     "FS_POINTER_PATCH "
