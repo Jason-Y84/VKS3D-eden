@@ -6161,14 +6161,28 @@ bool spirv_patch_stereo_fs(
                                 s.images[img].binding);
                             w[3] = new_ptr;
                         }
-                        else
+                        if (w[1] == s.images[img].sampled_type_id && s.images[img].replacement_sampled_type)
                         {
                             STEREO_LOG(
-                                "FS_LOAD_NO_REPLACEMENT "
-                                "ptr=%u "
+                                "FS_LOAD_PATCH "
+                                "result=%u "
+                                "oldType=%u "
+                                "newType=%u "
                                 "binding=%u",
-                                w[3],
+                                w[2],
+                                w[1],
+                                s.images[img].replacement_sampled_type,
                                 s.images[img].binding);
+                            w[1] = s.images[img].replacement_sampled_type;
+                        }
+                        if (!new_ptr)
+                        {
+                        STEREO_LOG(
+                            "FS_LOAD_NO_REPLACEMENT "
+                            "ptr=%u "
+                            "binding=%u",
+                            w[3],
+                            s.images[img].binding);
                         }
                     }
                     else
