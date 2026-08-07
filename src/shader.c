@@ -5768,15 +5768,18 @@ bool spirv_patch_stereo_fs(
                     STEREO_LOG(
                         "FS_POINTER_PATCH "
                         "result=%u "
+                        "newResult=%u "
                         "oldType=%u "
                         "newType=%u "
                         "owner=%u "
                         "binding=%u",
                         w[1],
+                        s.images[img].replacement_pointer_type,
                         w[3],
                         s.images[img].replacement_sampled_type,
                         s.images[img].owner_var,
                         s.images[img].binding);
+                    w[1] = s.images[img].replacement_pointer_type;
                     w[3] = s.images[img].replacement_sampled_type;
                     break;
                 }
