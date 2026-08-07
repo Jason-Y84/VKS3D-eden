@@ -5777,7 +5777,24 @@ bool spirv_patch_stereo_fs(
                 if (in[i + 3] != s.images[img].sampled_type_id ||
                     s.images[img].replacement_sampled_type == 0 ||
                     s.images[img].replacement_pointer_type == 0)
+                {
                     continue;
+                }
+                /* Avoid emitting the same replacement pointer declaration twice. */
+                bool already_emitted = false;
+                for (uint32_t prev = 0; prev < img; ++prev)
+                {
+                    if (s.images[prev].replacement_pointer_type ==
+                        s.images[img].replacement_pointer_type)
+                    {
+                        already_emitted = true;
+                        break;
+                    }
+                }
+                if (already_emitted)
+                {
+                    continue;
+                }
                 memcpy(w, &in[i], wc * sizeof(uint32_t));
                 STEREO_LOG(
                     "FS_POINTER_PATCH "
@@ -5800,7 +5817,6 @@ bool spirv_patch_stereo_fs(
                 {
                     emitted_type[w[1]] = true;
                 }
-                break;
             }
             i += wc;
             continue;
