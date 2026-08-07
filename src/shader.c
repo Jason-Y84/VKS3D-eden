@@ -6042,6 +6042,21 @@ bool spirv_patch_stereo_fs(
                 in[i + 2],
                 in[i + 1],
                 in[i + 3]);
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                STEREO_LOG(
+                    "FS_VAR_CHECK "
+                    "var=%u "
+                    "img=%u "
+                    "owner=%u "
+                    "binding=%u "
+                    "stereo=%u",
+                    in[i + 2],
+                    img,
+                    s.images[img].owner_var,
+                    s.images[img].binding,
+                    s.images[img].stereo);
+            }
             sb_push_n(&ob, &in[i], wc);
             if (in[i + 1] < id_bound)
             {
