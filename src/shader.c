@@ -5700,7 +5700,7 @@ bool spirv_patch_stereo_fs(
                     in,
                     in_c,
                     w[2]);
-            if (existing_sampled != 0)
+            if (existing_sampled != 0 && existing_sampled != w[1])
             {
                 for (uint32_t img = 0; img < s.n_img; ++img)
                 {
