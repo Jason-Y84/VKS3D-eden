@@ -6105,6 +6105,14 @@ bool spirv_patch_stereo_fs(
             in[i + 1],
             in[i + 2],
             in[i + 3]);
+        STEREO_LOG(
+            "FS_LOAD_FINAL "
+            "result=%u "
+            "resultType=%u "
+            "ptr=%u",
+            w[2],
+            w[1],
+            w[3]);
         sb_push_n(&ob, w, wc);
         if (w[1] < id_bound)
         {
@@ -7007,14 +7015,25 @@ bool spirv_patch_stereo_fs(
         }
         if (op == SpvOpLoad && wc >= 4)
         {
+            uint32_t ptr_type = 0;
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].id == ob.w[j + 3])
+                {
+                    ptr_type = s.vars[v].type;
+                    break;
+                }
+            }
             STEREO_LOG(
                 "FS_OUT_LOAD "
                 "result=%u "
-                "type=%u "
-                "ptr=%u",
+                "resultType=%u "
+                "ptr=%u "
+                "ptrType=%u",
                 ob.w[j + 2],
                 ob.w[j + 1],
-                ob.w[j + 3]);
+                ob.w[j + 3],
+                ptr_type);
         }
         if (op == SpvOpImage && wc >= 4)
         {
