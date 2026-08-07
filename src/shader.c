@@ -5946,11 +5946,6 @@ bool spirv_patch_stereo_fs(
             }
             if (patch_img_idx < 0)
             {
-                sb_push_n(&ob, &in[i], wc);
-                if (in[i + 1] < id_bound)
-                {
-                    emitted_type[in[i + 1]] = true;
-                }
                 i += wc;
                 continue;
             }
