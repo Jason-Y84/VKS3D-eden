@@ -5696,7 +5696,7 @@ bool spirv_patch_stereo_fs(
              * reuse it instead of emitting a duplicate declaration.
              */
             uint32_t existing_sampled =
-                fs_find_sampled_image_type(
+                fs_find_matching_sampled_image(
                     in,
                     in_c,
                     w[2]);
@@ -5816,7 +5816,7 @@ bool spirv_patch_stereo_fs(
                     existing);
                 if (existing >= 0)
                 {
-                    img->sampled_type_id = s->images[existing].sampled_type_id;
+                    img->sampled_type_id = s.images[existing].sampled_type_id;
                     uint32_t old_replacement = img->replacement_type;
                     img->replacement_type = s.images[existing].id;
                     STEREO_LOG(
