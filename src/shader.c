@@ -5696,20 +5696,25 @@ bool spirv_patch_stereo_fs(
             /* If this image type already has an OpTypeSampledImage,
              * reuse it instead of emitting a duplicate declaration.
              */
-            uint32_t existing_sampled =
-                fs_find_matching_sampled_image(
-                    in,
-                    in_c,
-                    w[2]);
-            if (existing_sampled != 0 && existing_sampled != w[1] && existing_sampled < id_bound && emitted_type[existing_sampled])
+            uint32_t existing_sampled = 0;
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (s.images[img].replacement_type == w[2] &&
+                    s.images[img].replacement_sampled_type != 0 &&
+                    s.images[img].replacement_sampled_type != w[1])
+                {
+                    existing_sampled = s.images[img].replacement_sampled_type;
+                    break;
+                }
+            }
+            if (existing_sampled != 0)
             {
                 for (uint32_t img = 0; img < s.n_img; ++img)
                 {
                     if (s.images[img].replacement_type == w[2] &&
                         s.images[img].replacement_sampled_type == 0)
                     {
-                        s.images[img].replacement_sampled_type =
-                            existing_sampled;
+                        s.images[img].replacement_sampled_type = existing_sampled;
                     }
                 }
                 STEREO_LOG(
