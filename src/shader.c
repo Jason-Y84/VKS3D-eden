@@ -6074,14 +6074,7 @@ bool spirv_patch_stereo_fs(
                     uint32_t w[4];
                     memcpy(w, &in[i], sizeof(w));
                     w[1] = s.images[img].replacement_pointer_type;
-                    if (id_bound >= new_bound)
-                    {
-                        free(emitted_type);
-                        sb_free(&ob);
-                        return false;
-                    }
-                    w[2] = id_bound++;
-                    s.images[img].replacement_owner_var = w[2];
+                    w[2] = s.images[img].replacement_owner_var;
                     STEREO_LOG(
                         "FS_VAR_CLONE "
                         "oldVar=%u "
