@@ -5839,13 +5839,16 @@ bool spirv_patch_stereo_fs(
                         s.images[existing].binding,
                         img->sampled_type_id,
                         s.images[existing].sampled_type_id);
-                    uint32_t sampled =
-                        fs_find_matching_sampled_image(
-                            in,
-                            in_c,
-                            img->replacement_type);
-                    if (sampled)
-                        img->replacement_sampled_type = sampled;
+                    img->replacement_sampled_type =
+                        s.images[existing].replacement_sampled_type;
+                    if (img->replacement_sampled_type == 0)
+                    {
+                        img->replacement_sampled_type =
+                            fs_find_matching_sampled_image(
+                                in,
+                                in_c,
+                                img->replacement_type);
+                    }
                     /* keep original declaration unchanged */
                     sb_push_n(&ob, &in[i], wc);
                     if (in[i + 1] < id_bound)
