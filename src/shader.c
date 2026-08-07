@@ -2885,21 +2885,64 @@ fs_resolve_load_owner(
 /*═══════════════════════════════════════════════════════════════════════
  * Instruction scanners
  *═══════════════════════════════════════════════════════════════════════*/
-/*═══════════════════════════════════════════════════════════════════════
- * Pass 1: Scan global SPIR-V types.
- *
- * This pass records:
- *
- *   • capabilities
- *   • entry point location
- *   • scalar/vector types
- *   • candidate image types
- *   • sampled-image types
- *   • ViewIndex input pointer type
- *
- * It intentionally does NOT determine whether an image will actually be
- * patched.  Descriptor bindings are not known yet.
- *═══════════════════════════════════════════════════════════════════════*/
+
+static uint32_t
+fs_find_matching_sampled_image(
+    const uint32_t *in,
+    size_t in_c,
+    uint32_t image_type)
+{
+    for (size_t i = 5; i < in_c;)
+    {
+        uint32_t wc = in[i] >> 16;
+        uint32_t op = in[i] & 0xffff;
+        if (!wc || i + wc > in_c)
+            break;
+        if (op == SpvOpTypeSampledImage &&
+            wc >= 3 &&
+            in[i + 2] == image_type)
+        {
+            return in[i + 1];
+        }
+        i += wc;
+    }
+    return 0;
+}
+static uint32_t
+fs_find_matching_image_type(
+    const uint32_t *in,
+    size_t in_c,
+    uint32_t sampled_type,
+    uint32_t dim,
+    uint32_t depth,
+    uint32_t arrayed,
+    uint32_t ms,
+    uint32_t sampled,
+    uint32_t format)
+{
+    for (size_t i = 5; i < in_c;)
+    {
+        uint32_t wc = in[i] >> 16;
+        uint32_t op = in[i] & 0xffff;
+        if (!wc || i + wc > in_c)
+            break;
+        if (op == SpvOpTypeImage &&
+            wc >= 9 &&
+            in[i + 2] == sampled_type &&
+            in[i + 3] == dim &&
+            in[i + 4] == depth &&
+            in[i + 5] == arrayed &&
+            in[i + 6] == ms &&
+            in[i + 7] == sampled &&
+            in[i + 8] == format)
+        {
+            return in[i + 1];
+        }
+        i += wc;
+    }
+    return 0;
+}
+
 static int
 fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
 {
@@ -2937,29 +2980,6 @@ fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
         }
     }
     return -1;
-}
-
-static uint32_t
-fs_find_matching_sampled_image(
-    const uint32_t *in,
-    size_t in_c,
-    uint32_t image_type)
-{
-    for (size_t i = 5; i < in_c;)
-    {
-        uint32_t wc = in[i] >> 16;
-        uint32_t op = in[i] & 0xffff;
-        if (!wc || i + wc > in_c)
-            break;
-        if (op == SpvOpTypeSampledImage &&
-            wc >= 3 &&
-            in[i + 2] == image_type)
-        {
-            return in[i + 1];
-        }
-        i += wc;
-    }
-    return 0;
 }
 
 static int
@@ -5855,52 +5875,49 @@ bool spirv_patch_stereo_fs(
                     img->replacement_type,
                     img->owner_var,
                     img->binding);
-                int existing = -1;
-                if (!img->stereo)
-                {
-                    existing = fs_find_matching_array_image(&s, img);
-                }
+                uint32_t existing =
+                    fs_find_matching_image_type(
+                        in,
+                        in_c,
+                        img->sampled_type,
+                        img->dim,
+                        img->depth,
+                        1,
+                        img->ms,
+                        img->sampled,
+                        img->format);
                 STEREO_LOG(
                     "FS_IMAGE_MATCH_RESULT "
                     "idx=%d "
-                    "existing=%d",
+                    "existing=%u",
                     img_idx,
                     existing);
-                if (existing >= 0)
+                if (existing != 0)
                 {
                     uint32_t old_replacement = img->replacement_type;
-                    img->replacement_type = s.images[existing].id;
+                    img->replacement_type = existing;
                     STEREO_LOG(
                         "FS_REUSE_IMAGE_TYPE "
                         "image=%u "
                         "oldReplacement=%u "
-                        "newReplacement=%u "
-                        "existingIdx=%d "
-                        "existingImage=%u "
-                        "existingOwner=%u "
-                        "existingBinding=%u"
-                        "oldSampled=%u "
-                        "existingSampled=%u ",
+                        "newReplacement=%u",
                         img->id,
                         old_replacement,
-                        img->replacement_type,
-                        existing,
-                        s.images[existing].id,
-                        s.images[existing].owner_var,
-                        s.images[existing].binding,
-                        img->sampled_type_id,
-                        s.images[existing].sampled_type_id);
+                        existing);
                     img->replacement_sampled_type =
-                        s.images[existing].replacement_sampled_type;
-                    if (img->replacement_sampled_type == 0)
-                    {
-                        img->replacement_sampled_type =
-                            fs_find_matching_sampled_image(
-                                in,
-                                in_c,
-                                img->replacement_type);
-                    }
-                    /* keep original declaration unchanged */
+                        fs_find_matching_sampled_image(
+                            in,
+                            in_c,
+                            existing);
+                    STEREO_LOG(
+                        "FS_REUSE_SAMPLED_TYPE "
+                        "image=%u "
+                        "replacementImage=%u "
+                        "sampledType=%u",
+                        img->id,
+                        existing,
+                        img->replacement_sampled_type);
+                    /* Keep the original declaration unchanged. */
                     sb_push_n(&ob, &in[i], wc);
                     if (in[i + 1] < id_bound)
                     {
