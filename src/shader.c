@@ -5692,6 +5692,34 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
+            /* If this image type already has an OpTypeSampledImage,
+             * reuse it instead of emitting a duplicate declaration.
+             */
+            uint32_t existing_sampled =
+                fs_find_sampled_image_type(
+                    in,
+                    in_c,
+                    w[2]);
+            if (existing_sampled != 0)
+            {
+                for (uint32_t img = 0; img < s.n_img; ++img)
+                {
+                    if (s.images[img].replacement_type == w[2] &&
+                        s.images[img].replacement_sampled_type == 0)
+                    {
+                        s.images[img].replacement_sampled_type =
+                            existing_sampled;
+                    }
+                }
+                STEREO_LOG(
+                    "FS_SAMPLED_IMAGE_REUSE "
+                    "result=%u "
+                    "imageType=%u",
+                    existing_sampled,
+                    w[2]);
+                i += wc;
+                continue;
+            }
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
                 if (s.images[img].replacement_type == w[2] &&
@@ -5788,6 +5816,7 @@ bool spirv_patch_stereo_fs(
                     existing);
                 if (existing >= 0)
                 {
+                    img->sampled_type_id = s->images[existing].sampled_type_id;
                     uint32_t old_replacement = img->replacement_type;
                     img->replacement_type = s.images[existing].id;
                     STEREO_LOG(
