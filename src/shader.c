@@ -5772,12 +5772,18 @@ bool spirv_patch_stereo_fs(
             {
                 emitted_type[in[i + 1]] = true;
             }
+            /*
+             * Emit one cloned OpTypePointer for every stereo image that
+             * originally referenced this sampled-image type.
+             */
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
                 if (in[i + 3] != s.images[img].sampled_type_id ||
                     s.images[img].replacement_sampled_type == 0 ||
                     s.images[img].replacement_pointer_type == 0)
+                {
                     continue;
+                }
                 memcpy(w, &in[i], wc * sizeof(uint32_t));
                 STEREO_LOG(
                     "FS_POINTER_PATCH "
@@ -5800,7 +5806,9 @@ bool spirv_patch_stereo_fs(
                 {
                     emitted_type[w[1]] = true;
                 }
-                break;
+                /* Do NOT break. Multiple bindings may share the same
+                 * original pointer type but each has its own replacement ID.
+                 */
             }
             i += wc;
             continue;
