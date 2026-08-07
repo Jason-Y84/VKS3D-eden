@@ -5669,11 +5669,13 @@ bool spirv_patch_stereo_fs(
                 "imageType=%u",
                 in[i + 1],
                 in[i + 2]);
+            uint32_t original_image_type = in[i + 2];
+            uint32_t replacement_image_type = original_image_type;
             uint32_t w[3];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
-                if (s.images[img].id == w[2] &&
+                if (s.images[img].id == original_image_type &&
                     s.images[img].stereo &&
                     s.images[img].replacement_type)
                 {
@@ -5685,33 +5687,27 @@ bool spirv_patch_stereo_fs(
                         "owner=%u "
                         "binding=%u",
                         w[1],
-                        w[2],
+                        original_image_type,
                         s.images[img].replacement_type,
                         s.images[img].owner_var,
                         s.images[img].binding);
-                    w[2] = s.images[img].replacement_type;
+                    replacement_image_type = s.images[img].replacement_type;
+                    w[2] = replacement_image_type;
                     break;
                 }
             }
-            /* If this image type already has an OpTypeSampledImage,
-             * reuse it instead of emitting a duplicate declaration.
-             */
-            uint32_t existing_sampled = 0;
-            for (uint32_t img = 0; img < s.n_img; ++img)
-            {
-                if (s.images[img].replacement_type == w[2] &&
-                    s.images[img].replacement_sampled_type != 0 &&
-                    s.images[img].replacement_sampled_type != w[1])
-                {
-                    existing_sampled = s.images[img].replacement_sampled_type;
-                    break;
-                }
-            }
-            if (existing_sampled != 0)
+            uint32_t existing_sampled = fs_find_matching_sampled_image(
+                in,
+                in_c,
+                replacement_image_type);
+            if (existing_sampled != 0 &&
+                existing_sampled != w[1] &&
+                existing_sampled < id_bound &&
+                emitted_type[existing_sampled])
             {
                 for (uint32_t img = 0; img < s.n_img; ++img)
                 {
-                    if (s.images[img].replacement_type == w[2] &&
+                    if (s.images[img].sampled_type_id == in[i + 1] &&
                         s.images[img].replacement_sampled_type == 0)
                     {
                         s.images[img].replacement_sampled_type = existing_sampled;
@@ -5722,13 +5718,13 @@ bool spirv_patch_stereo_fs(
                     "result=%u "
                     "imageType=%u",
                     existing_sampled,
-                    w[2]);
+                    replacement_image_type);
                 i += wc;
                 continue;
             }
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
-                if (s.images[img].replacement_type == w[2] &&
+                if (s.images[img].sampled_type_id == in[i + 1] &&
                     s.images[img].replacement_sampled_type == 0)
                 {
                     s.images[img].replacement_sampled_type = w[1];
@@ -5739,7 +5735,7 @@ bool spirv_patch_stereo_fs(
                 "result=%u "
                 "imageType=%u",
                 w[1],
-                w[2]);
+                replacement_image_type);
             sb_push_n(&ob, w, wc);
             if (w[1] < id_bound)
             {
