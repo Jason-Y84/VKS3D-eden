@@ -2939,6 +2939,29 @@ fs_find_matching_array_image(FsScan *s, const FsImageInfo *src)
     return -1;
 }
 
+static uint32_t
+fs_find_matching_sampled_image(
+    const uint32_t *in,
+    size_t in_c,
+    uint32_t image_type)
+{
+    for (size_t i = 5; i < in_c;)
+    {
+        uint32_t wc = in[i] >> 16;
+        uint32_t op = in[i] & 0xffff;
+        if (!wc || i + wc > in_c)
+            break;
+        if (op == SpvOpTypeSampledImage &&
+            wc >= 3 &&
+            in[i + 2] == image_type)
+        {
+            return in[i + 1];
+        }
+        i += wc;
+    }
+    return 0;
+}
+
 static int
 fs_find_image_by_sampled_image(
     FsScan *s,
@@ -5669,6 +5692,14 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (s.images[img].replacement_type == w[2] &&
+                    s.images[img].replacement_sampled_type == 0)
+                {
+                    s.images[img].replacement_sampled_type = w[1];
+                }
+            }
             STEREO_LOG(
                 "FS_SAMPLED_IMAGE_EMIT "
                 "result=%u "
@@ -5779,6 +5810,13 @@ bool spirv_patch_stereo_fs(
                         s.images[existing].binding,
                         img->sampled_type_id,
                         s.images[existing].sampled_type_id);
+                    uint32_t sampled =
+                        fs_find_matching_sampled_image(
+                            in,
+                            in_c,
+                            img->replacement_type);
+                    if (sampled)
+                        img->replacement_sampled_type = sampled;
                     /* keep original declaration unchanged */
                     sb_push_n(&ob, &in[i], wc);
                     if (in[i + 1] < id_bound)
