@@ -5700,7 +5700,7 @@ bool spirv_patch_stereo_fs(
                     in,
                     in_c,
                     w[2]);
-            if (existing_sampled != 0 && existing_sampled != w[1])
+            if (existing_sampled != 0 && existing_sampled != w[1] && existing_sampled < id_bound && emitted_type[existing_sampled])
             {
                 for (uint32_t img = 0; img < s.n_img; ++img)
                 {
@@ -5816,7 +5816,6 @@ bool spirv_patch_stereo_fs(
                     existing);
                 if (existing >= 0)
                 {
-                    img->sampled_type_id = s.images[existing].sampled_type_id;
                     uint32_t old_replacement = img->replacement_type;
                     img->replacement_type = s.images[existing].id;
                     STEREO_LOG(
