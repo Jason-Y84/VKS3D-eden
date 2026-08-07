@@ -4756,6 +4756,10 @@ fs_prescan(
                     break;
                 FsImageInfo *dst = &s->images[s->n_img++];
                 *dst = *src;
+                dst->replacement_type = 0;
+                dst->replacement_pointer_type = 0;
+                dst->replacement_owner_var = 0;
+                dst->replacement_sampled_type = 0;
                 dst->owner_var = UINT32_MAX;
                 dst->binding   = UINT32_MAX;
                 dst->set       = UINT32_MAX;
@@ -4782,6 +4786,10 @@ fs_prescan(
                 break;
             FsImageInfo *dst = &s->images[s->n_img++];
             *dst = *src;
+            dst->replacement_type = 0;
+            dst->replacement_pointer_type = 0;
+            dst->replacement_owner_var = 0;
+            dst->replacement_sampled_type = 0;
             dst->owner_var = UINT32_MAX;
             dst->binding   = UINT32_MAX;
             dst->set       = UINT32_MAX;
@@ -5847,7 +5855,11 @@ bool spirv_patch_stereo_fs(
                     img->replacement_type,
                     img->owner_var,
                     img->binding);
-                int existing = fs_find_matching_array_image(&s, img);
+                int existing = -1;
+                if (!img->stereo)
+                {
+                    existing = fs_find_matching_array_image(&s, img);
+                }
                 STEREO_LOG(
                     "FS_IMAGE_MATCH_RESULT "
                     "idx=%d "
