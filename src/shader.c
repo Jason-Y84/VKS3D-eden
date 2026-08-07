@@ -5487,6 +5487,7 @@ bool spirv_patch_stereo_fs(
         if (!s.images[img].stereo)
             continue;
         s.images[img].replacement_pointer_type = nid++;
+        s.images[img].replacement_owner_var = nid++;
     }
     uint32_t samp_nid      = nid;
     /*
