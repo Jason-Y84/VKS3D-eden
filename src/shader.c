@@ -5697,10 +5697,10 @@ bool spirv_patch_stereo_fs(
                 "imageType=%u",
                 in[i + 1],
                 in[i + 2]);
+            uint32_t original_sampled_image = in[i + 1];
             uint32_t original_image_type = in[i + 2];
             uint32_t w[3];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
-            /* Keep the original OpTypeSampledImage exactly as-is. */
             sb_push_n(&ob, w, wc);
             if (w[1] < id_bound)
             {
@@ -5708,7 +5708,7 @@ bool spirv_patch_stereo_fs(
             }
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
-                if (s.images[img].sampled_type_id != w[1])
+                if (s.images[img].sampled_type_id != original_sampled_image)
                     continue;
                 if (!s.images[img].stereo)
                     continue;
@@ -5723,18 +5723,23 @@ bool spirv_patch_stereo_fs(
                         replacement_image);
                 if (replacement_sampled == 0)
                     continue;
-                s.images[img].replacement_sampled_type =
-                    replacement_sampled;
-                STEREO_LOG(
-                    "FS_SAMPLED_IMAGE_REUSE "
-                    "orig=%u "
-                    "replacement=%u "
-                    "oldImage=%u "
-                    "newImage=%u",
-                    w[1],
-                    replacement_sampled,
-                    original_image_type,
-                    replacement_image);
+                for (uint32_t copy = 0; copy < s.n_img; ++copy)
+                {
+                    if (s.images[copy].id != s.images[img].id)
+                        continue;
+                    if (!s.images[copy].stereo)
+                        continue;
+                    s.images[copy].replacement_sampled_type =
+                        replacement_sampled;
+                    STEREO_LOG(
+                        "FS_REUSE_SAMPLED_TYPE "
+                        "srcIdx=%u "
+                        "dstIdx=%u "
+                        "sampled=%u",
+                        img,
+                        copy,
+                        replacement_sampled);
+                }
             }
             i += wc;
             continue;
