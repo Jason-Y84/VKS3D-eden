@@ -5698,7 +5698,6 @@ bool spirv_patch_stereo_fs(
                 in[i + 1],
                 in[i + 2]);
             uint32_t original_sampled_image = in[i + 1];
-            uint32_t original_image_type = in[i + 2];
             uint32_t w[3];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             sb_push_n(&ob, w, wc);
