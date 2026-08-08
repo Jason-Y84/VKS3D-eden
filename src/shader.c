@@ -6151,6 +6151,21 @@ bool spirv_patch_stereo_fs(
                 new_sampled_type < id_bound &&
                 !emitted_type[new_sampled_type])
             {
+                uint32_t sampled[] =
+                {(4u << 16) | SpvOpTypeSampledImage, new_sampled_type, new_array_type};
+                sb_push_n(&ob, sampled, 4);
+                emitted_type[new_sampled_type] = true;
+                STEREO_LOG(
+                    "FS_EMIT_ARRAY_SAMPLED "
+                    "imageType=%u "
+                    "sampledType=%u",
+                    new_array_type,
+                    new_sampled_type);
+            }
+            if (new_sampled_type != 0 &&
+                new_sampled_type < id_bound &&
+                !emitted_type[new_sampled_type])
+            {
                 STEREO_LOG(
                     "FS_RESERVE_ARRAY_SAMPLED "
                     "imageType=%u "
