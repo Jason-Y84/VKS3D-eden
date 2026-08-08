@@ -6383,6 +6383,10 @@ bool spirv_patch_stereo_fs(
             {
                 descriptor_var =
                     s.loads[load].owner_var;
+                int vi =
+                    fs_var_index(
+                        &s,
+                        descriptor_var);
                 STEREO_LOG(
                     "FS_SAMPLE_DESCRIPTOR image=%u descriptorVar=%u set=%u binding=%u",
                     in[i+3],
@@ -6447,6 +6451,7 @@ bool spirv_patch_stereo_fs(
                 "descriptor=%u",
                 in[i + 3],
                 descriptor_var);
+            int vi = fs_var_index(&s, descriptor_var);
             STEREO_LOG(
                 "FS_SAMPLE_PATCH_APPLY "
                 "hash=%016llx "
@@ -6459,6 +6464,16 @@ bool spirv_patch_stereo_fs(
                 descriptor_var,
                 (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
                 (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
+            int image_type = -1;
+            int sampled_type = -1;
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].id == descriptor_var)
+                {
+                    sampled_type = s.vars[v].type;
+                    break;
+                }
+            }
             STEREO_LOG(
                 "FS_DESCRIPTOR_TYPES descriptor=%u sampledType=%d",
                 descriptor_var,
