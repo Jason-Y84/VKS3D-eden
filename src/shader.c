@@ -5750,25 +5750,30 @@ bool spirv_patch_stereo_fs(
             memcpy(w, &in[i], sizeof(w));
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
-                if (s.images[img].id == w[2] &&
-                    s.images[img].stereo &&
-                    s.images[img].replacement_type)
-                {
-                    STEREO_LOG(
-                        "FS_SAMPLED_IMAGE_PATCH "
-                        "result=%u "
-                        "oldImageType=%u "
-                        "newImageType=%u "
-                        "owner=%u "
-                        "binding=%u",
-                        w[1],
-                        w[2],
-                        s.images[img].replacement_type,
-                        s.images[img].owner_var,
-                        s.images[img].binding);
-                    w[2] = s.images[img].replacement_type;
-                    break;
-                }
+                if (s.images[img].sampled_type_id != w[1])
+                    continue;
+                if (!s.images[img].stereo ||
+                    !s.images[img].replacement_type)
+                    continue;
+                STEREO_LOG(
+                    "FS_SAMPLED_IMAGE_PATCH "
+                    "result=%u "
+                    "oldImageType=%u "
+                    "newImageType=%u "
+                    "owner=%u "
+                    "binding=%u",
+                    w[1],
+                    w[2],
+                    s.images[img].replacement_type,
+                    s.images[img].owner_var,
+                    s.images[img].binding);
+                w[2] = s.images[img].replacement_type;
+                break;
+            }
+            if (w[1] < id_bound && emitted_type[w[1]])
+            {
+                i += wc;
+                continue;
             }
             sb_push_n(&ob, w, wc);
             if (w[1] < id_bound)
