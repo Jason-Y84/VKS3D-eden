@@ -5483,8 +5483,18 @@ bool spirv_patch_stereo_fs(
          * Reuse an existing replacement sampled-image type when several
          * bindings share the same replacement image type.
          */
-        uint32_t replacement_sampled = s.images[img].sampled_type_id;
+        uint32_t replacement_sampled = fs_find_matching_sampled_image(in, in_c, replacement);
+        if (replacement_sampled == 0)
+        {
+            replacement_sampled = s.images[img].sampled_type_id;
+        }
         s.images[img].replacement_sampled_type = replacement_sampled;
+        for (uint32_t copy = 0; copy < img; ++copy)
+        {
+            if (s.images[copy].replacement_type != replacement)
+                continue;
+            s.images[copy].replacement_sampled_type = replacement_sampled;
+        }
         STEREO_LOG(
             "FS_REPLACEMENT_ASSIGN "
             "idx=%u "
@@ -5748,6 +5758,14 @@ bool spirv_patch_stereo_fs(
                 in[i + 2]);
             uint32_t w[3];
             memcpy(w, &in[i], sizeof(w));
+            STEREO_LOG(
+                "FS_SAMPLED_IMAGE_STATE "
+                "result=%u "
+                "imageType=%u "
+                "emitted=%u",
+                w[1],
+                w[2],
+                (w[1] < id_bound) ? emitted_type[w[1]] : 0);
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
                 if (s.images[img].sampled_type_id != w[1])
