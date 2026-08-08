@@ -5719,7 +5719,7 @@ bool spirv_patch_stereo_fs(
                     "binding=%u",
                     img,
                     s.images[img].sampled_type_id,
-                    original_sampled_image,
+                    w[1],
                     s.images[img].stereo,
                     s.images[img].replacement_type,
                     s.images[img].replacement_sampled_type,
@@ -5749,7 +5749,7 @@ bool spirv_patch_stereo_fs(
                     s.images[copy].replacement_sampled_type =
                         replacement_sampled;
                     STEREO_LOG(
-                        "FS_REUSE_SAMPLED_TYPE "
+                        "FS_SAMPLED_ASSIGN "
                         "srcIdx=%u "
                         "dstIdx=%u "
                         "sampled=%u",
