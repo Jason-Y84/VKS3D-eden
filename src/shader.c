@@ -5568,6 +5568,78 @@ bool spirv_patch_stereo_fs(
         sb_free(&ob);
         return false;
     }
+    /*
+    * Replacement OpTypeImage / OpTypeSampledImage declarations must
+    * exist before any replacement OpTypePointer can reference them.
+    */
+    for (uint32_t img = 0; img < s.n_img; ++img)
+    {
+        if (!s.images[img].stereo ||
+            !s.images[img].replacement_type ||
+            !s.images[img].replacement_sampled_type)
+            continue;
+        uint32_t replacement_image = s.images[img].replacement_type;
+        uint32_t replacement_sampled = s.images[img].replacement_sampled_type;
+        bool already_emitted = false;
+        for (uint32_t prev = 0; prev < img; ++prev)
+        {
+            if (s.images[prev].replacement_type == replacement_image &&
+                s.images[prev].replacement_sampled_type == replacement_sampled)
+            {
+                already_emitted = true;
+                break;
+            }
+        }
+        if (already_emitted)
+            continue;
+        for (size_t j = 5; j < in_c; )
+        {
+            uint32_t owc = in[j] >> 16;
+            uint32_t oop = in[j] & 0xffff;
+            if (!owc || j + owc > in_c)
+                break;
+            if (oop == SpvOpTypeImage &&
+                owc >= 9)
+            {
+                uint32_t source_image = in[j + 1];
+                bool matches = false;
+                for (uint32_t source = 0; source < s.n_img; ++source)
+                {
+                    if (s.images[source].id == source_image &&
+                        s.images[source].replacement_type == replacement_image)
+                    {
+                        matches = true;
+                        break;
+                    }
+                }
+                if (matches)
+                {
+                    uint32_t w[9];
+                    memcpy(w, &in[j], sizeof(w));
+                    w[1] = replacement_image;
+                    w[5] = 1;
+                    sb_push_n(&ob, w, 9);
+                    emitted_type[replacement_image] = true;
+                    uint32_t sampled[] =
+                    {
+                        (4u << 16) | SpvOpTypeSampledImage,
+                        replacement_sampled,
+                        replacement_image
+                    };
+                    sb_push_n(&ob, sampled, 4);
+                    emitted_type[replacement_sampled] = true;
+                    STEREO_LOG(
+                        "FS_EMIT_ARRAY_TYPES "
+                        "imageType=%u "
+                        "sampledType=%u",
+                        replacement_image,
+                        replacement_sampled);
+                    break;
+                }
+            }
+            j += owc;
+        }
+    }
     bool mv_added   = s.has_mv_cap;
     bool ext_done   = false;
     uint32_t spv_version = in[1];
@@ -6146,21 +6218,6 @@ bool spirv_patch_stereo_fs(
             if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
-            }
-            if (new_sampled_type != 0 &&
-                new_sampled_type < id_bound &&
-                !emitted_type[new_sampled_type])
-            {
-                uint32_t sampled[] =
-                {(4u << 16) | SpvOpTypeSampledImage, new_sampled_type, new_array_type};
-                sb_push_n(&ob, sampled, 4);
-                emitted_type[new_sampled_type] = true;
-                STEREO_LOG(
-                    "FS_EMIT_ARRAY_SAMPLED "
-                    "imageType=%u "
-                    "sampledType=%u",
-                    new_array_type,
-                    new_sampled_type);
             }
             if (new_sampled_type != 0 &&
                 new_sampled_type < id_bound &&
