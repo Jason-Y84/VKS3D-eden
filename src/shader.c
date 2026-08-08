@@ -6407,6 +6407,27 @@ bool spirv_patch_stereo_fs(
             w[2],
             w[1],
             w[3]);
+        {
+            int img = fs_find_image_by_owner(&s, w[3]);
+            if (img >= 0 &&
+                s.images[img].stereo &&
+                s.images[img].replacement_sampled_type)
+            {
+                STEREO_LOG(
+                    "FS_LOAD_SAMPLE_TYPE_REWRITE "
+                    "result=%u "
+                    "oldType=%u "
+                    "newType=%u "
+                    "ptr=%u "
+                    "binding=%u",
+                    w[2],
+                    w[1],
+                    s.images[img].replacement_sampled_type,
+                    w[3],
+                    s.images[img].binding);
+                w[1] = s.images[img].replacement_sampled_type;
+            }
+        }
         sb_push_n(&ob, w, wc);
         if (w[1] < id_bound)
         {
