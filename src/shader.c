@@ -5635,11 +5635,11 @@ bool spirv_patch_stereo_fs(
                     emitted_type[replacement_image] = true;
                     uint32_t sampled[] =
                     {
-                        (4u << 16) | SpvOpTypeSampledImage,
+                        (3u << 16) | SpvOpTypeSampledImage,
                         replacement_sampled,
                         replacement_image
                     };
-                    sb_push_n(&ob, sampled, 4);
+                    sb_push_n(&ob, sampled, 3);
                     emitted_type[replacement_sampled] = true;
                     STEREO_LOG(
                         "FS_EMIT_ARRAY_TYPES "
