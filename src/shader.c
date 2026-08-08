@@ -5568,6 +5568,19 @@ bool spirv_patch_stereo_fs(
         sb_free(&ob);
         return false;
     }
+    bool mv_added   = s.has_mv_cap;
+    bool ext_done   = false;
+    uint32_t spv_version = in[1];
+    bool need_mv_ext =
+        !s.has_mv_cap &&
+        ((spv_version >> 16) == 1) &&
+        (((spv_version >> 8) & 0xff) == 0);
+    bool types_done = false;
+    bool ep_done    = false;
+    bool in_func    = false;
+    /* Header */
+    sb_push_n(&ob, in, 5);
+    ob.w[3] = new_bound;
     /*
     * Replacement OpTypeImage / OpTypeSampledImage declarations must
     * exist before any replacement OpTypePointer can reference them.
@@ -5640,19 +5653,6 @@ bool spirv_patch_stereo_fs(
             j += owc;
         }
     }
-    bool mv_added   = s.has_mv_cap;
-    bool ext_done   = false;
-    uint32_t spv_version = in[1];
-    bool need_mv_ext =
-        !s.has_mv_cap &&
-        ((spv_version >> 16) == 1) &&
-        (((spv_version >> 8) & 0xff) == 0);
-    bool types_done = false;
-    bool ep_done    = false;
-    bool in_func    = false;
-    /* Header */
-    sb_push_n(&ob, in, 5);
-    ob.w[3] = new_bound;
     for (size_t i = 5; i < in_c; ) {
         uint32_t op = in[i] & 0xffff, wc = in[i] >> 16;
         if (!wc || i + wc > in_c) break;
