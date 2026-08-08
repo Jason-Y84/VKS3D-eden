@@ -5758,53 +5758,34 @@ bool spirv_patch_stereo_fs(
                 "imageType=%u",
                 in[i + 1],
                 in[i + 2]);
-            uint32_t original_sampled_image = in[i + 1];
-            uint32_t original_image_type = in[i + 2];
             uint32_t w[3];
             memcpy(w, &in[i], sizeof(w));
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (s.images[img].id == w[2] &&
+                    s.images[img].stereo &&
+                    s.images[img].replacement_type)
+                {
+                    STEREO_LOG(
+                        "FS_SAMPLED_IMAGE_PATCH "
+                        "result=%u "
+                        "oldImageType=%u "
+                        "newImageType=%u "
+                        "owner=%u "
+                        "binding=%u",
+                        w[1],
+                        w[2],
+                        s.images[img].replacement_type,
+                        s.images[img].owner_var,
+                        s.images[img].binding);
+                    w[2] = s.images[img].replacement_type;
+                    break;
+                }
+            }
             sb_push_n(&ob, w, wc);
             if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
-            }
-            for (uint32_t img = 0; img < s.n_img; ++img)
-            {
-                STEREO_LOG(
-                    "FS_SAMPLED_CAND "
-                    "idx=%u "
-                    "sampledTypeId=%u "
-                    "want=%u "
-                    "image=%u "
-                    "replacementImage=%u "
-                    "replacementSampled=%u "
-                    "owner=%u "
-                    "binding=%u",
-                    img,
-                    s.images[img].sampled_type_id,
-                    original_sampled_image,
-                    original_image_type,
-                    s.images[img].replacement_type,
-                    s.images[img].replacement_sampled_type,
-                    s.images[img].owner_var,
-                    s.images[img].binding);
-                if (s.images[img].sampled_type_id != original_sampled_image)
-                    continue;
-                if (!s.images[img].stereo)
-                    continue;
-                if (s.images[img].replacement_type == 0)
-                    continue;
-                if (s.images[img].replacement_sampled_type == 0)
-                    continue;
-                STEREO_LOG(
-                    "FS_SAMPLED_ASSIGN "
-                    "idx=%u "
-                    "original=%u "
-                    "replacementImage=%u "
-                    "replacementSampled=%u",
-                    img,
-                    original_sampled_image,
-                    s.images[img].replacement_type,
-                    s.images[img].replacement_sampled_type);
             }
             i += wc;
             continue;
