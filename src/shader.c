@@ -5722,10 +5722,10 @@ bool spirv_patch_stereo_fs(
                 }
             }
         }
-        if (op == 15 && !ep_done) {
+        if (op == SpvOpEntryPoint && !ep_done) {
             ep_done = true;
             if (new_vi_id != s.vi_var_id) {
-                sb_push(&ob, ((wc+1)<<16)|15);
+                sb_push(&ob, ((wc+1)<<16)|SpvOpEntryPoint);
                 sb_push_n(&ob, &in[i+1], wc-1);
                 sb_push(&ob, new_vi_id);
             } else {
@@ -6205,7 +6205,7 @@ bool spirv_patch_stereo_fs(
             continue;
         }
         /* Inject new types + gl_ViewIndex variable before first OpFunction */
-        if (op == 54 && !types_done) {
+        if (op == SpvOpFunction && !types_done) {
             types_done = true;
             in_func    = true;
             /* BuiltIn decoration is emitted earlier in the annotation section. */
@@ -6252,7 +6252,7 @@ bool spirv_patch_stereo_fs(
             }
             i += wc; continue;
         }
-        if (op == 54) in_func = true;
+        if (op == SpvOpFunction) in_func = true;
         /*
          * Log fragment shader output stores.
          * OpStore operands:
