@@ -5878,6 +5878,7 @@ bool spirv_patch_stereo_fs(
                     s.images[img].replacement_type,
                     s.images[img].owner_var,
                     s.images[img].binding);
+                w[2] = s.images[img].replacement_type;
                 break;
             }
             if (w[1] < id_bound && emitted_type[w[1]])
