@@ -6108,17 +6108,19 @@ bool spirv_patch_stereo_fs(
                     "img=%u "
                     "owner=%u "
                     "binding=%u "
+                    "set=%u "
                     "stereo=%u",
                     in[i + 2],
                     img,
                     s.images[img].owner_var,
                     s.images[img].binding,
+                    s.images[img].set,
                     s.images[img].stereo);
             }
             sb_push_n(&ob, &in[i], wc);
-            if (in[i + 1] < id_bound)
+            if (in[i + 2] < id_bound)
             {
-                emitted_type[in[i + 1]] = true;
+                emitted_type[in[i + 2]] = true;
             }
             if (in[i + 3] == SpvStorageClassUniformConstant)
             {
@@ -6126,7 +6128,8 @@ bool spirv_patch_stereo_fs(
                 {
                     if (s.images[img].owner_var != in[i + 2])
                         continue;
-                    if (!s.images[img].replacement_pointer_type)
+                    if (!s.images[img].replacement_pointer_type ||
+                        !s.images[img].replacement_owner_var)
                         break;
                     uint32_t w[4];
                     memcpy(w, &in[i], sizeof(w));
@@ -6138,14 +6141,19 @@ bool spirv_patch_stereo_fs(
                         "newVar=%u "
                         "oldPtr=%u "
                         "newPtr=%u "
+                        "set=%u "
                         "binding=%u",
                         in[i + 2],
                         w[2],
                         in[i + 1],
                         w[1],
+                        s.images[img].set,
                         s.images[img].binding);
-                    sb_push_n(&ob, w, 4);
-                    emitted_type[w[1]] = true;
+                    sb_push_n(&ob, w, wc);
+                    if (w[2] < id_bound)
+                    {
+                        emitted_type[w[2]] = true;
+                    }
                     break;
                 }
             }
