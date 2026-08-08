@@ -6550,6 +6550,7 @@ bool spirv_patch_stereo_fs(
             sb_push(&ob, in[i+3]);        /* sampled image (unchanged) */
             sb_push(&ob, id_c3);          /* new 3D coordinate */
             if (wc > 5) sb_push_n(&ob, &in[i+5], wc-5); /* image operands */
+            size_t out = ob.n - wc;
             STEREO_LOG(
                 "FS_EMIT_SAMPLE_IDS "
                 "sampledImage=%u "
