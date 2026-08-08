@@ -5770,6 +5770,22 @@ bool spirv_patch_stereo_fs(
             {
                 if (s.images[img].sampled_type_id != w[1])
                     continue;
+                STEREO_LOG(
+                    "FS_SAMPLED_IMAGE_MATCH "
+                    "idx=%u "
+                    "result=%u "
+                    "oldImage=%u "
+                    "replacementImage=%u "
+                    "replacementSampled=%u "
+                    "owner=%u "
+                    "binding=%u",
+                    img,
+                    w[1],
+                    w[2],
+                    s.images[img].replacement_type,
+                    s.images[img].replacement_sampled_type,
+                    s.images[img].owner_var,
+                    s.images[img].binding);
                 if (!s.images[img].stereo ||
                     !s.images[img].replacement_type)
                     continue;
