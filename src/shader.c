@@ -5673,6 +5673,41 @@ bool spirv_patch_stereo_fs(
             /* only emit once */
             emit_vi_decorate = false;
         }
+        if (op == SpvOpDecorate &&
+            wc >= 4)
+        {
+            uint32_t target     = in[i + 1];
+            uint32_t decoration = in[i + 2];
+            if (decoration == SpvDecorationDescriptorSet ||
+                decoration == SpvDecorationBinding)
+            {
+                for (uint32_t img = 0; img < s.n_img; ++img)
+                {
+                    if (s.images[img].owner_var != target)
+                        continue;
+                    if (s.images[img].replacement_owner_var == 0)
+                        continue;
+                    uint32_t d[4];
+                    memcpy(d, &in[i], sizeof(d));
+                    d[1] = s.images[img].replacement_owner_var;
+                    STEREO_LOG(
+                        "FS_DECORATE_CLONE "
+                        "target=%u "
+                        "clone=%u "
+                        "decoration=%u "
+                        "value=%u "
+                        "binding=%u "
+                        "set=%u",
+                        target,
+                        d[1],
+                        decoration,
+                        d[3],
+                        s.images[img].binding,
+                        s.images[img].set);
+                    sb_push_n(&ob, d, 4);
+                }
+            }
+        }
         if (op == 15 && !ep_done) {
             ep_done = true;
             if (new_vi_id != s.vi_var_id) {
