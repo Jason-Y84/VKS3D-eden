@@ -5772,7 +5772,7 @@ bool spirv_patch_stereo_fs(
                 STEREO_LOG(
                     "FS_SAMPLED_CAND "
                     "idx=%u "
-                    "sampled=%u "
+                    "sampledTypeId=%u "
                     "want=%u "
                     "image=%u "
                     "replacementImage=%u "
@@ -6089,18 +6089,29 @@ bool spirv_patch_stereo_fs(
             }
             /* Emit the reserved cloned array type. */
             uint32_t new_array_type = s.images[patch_img_idx].replacement_type;
+            uint32_t new_sampled_type =
+                s.images[patch_img_idx].replacement_sampled_type;
             STEREO_LOG(
                 "FS_EMIT_ARRAY "
                 "idx=%d "
                 "image=%u "
-                "replacement=%u",
+                "replacement=%u "
+                "replacementSampled=%u",
                 patch_img_idx,
                 s.images[patch_img_idx].id,
-                new_array_type);
+                new_array_type,
+                new_sampled_type);
             STEREO_LOG(
-                "IMAGE_EMIT oldImage=%u replacementImage=%u replacementPointer=%u replacementVar=%u sampledType=%u",
+                "IMAGE_EMIT "
+                "oldImage=%u "
+                "replacementImage=%u "
+                "replacementSampled=%u "
+                "replacementPointer=%u "
+                "replacementVar=%u "
+                "sampledType=%u",
                 s.images[patch_img_idx].id,
                 s.images[patch_img_idx].replacement_type,
+                s.images[patch_img_idx].replacement_sampled_type,
                 s.images[patch_img_idx].replacement_pointer_type,
                 s.images[patch_img_idx].replacement_owner_var,
                 s.images[patch_img_idx].sampled_type);
@@ -6117,6 +6128,7 @@ bool spirv_patch_stereo_fs(
             uint32_t w[9];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             w[1] = new_array_type;
+            w[5] = 1;
             STEREO_LOG(
                 "FS_TYPEIMAGE_PATCH "
                 "sampledImageType=%u "
@@ -6125,7 +6137,6 @@ bool spirv_patch_stereo_fs(
                 w[1],
                 in[i + 2],
                 new_array_type);
-            w[5] = 1; /* Arrayed = true */
             STEREO_LOG(
                 "FS_EMIT_ARRAY_IMAGE "
                 "result=%u "
@@ -6136,6 +6147,23 @@ bool spirv_patch_stereo_fs(
             if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
+            }
+            if (new_sampled_type != 0 &&
+                new_sampled_type < id_bound &&
+                !emitted_type[new_sampled_type])
+            {
+                uint32_t sampled[3];
+                sampled[0] = op_(SpvOpTypeSampledImage, 3);
+                sampled[1] = new_sampled_type;
+                sampled[2] = new_array_type;
+                STEREO_LOG(
+                    "FS_EMIT_ARRAY_SAMPLED "
+                    "imageType=%u "
+                    "sampledType=%u",
+                    new_array_type,
+                    new_sampled_type);
+                sb_push_n(&ob, sampled, 3);
+                emitted_type[new_sampled_type] = true;
             }
             i += wc;
             continue;
