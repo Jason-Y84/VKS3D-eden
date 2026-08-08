@@ -5761,7 +5761,7 @@ bool spirv_patch_stereo_fs(
             uint32_t original_sampled_image = in[i + 1];
             uint32_t original_image_type = in[i + 2];
             uint32_t w[3];
-            memcpy(w, &in[i], wc * sizeof(uint32_t));
+            memcpy(w, &in[i], sizeof(w));
             sb_push_n(&ob, w, wc);
             if (w[1] < id_bound)
             {
@@ -5774,7 +5774,7 @@ bool spirv_patch_stereo_fs(
                     "idx=%u "
                     "sampled=%u "
                     "want=%u "
-                    "stereo=%u "
+                    "image=%u "
                     "replacementImage=%u "
                     "replacementSampled=%u "
                     "owner=%u "
@@ -5782,7 +5782,7 @@ bool spirv_patch_stereo_fs(
                     img,
                     s.images[img].sampled_type_id,
                     original_sampled_image,
-                    s.images[img].stereo,
+                    original_image_type,
                     s.images[img].replacement_type,
                     s.images[img].replacement_sampled_type,
                     s.images[img].owner_var,
@@ -5791,26 +5791,20 @@ bool spirv_patch_stereo_fs(
                     continue;
                 if (!s.images[img].stereo)
                     continue;
-                uint32_t replacement_image =
-                    s.images[img].replacement_type;
-                if (replacement_image == 0)
+                if (s.images[img].replacement_type == 0)
                     continue;
-                /*
-                 * The OpTypeSampledImage wrapper does not need to be cloned
-                 * when the replacement image type is being reused by this
-                 * existing sampled-image declaration. The original sampled
-                 * image type itself becomes the replacement sampled-image type.
-                 */
-                s.images[img].replacement_sampled_type =
-                    original_sampled_image;
+                if (s.images[img].replacement_sampled_type == 0)
+                    continue;
                 STEREO_LOG(
                     "FS_SAMPLED_ASSIGN "
                     "idx=%u "
-                    "sampled=%u "
-                    "replacementImage=%u",
+                    "original=%u "
+                    "replacementImage=%u "
+                    "replacementSampled=%u",
                     img,
                     original_sampled_image,
-                    replacement_image);
+                    s.images[img].replacement_type,
+                    s.images[img].replacement_sampled_type);
             }
             i += wc;
             continue;
