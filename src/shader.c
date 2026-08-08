@@ -5974,14 +5974,41 @@ bool spirv_patch_stereo_fs(
                     existing);
                 if (existing != 0)
                 {
+                    uint32_t existing_sampled =
+                        fs_find_matching_sampled_image(
+                            in,
+                            in_c,
+                            existing);
                     STEREO_LOG(
-                        "FS_REUSE_IMAGE_TYPE_SKIP "
+                        "FS_REUSE_IMAGE_TYPE "
                         "image=%u "
                         "existing=%u "
-                        "reserved=%u "
-                        "reservedSampled=%u",
+                        "existingSampled=%u "
+                        "oldReserved=%u "
+                        "oldReservedSampled=%u",
                         img->id,
                         existing,
+                        existing_sampled,
+                        img->replacement_type,
+                        img->replacement_sampled_type);
+                    img->replacement_type = existing;
+                    img->replacement_sampled_type = existing_sampled;
+                    for (uint32_t copy = 0; copy < img_idx; ++copy)
+                    {
+                        if (s.images[copy].replacement_type !=
+                            img->replacement_type)
+                            continue;
+                        s.images[copy].replacement_type =
+                            img->replacement_type;
+                        s.images[copy].replacement_sampled_type =
+                            existing_sampled;
+                    }
+                    STEREO_LOG(
+                        "FS_REUSE_IMAGE_TYPE_FINAL "
+                        "image=%u "
+                        "replacement=%u "
+                        "replacementSampled=%u",
+                        img->id,
                         img->replacement_type,
                         img->replacement_sampled_type);
                     /* Keep the original declaration unchanged. */
@@ -6061,9 +6088,10 @@ bool spirv_patch_stereo_fs(
                 if (s.images[img].stereo)
                 {
                     STEREO_LOG(
-                        "FS_RESERVED image=%u replacement=%u",
+                        "FS_RESERVED image=%u replacement=%u replacementSampled=%u",
                         s.images[img].id,
-                        s.images[img].replacement_type);
+                        s.images[img].replacement_type,
+                        s.images[img].replacement_sampled_type);
                 }
             }
             if (!patch_this_type)
