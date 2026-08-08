@@ -5483,19 +5483,7 @@ bool spirv_patch_stereo_fs(
          * Reuse an existing replacement sampled-image type when several
          * bindings share the same replacement image type.
          */
-        uint32_t replacement_sampled = 0;
-        for (uint32_t j = 0; j < img; ++j)
-        {
-            if (s.images[j].replacement_type == replacement &&
-                s.images[j].replacement_sampled_type)
-            {
-                replacement_sampled =
-                    s.images[j].replacement_sampled_type;
-                break;
-            }
-        }
-        if (replacement_sampled == 0)
-            replacement_sampled = nid++;
+        uint32_t replacement_sampled = s.images[img].sampled_type_id;
         s.images[img].replacement_sampled_type = replacement_sampled;
         STEREO_LOG(
             "FS_REPLACEMENT_ASSIGN "
