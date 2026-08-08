@@ -5460,46 +5460,67 @@ bool spirv_patch_stereo_fs(
         s.v2uint_id,
         s.v3int_id,
         s.v3uint_id);
+    /*
+     * Assign one replacement image/sampled-image pair to all bindings
+     * that use the same original image type.
+     */
     for (uint32_t img = 0; img < s.n_img; ++img)
     {
         if (!s.images[img].stereo)
             continue;
-        /* Reuse already-reserved replacement IDs for the same image type. */
+        /*
+         * If an earlier image entry uses the same original image type,
+         * inherit its replacement pair instead of independently reserving
+         * another pair.
+         */
         uint32_t replacement = 0;
-        for (uint32_t j = 0; j < img; ++j)
+        uint32_t replacement_sampled = 0;
+        for (uint32_t prev = 0; prev < img; ++prev)
         {
-            if (s.images[j].id == s.images[img].id &&
-                s.images[j].replacement_type)
-            {
-                replacement = s.images[j].replacement_type;
-                break;
-            }
+            if (!s.images[prev].stereo)
+                continue;
+            if (s.images[prev].sampled_type_id != s.images[img].sampled_type_id)
+                continue;
+            if (!s.images[prev].replacement_type)
+                continue;
+            replacement = s.images[prev].replacement_type;
+            replacement_sampled = s.images[prev].replacement_sampled_type;
+            break;
         }
         if (replacement == 0)
-            replacement = nid++;
+        {
+            /*
+             * First binding using this original image type establishes
+             * the replacement image type.
+             */
+            replacement = 0;
+            for (uint32_t prev = 0; prev < img; ++prev)
+            {
+                if (!s.images[prev].stereo)
+                    continue;
+                if (s.images[prev].sampled_type_id != s.images[img].sampled_type_id)
+                    continue;
+                if (!s.images[prev].replacement_type)
+                    continue;
+                replacement = s.images[prev].replacement_type;
+                break;
+            }
+            if (replacement == 0)
+            {
+                replacement = nid++;
+            }
+            replacement_sampled =
+            fs_find_matching_sampled_image(
+                in,
+                in_c,
+                replacement);
+            if (replacement_sampled == 0)
+            {
+                replacement_sampled = nid++;
+            }
+        }
         s.images[img].replacement_type = replacement;
-        /*
-         * OpTypeSampledImage must match the replacement OpTypeImage.
-         * Reuse an existing replacement sampled-image type when several
-         * bindings share the same replacement image type.
-         */
-        uint32_t replacement_sampled = 0;
-        for (uint32_t copy = 0; copy < img; ++copy)
-        {
-           if (s.images[copy].replacement_type != replacement)
-               continue;
-           replacement_sampled = s.images[copy].replacement_sampled_type;
-           break;
-        }
-        if (replacement_sampled == 0)
-            replacement_sampled = nid++;
         s.images[img].replacement_sampled_type = replacement_sampled;
-        for (uint32_t copy = 0; copy < img; ++copy)
-        {
-            if (s.images[copy].replacement_type != replacement)
-                continue;
-            s.images[copy].replacement_sampled_type = replacement_sampled;
-        }
         STEREO_LOG(
             "FS_REPLACEMENT_ASSIGN "
             "idx=%u "
@@ -5516,6 +5537,7 @@ bool spirv_patch_stereo_fs(
             s.images[img].binding,
             s.images[img].replacement_type,
             s.images[img].replacement_sampled_type);
+    }
         STEREO_LOG(
             "FS_RESERVE_OWNER image=%u owner=%u binding=%u replacement=%u",
             s.images[img].id,
