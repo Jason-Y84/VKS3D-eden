@@ -6281,6 +6281,84 @@ bool spirv_patch_stereo_fs(
                 w[2],
                 w[1],
                 w[3]);
+            for (uint32_t v = 0; v < s.n_var; ++v)
+            {
+                if (s.vars[v].id != w[3])
+                    continue;
+                if (s.vars[v].storage == SpvStorageClassUniformConstant)
+                {
+                    STEREO_LOG(
+                        "FS_LOAD_MATCH "
+                        "ptr=%u "
+                        "storage=%u "
+                        "binding=%u "
+                        "type=%u",
+                        s.vars[v].id,
+                        s.vars[v].storage,
+                        s.vars[v].binding,
+                        s.vars[v].type);
+                    STEREO_LOG(
+                        "FS_LOAD_PTR "
+                        "ptr=%u "
+                        "type=%u "
+                        "storage=%u "
+                        "binding=%u",
+                        s.vars[v].id,
+                        s.vars[v].type,
+                        s.vars[v].storage,
+                        s.vars[v].binding);
+                    int img = fs_find_image_by_owner(&s, s.vars[v].id);
+                    if (img >= 0)
+                    {
+                        uint32_t new_ptr = s.images[img].replacement_owner_var;
+                        if (new_ptr)
+                        {
+                            STEREO_LOG(
+                                "FS_LOAD_REWRITE "
+                                "result=%u "
+                                "oldPtr=%u "
+                                "newPtr=%u "
+                                "binding=%u",
+                                w[2],
+                                w[3],
+                                new_ptr,
+                                s.images[img].binding);
+                            w[3] = new_ptr;
+                        }
+                        if (w[1] == s.images[img].sampled_type_id && s.images[img].replacement_sampled_type)
+                        {
+                            STEREO_LOG(
+                                "FS_LOAD_PATCH "
+                                "result=%u "
+                                "oldType=%u "
+                                "newType=%u "
+                                "binding=%u",
+                                w[2],
+                                w[1],
+                                s.images[img].replacement_sampled_type,
+                                s.images[img].binding);
+                            w[1] = s.images[img].replacement_sampled_type;
+                        }
+                        if (!new_ptr)
+                        {
+                        STEREO_LOG(
+                            "FS_LOAD_NO_REPLACEMENT "
+                            "ptr=%u "
+                            "binding=%u",
+                            w[3],
+                            s.images[img].binding);
+                        }
+                    }
+                    else
+                    {
+                        STEREO_LOG(
+                            "FS_LOAD_NO_IMAGE "
+                            "ptr=%u",
+                            w[3]);
+                    }
+                    break;
+                }
+            }
         STEREO_LOG(
             "FS_LOAD_DECL "
             "resultType=%u "
