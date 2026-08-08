@@ -5464,7 +5464,7 @@ bool spirv_patch_stereo_fs(
     {
         if (!s.images[img].stereo)
             continue;
-        /* Reuse an already-reserved replacement for this OpTypeImage. */
+        /* Reuse already-reserved replacement IDs for the same image type. */
         uint32_t replacement = 0;
         for (uint32_t j = 0; j < img; ++j)
         {
@@ -5478,6 +5478,25 @@ bool spirv_patch_stereo_fs(
         if (replacement == 0)
             replacement = nid++;
         s.images[img].replacement_type = replacement;
+        /*
+         * OpTypeSampledImage must match the replacement OpTypeImage.
+         * Reuse an existing replacement sampled-image type when several
+         * bindings share the same replacement image type.
+         */
+        uint32_t replacement_sampled = 0;
+        for (uint32_t j = 0; j < img; ++j)
+        {
+            if (s.images[j].replacement_type == replacement &&
+                s.images[j].replacement_sampled_type)
+            {
+                replacement_sampled =
+                    s.images[j].replacement_sampled_type;
+                break;
+            }
+        }
+        if (replacement_sampled == 0)
+            replacement_sampled = nid++;
+        s.images[img].replacement_sampled_type = replacement_sampled;
         STEREO_LOG(
             "FS_REPLACEMENT_ASSIGN "
             "idx=%u "
@@ -5485,13 +5504,15 @@ bool spirv_patch_stereo_fs(
             "sampledType=%u "
             "owner=%u "
             "binding=%u "
-            "replacement=%u",
+            "replacement=%u "
+            "replacementSampled=%u",
             img,
             s.images[img].id,
             s.images[img].sampled_type,
             s.images[img].owner_var,
             s.images[img].binding,
-            s.images[img].replacement_type);
+            s.images[img].replacement_type,
+            s.images[img].replacement_sampled_type);
         STEREO_LOG(
             "FS_RESERVE_OWNER image=%u owner=%u binding=%u replacement=%u",
             s.images[img].id,
@@ -5505,9 +5526,14 @@ bool spirv_patch_stereo_fs(
             s.images[img].owner_var,
             s.images[img].binding);
         STEREO_LOG(
-            "IMAGE_RESERVED image=%u replacementImage=%u replacementPointer=%u",
+            "IMAGE_RESERVED "
+            "image=%u "
+            "replacementImage=%u "
+            "replacementSampled=%u "
+            "replacementPointer=%u",
             s.images[img].id,
             s.images[img].replacement_type,
+            s.images[img].replacement_sampled_type,
             s.images[img].replacement_pointer_type);
     }
     for (uint32_t img = 0; img < s.n_img; ++img)
