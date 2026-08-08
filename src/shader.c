@@ -5969,28 +5969,15 @@ bool spirv_patch_stereo_fs(
                     existing);
                 if (existing != 0)
                 {
-                    uint32_t old_replacement = img->replacement_type;
-                    img->replacement_type = existing;
                     STEREO_LOG(
-                        "FS_REUSE_IMAGE_TYPE "
+                        "FS_REUSE_IMAGE_TYPE_SKIP "
                         "image=%u "
-                        "oldReplacement=%u "
-                        "newReplacement=%u",
-                        img->id,
-                        old_replacement,
-                        existing);
-                    img->replacement_sampled_type =
-                        fs_find_matching_sampled_image(
-                            in,
-                            in_c,
-                            existing);
-                    STEREO_LOG(
-                        "FS_REUSE_SAMPLED_TYPE "
-                        "image=%u "
-                        "replacementImage=%u "
-                        "sampledType=%u",
+                        "existing=%u "
+                        "reserved=%u "
+                        "reservedSampled=%u",
                         img->id,
                         existing,
+                        img->replacement_type,
                         img->replacement_sampled_type);
                     /* Keep the original declaration unchanged. */
                     sb_push_n(&ob, &in[i], wc);
