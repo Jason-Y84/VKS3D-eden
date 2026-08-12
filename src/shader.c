@@ -5828,6 +5828,18 @@ bool spirv_patch_stereo_fs(
             }
             if (patch_sampled)
             {
+                uint32_t replacement_image = 0;
+                for (uint32_t img = 0; img < s.n_img; ++img)
+                {
+                    if (s.images[img].sampled_type_id != sampled_id)
+                        continue;
+                    if (!s.images[img].stereo ||
+                        !s.images[img].replacement_type)
+                        continue;
+                    replacement_image = s.images[img].replacement_type;
+                    replacement_sampled = s.images[img].replacement_sampled_type;
+                    break;
+                }
                 STEREO_LOG(
                     "FS_SAMPLED_IMAGE_PATCH "
                     "result=%u "
@@ -5837,10 +5849,7 @@ bool spirv_patch_stereo_fs(
                     "newSampledType=%u",
                     sampled_id,
                     image_type,
-                    fs_find_matching_sampled_image(
-                        in,
-                        in_c,
-                        image_type),
+                    replacement_image,
                     sampled_id,
                     replacement_sampled);
                 i += wc;
