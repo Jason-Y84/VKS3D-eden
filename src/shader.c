@@ -5461,18 +5461,17 @@ bool spirv_patch_stereo_fs(
         s.v3int_id,
         s.v3uint_id);
     /*
-     * Assign one replacement image/sampled-image pair to all bindings
-     * that use the same original image type.
+     * Assign one fresh replacement image/sampled-image pair to all
+     * bindings that use the same original sampled-image type.
+     *
+     * Never reuse an existing OpTypeImage or OpTypeSampledImage ID.
+     * Existing IDs such as %63/%64 belong to the original module and
+     * cannot become replacement IDs.
      */
     for (uint32_t img = 0; img < s.n_img; ++img)
     {
         if (!s.images[img].stereo)
             continue;
-        /*
-         * If an earlier image entry uses the same original image type,
-         * inherit its replacement pair instead of independently reserving
-         * another pair.
-         */
         uint32_t replacement = 0;
         uint32_t replacement_sampled = 0;
         for (uint32_t prev = 0; prev < img; ++prev)
@@ -5481,7 +5480,8 @@ bool spirv_patch_stereo_fs(
                 continue;
             if (s.images[prev].sampled_type_id != s.images[img].sampled_type_id)
                 continue;
-            if (!s.images[prev].replacement_type)
+            if (!s.images[prev].replacement_type ||
+                !s.images[prev].replacement_sampled_type)
                 continue;
             replacement = s.images[prev].replacement_type;
             replacement_sampled = s.images[prev].replacement_sampled_type;
@@ -5489,37 +5489,35 @@ bool spirv_patch_stereo_fs(
         }
         if (replacement == 0)
         {
-            /*
-             * Prefer an already-existing array image type with the same
-             * image properties. Its OpTypeSampledImage can then be reused.
-             */
-            replacement =
-                fs_find_matching_image_type(
-                    in,
-                    in_c,
-                    s.images[img].sampled_type,
-                    s.images[img].dim,
-                    s.images[img].depth,
-                    1,
-                    s.images[img].ms,
-                    s.images[img].sampled,
-                    s.images[img].format);
-            if (replacement != 0)
-            {
-                replacement_sampled =
-                    fs_find_matching_sampled_image(
-                        in,
-                        in_c,
-                        replacement);
-            }
-            if (replacement == 0)
-            {
-                replacement = nid++;
-            }
-            if (replacement_sampled == 0)
-            {
-                replacement_sampled = nid++;
-            }
+            replacement = nid++;
+            replacement_sampled = nid++;
+            STEREO_LOG(
+                "FS_REPLACEMENT_ALLOC "
+                "idx=%u "
+                "image=%u "
+                "sampledType=%u "
+                "replacement=%u "
+                "replacementSampled=%u",
+                img,
+                s.images[img].id,
+                s.images[img].sampled_type_id,
+                replacement,
+                replacement_sampled);
+        }
+        else
+        {
+            STEREO_LOG(
+                "FS_REPLACEMENT_REUSE "
+                "idx=%u "
+                "image=%u "
+                "sampledType=%u "
+                "replacement=%u "
+                "replacementSampled=%u",
+                img,
+                s.images[img].id,
+                s.images[img].sampled_type_id,
+                replacement,
+                replacement_sampled);
         }
         s.images[img].replacement_type = replacement;
         s.images[img].replacement_sampled_type = replacement_sampled;
@@ -5605,7 +5603,7 @@ bool spirv_patch_stereo_fs(
     sb_push_n(&ob, in, 5);
     ob.w[3] = new_bound;
     for (size_t i = 5; i < in_c; ) {
-        uint32_t op = in[i] & 0xffff, wc = in[i] >> 16;
+        uint32_t op = in[i] & 0xffff; uint32_t wc = in[i] >> 16;
         if (!wc || i + wc > in_c) break;
         if (in_func &&
             op >= SpvOpImageSampleImplicitLod &&
