@@ -5490,30 +5490,32 @@ bool spirv_patch_stereo_fs(
         if (replacement == 0)
         {
             /*
-             * First binding using this original image type establishes
-             * the replacement image type.
+             * Prefer an already-existing array image type with the same
+             * image properties. Its OpTypeSampledImage can then be reused.
              */
-            replacement = 0;
-            for (uint32_t prev = 0; prev < img; ++prev)
+            replacement =
+                fs_find_matching_image_type(
+                    in,
+                    in_c,
+                    s.images[img].sampled_type,
+                    s.images[img].dim,
+                    s.images[img].depth,
+                    1,
+                    s.images[img].ms,
+                    s.images[img].sampled,
+                    s.images[img].format);
+            if (replacement != 0)
             {
-                if (!s.images[prev].stereo)
-                    continue;
-                if (s.images[prev].sampled_type_id != s.images[img].sampled_type_id)
-                    continue;
-                if (!s.images[prev].replacement_type)
-                    continue;
-                replacement = s.images[prev].replacement_type;
-                break;
+                replacement_sampled =
+                    fs_find_matching_sampled_image(
+                        in,
+                        in_c,
+                        replacement);
             }
             if (replacement == 0)
             {
                 replacement = nid++;
             }
-            replacement_sampled =
-            fs_find_matching_sampled_image(
-                in,
-                in_c,
-                replacement);
             if (replacement_sampled == 0)
             {
                 replacement_sampled = nid++;
