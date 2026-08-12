@@ -5537,7 +5537,6 @@ bool spirv_patch_stereo_fs(
             s.images[img].binding,
             s.images[img].replacement_type,
             s.images[img].replacement_sampled_type);
-    }
         STEREO_LOG(
             "FS_RESERVE_OWNER image=%u owner=%u binding=%u replacement=%u",
             s.images[img].id,
