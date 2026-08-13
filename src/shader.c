@@ -5770,7 +5770,6 @@ bool spirv_patch_stereo_fs(
         {
             uint32_t sampled_id = in[i + 1];
             uint32_t image_type = in[i + 2];
-            uint32_t replacement_sampled = 0;
             uint32_t replacement_image = 0;
             bool patch_sampled = false;
             STEREO_LOG(
@@ -5808,12 +5807,11 @@ bool spirv_patch_stereo_fs(
                     s.images[img].owner_var,
                     s.images[img].binding);
                 if (!s.images[img].stereo ||
-                    !s.images[img].replacement_type)
+                    !s.images[img].replacement_type ||
+                    s.images[img].replacement_sampled_type != sampled_id)
                     continue;
                 replacement_image = s.images[img].replacement_type;
-                replacement_sampled = s.images[img].replacement_sampled_type;
-                if (replacement_sampled == sampled_id)
-                    patch_sampled = true;
+                patch_sampled = true;
                 break;
             }
             if (patch_sampled)
@@ -5822,22 +5820,16 @@ bool spirv_patch_stereo_fs(
                     "FS_SAMPLED_IMAGE_PATCH "
                     "result=%u "
                     "oldImageType=%u "
-                    "newImageType=%u "
-                    "oldSampledType=%u "
-                    "newSampledType=%u",
+                    "newImageType=%u",
                     sampled_id,
                     image_type,
-                    replacement_image,
-                    sampled_id,
-                    replacement_sampled);
+                    replacement_image);
                 uint32_t w[3];
                 memcpy(w, &in[i], sizeof(w));
                 w[2] = replacement_image;
                 sb_push_n(&ob, w, 3);
                 if (sampled_id < id_bound)
-                {
                     emitted_type[sampled_id] = true;
-                }
                 i += wc;
                 continue;
             }
@@ -6029,10 +6021,19 @@ bool spirv_patch_stereo_fs(
                 if (existing != 0)
                 {
                     uint32_t existing_sampled =
-                        fs_find_matching_sampled_image(
-                            in,
-                            in_c,
+                    fs_find_matching_sampled_image(
+                        in,
+                        in_c,
+                        existing);
+                    if (existing_sampled == 0)
+                    {
+                        STEREO_LOG(
+                            "FS_REUSE_IMAGE_TYPE_NO_SAMPLED "
+                            "image=%u "
+                            "existing=%u",
+                            img->id,
                             existing);
+                    }
                     STEREO_LOG(
                         "FS_REUSE_IMAGE_TYPE "
                         "image=%u "
@@ -6045,6 +6046,16 @@ bool spirv_patch_stereo_fs(
                         existing_sampled,
                         img->replacement_type,
                         img->replacement_sampled_type);
+                    if (existing_sampled == 0)
+                    {
+                        sb_push_n(&ob, &in[i], wc);
+                        if (in[i + 1] < id_bound)
+                        {
+                            emitted_type[in[i + 1]] = true;
+                        }
+                        i += wc;
+                        continue;
+                    }
                     img->replacement_type = existing;
                     img->replacement_sampled_type = existing_sampled;
                     for (uint32_t copy = 0; copy < s.n_img; ++copy)
@@ -6052,9 +6063,9 @@ bool spirv_patch_stereo_fs(
                         if (s.images[copy].sampled_type_id !=
                             img->sampled_type_id)
                             continue;
-                        s.images[copy].replacement_type =
-                            img->replacement_type;
-                        s.images[copy].replacement_sampled_type =
+                        img->replacement_type =
+                            existing;
+                        img->replacement_sampled_type =
                             existing_sampled;
                     }
                     STEREO_LOG(
