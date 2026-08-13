@@ -5852,6 +5852,14 @@ bool spirv_patch_stereo_fs(
                     replacement_image,
                     sampled_id,
                     replacement_sampled);
+                /* Always preserve the original OpTypeSampledImage definition.
+                 * The original pointer types still reference sampled_id.
+                 */
+                sb_push_n(&ob, &in[i], wc);
+                if (sampled_id < id_bound)
+                {
+                    emitted_type[sampled_id] = true;
+                }
                 i += wc;
                 continue;
             }
