@@ -5974,12 +5974,15 @@ bool spirv_patch_stereo_fs(
                     "ptrTarget=%u "
                     "replacementSampled=%u "
                     "replacementPointer=%u "
+                    "sampledDefined=%u "
                     "owner=%u "
                     "binding=%u",
                     img,
                     in[i + 3],
                     s.images[img].replacement_sampled_type,
                     s.images[img].replacement_pointer_type,
+                    s.images[img].replacement_sampled_type < id_bound ?
+                        emitted_type[s.images[img].replacement_sampled_type] : 0,
                     s.images[img].owner_var,
                     s.images[img].binding);
                 w[1] = s.images[img].replacement_pointer_type;
