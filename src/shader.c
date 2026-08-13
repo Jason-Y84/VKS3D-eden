@@ -5860,6 +5860,20 @@ bool spirv_patch_stereo_fs(
                 {
                     emitted_type[sampled_id] = true;
                 }
+                if (replacement_sampled != 0 &&
+                    replacement_sampled != sampled_id &&
+                    replacement_sampled < id_bound &&
+                    !emitted_type[replacement_sampled])
+                {
+                    uint32_t sampled[] =
+                    {
+                        (3u << 16) | SpvOpTypeSampledImage,
+                        replacement_sampled,
+                        replacement_image
+                    };
+                    sb_push_n(&ob, sampled, 3);
+                    emitted_type[replacement_sampled] = true;
+                }
                 i += wc;
                 continue;
             }
