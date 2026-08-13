@@ -5779,6 +5779,7 @@ bool spirv_patch_stereo_fs(
             uint32_t sampled_id = in[i + 1];
             uint32_t image_type = in[i + 2];
             uint32_t replacement_sampled = 0;
+            uint32_t replacement_image = 0;
             bool patch_sampled = false;
             STEREO_LOG(
                 "FS_SAMPLED_IMAGE_DECL "
@@ -5817,8 +5818,8 @@ bool spirv_patch_stereo_fs(
                 if (!s.images[img].stereo ||
                     !s.images[img].replacement_type)
                     continue;
-                replacement_sampled =
-                    s.images[img].replacement_sampled_type;
+                replacement_image = s.images[img].replacement_type;
+                replacement_sampled = s.images[img].replacement_sampled_type;
                 if (replacement_sampled != 0 &&
                     replacement_sampled != sampled_id)
                 {
@@ -5828,18 +5829,6 @@ bool spirv_patch_stereo_fs(
             }
             if (patch_sampled)
             {
-                uint32_t replacement_image = 0;
-                for (uint32_t img = 0; img < s.n_img; ++img)
-                {
-                    if (s.images[img].sampled_type_id != sampled_id)
-                        continue;
-                    if (!s.images[img].stereo ||
-                        !s.images[img].replacement_type)
-                        continue;
-                    replacement_image = s.images[img].replacement_type;
-                    replacement_sampled = s.images[img].replacement_sampled_type;
-                    break;
-                }
                 STEREO_LOG(
                     "FS_SAMPLED_IMAGE_PATCH "
                     "result=%u "
@@ -5852,10 +5841,10 @@ bool spirv_patch_stereo_fs(
                     replacement_image,
                     sampled_id,
                     replacement_sampled);
-                /* Always preserve the original OpTypeSampledImage definition.
-                 * The original pointer types still reference sampled_id.
-                 */
-                sb_push_n(&ob, &in[i], wc);
+                uint32_t w[3];
+                memcpy(w, &in[i], sizeof(w));
+                w[2] = replacement_image;
+                sb_push_n(&ob, w, 3);
                 if (sampled_id < id_bound)
                 {
                     emitted_type[sampled_id] = true;
