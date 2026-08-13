@@ -5460,14 +5460,6 @@ bool spirv_patch_stereo_fs(
         s.v2uint_id,
         s.v3int_id,
         s.v3uint_id);
-    /*
-     * Assign one fresh replacement image/sampled-image pair to all
-     * bindings that use the same original sampled-image type.
-     *
-     * Never reuse an existing OpTypeImage or OpTypeSampledImage ID.
-     * Existing IDs such as %63/%64 belong to the original module and
-     * cannot become replacement IDs.
-     */
     for (uint32_t img = 0; img < s.n_img; ++img)
     {
         if (!s.images[img].stereo)
@@ -5490,7 +5482,7 @@ bool spirv_patch_stereo_fs(
         if (replacement == 0)
         {
             replacement = nid++;
-            replacement_sampled = nid++;
+            replacement_sampled = s.images[img].sampled_type_id;
             STEREO_LOG(
                 "FS_REPLACEMENT_ALLOC "
                 "idx=%u "
@@ -5820,11 +5812,8 @@ bool spirv_patch_stereo_fs(
                     continue;
                 replacement_image = s.images[img].replacement_type;
                 replacement_sampled = s.images[img].replacement_sampled_type;
-                if (replacement_sampled != 0 &&
-                    replacement_sampled != sampled_id)
-                {
+                if (replacement_sampled == sampled_id)
                     patch_sampled = true;
-                }
                 break;
             }
             if (patch_sampled)
@@ -5848,20 +5837,6 @@ bool spirv_patch_stereo_fs(
                 if (sampled_id < id_bound)
                 {
                     emitted_type[sampled_id] = true;
-                }
-                if (replacement_sampled != 0 &&
-                    replacement_sampled != sampled_id &&
-                    replacement_sampled < id_bound &&
-                    !emitted_type[replacement_sampled])
-                {
-                    uint32_t sampled[] =
-                    {
-                        (3u << 16) | SpvOpTypeSampledImage,
-                        replacement_sampled,
-                        replacement_image
-                    };
-                    sb_push_n(&ob, sampled, 3);
-                    emitted_type[replacement_sampled] = true;
                 }
                 i += wc;
                 continue;
