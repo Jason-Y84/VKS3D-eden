@@ -6241,22 +6241,41 @@ bool spirv_patch_stereo_fs(
             {
                 emitted_type[w[1]] = true;
             }
-            /*
-             * replacement_sampled_type is normally an existing OpTypeSampledImage
-             * found by fs_find_matching_sampled_image(). Do not emit a duplicate.
-             * If it does not exist in the original module, emit it here after the
-             * replacement OpTypeImage so its operand is already defined.
-             */
             if (new_sampled_type != 0 &&
                 new_sampled_type < id_bound &&
                 !emitted_type[new_sampled_type])
             {
                 uint32_t existing_sampled =
-                    fs_find_matching_sampled_image(
-                        in,
-                        in_c,
-                        new_array_type);
-                if (existing_sampled == new_sampled_type)
+                fs_find_matching_sampled_image(
+                    in,
+                    in_c,
+                    new_array_type);
+                bool sampled_is_original = false;
+                for (size_t j = 5; j < in_c;)
+                {
+                    uint32_t wcj = in[j] >> 16;
+                    uint32_t opj = in[j] & 0xffff;
+                    if (!wcj || j + wcj > in_c)
+                        break;
+                    if (opj == SpvOpTypeSampledImage &&
+                        wcj >= 3 &&
+                        in[j + 1] == new_sampled_type)
+                    {
+                        sampled_is_original = true;
+                        break;
+                    }
+                    j += wcj;
+                }
+                if (sampled_is_original)
+                {
+                    STEREO_LOG(
+                        "FS_SKIP_ARRAY_SAMPLED_ORIGINAL "
+                        "imageType=%u "
+                        "sampledType=%u",
+                        new_array_type,
+                        new_sampled_type);
+                }
+                else if (existing_sampled == new_sampled_type)
                 {
                     STEREO_LOG(
                         "FS_RESERVE_ARRAY_SAMPLED "
