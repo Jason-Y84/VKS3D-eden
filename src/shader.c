@@ -6083,10 +6083,10 @@ bool spirv_patch_stereo_fs(
                         img->replacement_sampled_type);
                     img->replacement_type = existing;
                     img->replacement_sampled_type = existing_sampled;
-                    for (uint32_t copy = 0; copy < img_idx; ++copy)
+                    for (uint32_t copy = 0; copy < s.n_img; ++copy)
                     {
-                        if (s.images[copy].replacement_type !=
-                            img->replacement_type)
+                        if (s.images[copy].sampled_type_id !=
+                            img->sampled_type_id)
                             continue;
                         s.images[copy].replacement_type =
                             img->replacement_type;
