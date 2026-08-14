@@ -6065,9 +6065,9 @@ bool spirv_patch_stereo_fs(
                         if (s.images[copy].sampled_type_id !=
                             img->sampled_type_id)
                             continue;
-                        img->replacement_type =
+                        s.images[copy].replacement_type =
                             existing;
-                        img->replacement_sampled_type =
+                        s.images[copy].replacement_sampled_type =
                             existing_sampled;
                     }
                     STEREO_LOG(
