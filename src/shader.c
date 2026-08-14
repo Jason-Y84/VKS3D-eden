@@ -6357,11 +6357,14 @@ bool spirv_patch_stereo_fs(
             wc >= 4)
         {
             STEREO_LOG(
-                "FS_VAR id=%u ptrType=%u storage=%u",
+                "FS_VAR "
+                "id=%u "
+                "ptrType=%u "
+                "storage=%u",
                 in[i + 2],
                 in[i + 1],
                 in[i + 3]);
-            bool replacement_emitted = false;
+            bool patched = false;
             if (in[i + 3] == SpvStorageClassUniformConstant)
             {
                 for (uint32_t img = 0; img < s.n_img; ++img)
@@ -6369,72 +6372,66 @@ bool spirv_patch_stereo_fs(
                     if (s.images[img].owner_var != in[i + 2])
                         continue;
                     if (!s.images[img].replacement_pointer_type ||
-                        !s.images[img].replacement_owner_var)
+                        !s.images[img].replacement_sampled_type)
                         continue;
                     if (s.images[img].replacement_pointer_type >= id_bound ||
-                        s.images[img].replacement_owner_var >= id_bound)
-                        continue;
-                    uint32_t replacement_ptr =
-                        s.images[img].replacement_pointer_type;
-                    uint32_t replacement_var =
-                        s.images[img].replacement_owner_var;
-                    if (!emitted_type[replacement_ptr])
+                        s.images[img].replacement_sampled_type >= id_bound)
                     {
                         STEREO_LOG(
-                            "FS_VAR_SKIP_UNDEFINED_POINTER "
-                            "oldVar=%u "
-                            "newVar=%u "
-                            "oldPtr=%u "
-                            "newPtr=%u "
+                            "FS_VAR_SKIP_UNDEFINED "
+                            "var=%u "
+                            "replacementPointer=%u "
+                            "replacementSampled=%u "
+                            "idBound=%u "
                             "set=%u "
                             "binding=%u",
                             in[i + 2],
-                            replacement_var,
-                            in[i + 1],
-                            replacement_ptr,
+                            s.images[img].replacement_pointer_type,
+                            s.images[img].replacement_sampled_type,
+                            id_bound,
                             s.images[img].set,
                             s.images[img].binding);
                         continue;
                     }
-                    uint32_t w[4];
-                    memcpy(w, &in[i], sizeof(w));
-                    w[1] = replacement_ptr;
-                    w[2] = replacement_var;
+                    if (!emitted_type[s.images[img].replacement_pointer_type])
+                    {
+                        STEREO_LOG(
+                            "FS_VAR_SKIP_POINTER_UNDEFINED "
+                            "var=%u "
+                            "replacementPointer=%u "
+                            "replacementSampled=%u "
+                            "set=%u "
+                            "binding=%u",
+                            in[i + 2],
+                            s.images[img].replacement_pointer_type,
+                            s.images[img].replacement_sampled_type,
+                            s.images[img].set,
+                            s.images[img].binding);
+                        continue;
+                    }
+                    uint32_t w[wc];
+                    memcpy(w, &in[i], wc * sizeof(uint32_t));
+                    w[1] = s.images[img].replacement_pointer_type;
                     STEREO_LOG(
-                        "FS_VAR_CLONE "
-                        "oldVar=%u "
-                        "newVar=%u "
+                        "FS_VAR_PATCH "
+                        "var=%u "
                         "oldPtr=%u "
                         "newPtr=%u "
+                        "sampledType=%u "
                         "set=%u "
                         "binding=%u",
                         in[i + 2],
-                        w[2],
                         in[i + 1],
                         w[1],
+                        s.images[img].replacement_sampled_type,
                         s.images[img].set,
                         s.images[img].binding);
-                    if (w[2] < id_bound && emitted_type[w[2]])
-                    {
-                        STEREO_LOG(
-                            "FS_VAR_SKIP_DUPLICATE "
-                            "newVar=%u "
-                            "newPtr=%u "
-                            "owner=%u "
-                            "binding=%u",
-                            w[2],
-                            w[1],
-                            s.images[img].owner_var,
-                            s.images[img].binding);
-                        replacement_emitted = true;
-                        break;
-                    }
                     sb_push_n(&ob, w, wc);
-                    replacement_emitted = true;
+                    patched = true;
                     break;
                 }
             }
-            if (!replacement_emitted)
+            if (!patched)
             {
                 STEREO_LOG(
                     "FS_VAR_EMIT_ORIGINAL "
