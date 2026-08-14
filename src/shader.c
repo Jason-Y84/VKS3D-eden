@@ -7374,67 +7374,12 @@ bool spirv_patch_stereo_fs(
                 (wc >= 4) ? in[i + 3] : 0,
                 (wc >= 5) ? in[i + 4] : 0);
         }
-        if (op == SpvOpFunctionParameter &&
-            wc >= 3)
+        sb_push_n(&ob, &in[i], wc);
+        if (in[i + 1] < id_bound)
         {
-            uint32_t parameter_id = in[i + 2];
-            uint32_t parameter_type = in[i + 1];
-            uint32_t replacement_pointer = 0;
-            for (uint32_t p = 0; p < s.n_param; ++p)
-            {
-                if (s.params[p].id != parameter_id)
-                    continue;
-                for (uint32_t cidx = 0; cidx < s.n_call; ++cidx)
-                {
-                    const FsCallInfo *call = &s.calls[cidx];
-                    if (call->parameter_id != parameter_id)
-                        continue;
-                    for (uint32_t img = 0; img < s.n_img; ++img)
-                    {
-                        const FsImageInfo *image = &s.images[img];
-                        if (image->owner_var != call->argument_var)
-                            continue;
-                        if (!image->stereo ||
-                            !image->replacement_pointer_type)
-                            continue;
-                        replacement_pointer = image->replacement_pointer_type;
-                        STEREO_LOG(
-                            "FS_PARAM_REWRITE "
-                            "param=%u "
-                            "oldType=%u "
-                            "newType=%u "
-                            "argument=%u "
-                            "owner=%u",
-                            parameter_id,
-                            parameter_type,
-                            replacement_pointer,
-                            call->argument_var,
-                            image->owner_var);
-                        break;
-                    }
-                    if (replacement_pointer)
-                        break;
-                }
-            }
-            if (replacement_pointer)
-            {
-                uint32_t w[3];
-                memcpy(w, &in[i], sizeof(w));
-                w[1] = replacement_pointer;
-                sb_push_n(&ob, w, wc);
-                if (w[1] < id_bound)
-                    emitted_type[w[1]] = true;
-                i += wc;
-                continue;
-            }
-            sb_push_n(&ob, &in[i], wc);
-            if (in[i + 1] < id_bound)
-            {
-                emitted_type[in[i + 1]] = true;
-            }
-            i += wc;
-            continue;
+            emitted_type[in[i + 1]] = true;
         }
+        i += wc;
     }
     for (size_t j = 5; j < ob.n; )
     {
