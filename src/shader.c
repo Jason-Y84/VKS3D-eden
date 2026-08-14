@@ -6340,6 +6340,75 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
+        if (op == SpvOpFunctionParameter &&
+            wc >= 3)
+        {
+            uint32_t parameter_type = in[i + 1];
+            uint32_t parameter_id = in[i + 2];
+            uint32_t replacement_pointer = 0;
+            uint32_t argument_var = 0;
+            for (uint32_t p = 0; p < s.n_param; ++p)
+            {
+                if (s.params[p].id != parameter_id)
+                    continue;
+                for (uint32_t cidx = 0; cidx < s.n_call; ++cidx)
+                {
+                    const FsCallInfo *call = &s.calls[cidx];
+                    if (call->parameter_id != parameter_id)
+                        continue;
+                    argument_var = call->argument_var;
+                    for (uint32_t img = 0; img < s.n_img; ++img)
+                    {
+                        const FsImageInfo *image = &s.images[img];
+                        if (image->owner_var != argument_var)
+                            continue;
+                        if (!image->stereo ||
+                            !image->replacement_pointer_type ||
+                            !image->replacement_sampled_type)
+                            continue;
+                        replacement_pointer =
+                        image->replacement_pointer_type;
+                        STEREO_LOG(
+                            "FS_PARAM_REWRITE "
+                            "param=%u "
+                            "oldType=%u "
+                            "newType=%u "
+                            "argument=%u "
+                            "owner=%u "
+                            "binding=%u",
+                            parameter_id,
+                            parameter_type,
+                            replacement_pointer,
+                            argument_var,
+                            image->owner_var,
+                            image->binding);
+                        break;
+                    }
+                    if (replacement_pointer)
+                        break;
+                }
+                if (replacement_pointer)
+                    break;
+            }
+            if (replacement_pointer)
+            {
+                uint32_t w[3];
+                memcpy(w, &in[i], sizeof(w));
+                w[1] = replacement_pointer;
+                sb_push_n(&ob, w, wc);
+                i += wc;
+                continue;
+            }
+            STEREO_LOG(
+                "FS_PARAM_EMIT_ORIGINAL "
+                "param=%u "
+                "type=%u",
+                parameter_id,
+                parameter_type);
+            sb_push_n(&ob, &in[i], wc);
+            i += wc;
+            continue;
+        }
         if (op == SpvOpVariable &&
             wc >= 4)
         {
