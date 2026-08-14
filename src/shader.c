@@ -2299,7 +2299,6 @@ typedef struct
     bool     stereo;
     uint32_t replacement_type; /* existing array image type if reused */
     uint32_t replacement_pointer_type;
-    uint32_t replacement_owner_var;
     uint32_t replacement_sampled_type;
 } FsImageInfo;
 
@@ -4778,11 +4777,7 @@ fs_prescan(
                 *dst = *src;
                 dst->replacement_type = 0;
                 dst->replacement_pointer_type = 0;
-                dst->replacement_owner_var = 0;
                 dst->replacement_sampled_type = 0;
-                dst->owner_var = UINT32_MAX;
-                dst->binding   = UINT32_MAX;
-                dst->set       = UINT32_MAX;
                 dst->owner_var = s->vars[v].id;
                 dst->binding   = s->vars[v].binding;
                 dst->set       = s->vars[v].set;
@@ -4808,7 +4803,6 @@ fs_prescan(
             *dst = *src;
             dst->replacement_type = 0;
             dst->replacement_pointer_type = 0;
-            dst->replacement_owner_var = 0;
             dst->replacement_sampled_type = 0;
             dst->owner_var = UINT32_MAX;
             dst->binding   = UINT32_MAX;
@@ -5717,7 +5711,7 @@ bool spirv_patch_stereo_fs(
         if (op == SpvOpDecorate &&
             wc >= 4)
         {
-            uint32_t target     = in[i + 1];
+            uint32_t target = in[i + 1];
             uint32_t decoration = in[i + 2];
             if (decoration == SpvDecorationDescriptorSet ||
                 decoration == SpvDecorationBinding)
@@ -5726,28 +5720,24 @@ bool spirv_patch_stereo_fs(
                 {
                     if (s.images[img].owner_var != target)
                         continue;
-                    if (s.images[img].replacement_owner_var == 0)
-                        continue;
-                    uint32_t d[4];
-                    memcpy(d, &in[i], sizeof(d));
-                    d[1] = s.images[img].replacement_owner_var;
                     STEREO_LOG(
-                        "FS_DECORATE_CLONE "
+                        "FS_DECORATE_KEEP "
                         "target=%u "
-                        "clone=%u "
                         "decoration=%u "
                         "value=%u "
                         "binding=%u "
                         "set=%u",
                         target,
-                        d[1],
                         decoration,
-                        d[3],
+                        wc >= 4 ? in[i + 3] : 0,
                         s.images[img].binding,
                         s.images[img].set);
-                    sb_push_n(&ob, d, 4);
+                    break;
                 }
             }
+            sb_push_n(&ob, &in[i], wc);
+            i += wc;
+            continue;
         }
         if (op == SpvOpEntryPoint && !ep_done) {
             ep_done = true;
@@ -6247,13 +6237,11 @@ bool spirv_patch_stereo_fs(
                 "replacementImage=%u "
                 "replacementSampled=%u "
                 "replacementPointer=%u "
-                "replacementVar=%u "
                 "sampledType=%u",
                 s.images[patch_img_idx].id,
                 s.images[patch_img_idx].replacement_type,
                 s.images[patch_img_idx].replacement_sampled_type,
                 s.images[patch_img_idx].replacement_pointer_type,
-                s.images[patch_img_idx].replacement_owner_var,
                 s.images[patch_img_idx].sampled_type);
             STEREO_LOG(
                 "FS_EMIT_ARRAY_TYPE "
