@@ -5862,9 +5862,9 @@ bool spirv_patch_stereo_fs(
                 "result=%u "
                 "storage=%u "
                 "type=%u",
-                w[1],
-                w[2],
-                w[3]);
+                in[i + 1],
+                in[i + 2],
+                in[i + 3]);
             bool suppress_original = false;
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
@@ -5957,8 +5957,8 @@ bool spirv_patch_stereo_fs(
                         s.images[img].binding);
                     continue;
                 }
-                uint32_t w[wc];
-                memcpy(w, &in[i], wc * sizeof(uint32_t));
+                uint32_t w[4];
+                memcpy(w, &in[i], sizeof(w));
                 w[1] = s.images[img].replacement_pointer_type;
                 w[3] = s.images[img].replacement_sampled_type;
                 STEREO_LOG(
@@ -5996,7 +5996,7 @@ bool spirv_patch_stereo_fs(
                 {
                     continue;
                 }
-                sb_push_n(&ob, w, wc);
+                sb_push_n(&ob, w, 4);
                 emitted_type[w[1]] = true;
             }
             i += wc;
