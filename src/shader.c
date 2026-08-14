@@ -6409,8 +6409,8 @@ bool spirv_patch_stereo_fs(
                             s.images[img].binding);
                         continue;
                     }
-                    uint32_t w[wc];
-                    memcpy(w, &in[i], wc * sizeof(uint32_t));
+                    uint32_t w[4];
+                    memcpy(w, &in[i], sizeof(w));
                     w[1] = s.images[img].replacement_pointer_type;
                     STEREO_LOG(
                         "FS_VAR_PATCH "
