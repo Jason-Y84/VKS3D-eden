@@ -7089,97 +7089,41 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
-            uint32_t id_size3 = samp_nid++;
-            STEREO_LOG("FS_SAMPNID_ALLOC assigned=%u next=%u", id_size3, samp_nid);
-            STEREO_LOG(
-                "FS_ALLOC_QUERYSIZE id_size3=%u next=%u",
-                id_size3,
-                samp_nid);
             /*
-             * Query returns ivec3
+             * OpImageQuerySize* already returns the dimensional size of the image.
+             * A 2D image, including a 2D array image, returns ivec2.  Do not
+             * manufacture an ivec3 and shuffle it back to ivec2.
              */
+            uint32_t w[5];
+            memcpy(w, &in[i], wc * sizeof(uint32_t));
+            STEREO_LOG(
+                "FS_REWRITE_QUERYSIZE_KEEP_TYPE "
+                "opcode=%s "
+                "resultType=%u "
+                "result=%u "
+                "image=%u",
+                spv_op_name(op),
+                w[1],
+                w[2],
+                w[3]);
+            if (op == SpvOpImageQuerySizeLod)
             {
-                if (op == SpvOpImageQuerySize)
-                {
-                    uint32_t w[] =
-                    {
-                        (4u << 16) | SpvOpImageQuerySize,
-                        new_v3i_id,
-                        id_size3,
-                        image_ssa
-                    };
-                    STEREO_LOG(
-                        "FS_REWRITE_QUERYSIZE oldResult=%u newResult=%u image=%u",
-                        in[i + 1],
-                        id_size3,
-                        in[i + 3]);
-                    sb_push_n(&ob, w, 4);
-                }
-                else
-                {
-                    uint32_t w[] =
-                    {
-                        (5u << 16) | SpvOpImageQuerySizeLod,
-                        new_v3i_id,
-                        id_size3,
-                        image_ssa,
-                        in[i + 4]
-                    };
-                    STEREO_LOG(
-                        "FS_QSIZE_EMIT "
-                        "opcode=%u "
-                        "resultType=%u "
-                        "result=%u "
-                        "image=%u "
-                        "lod=%u",
-                        w[0] & 0xffffu,
-                        w[1],
-                        w[2],
-                        w[3],
-                        w[4]);
-                    STEREO_LOG(
-                        "FS_REWRITE_QUERYSIZELOD oldResult=%u newResult=%u image=%u lod=%u",
-                        in[i + 1],
-                        id_size3,
-                        in[i + 3],
-                        in[i + 4]);
-                    sb_push_n(&ob, w, 5);
-                    STEREO_LOG(
-                        "FS_QSIZE_BUFFER "
-                        "lastOpcode=%u "
-                        "lastType=%u "
-                        "lastResult=%u",
-                        ob.w[ob.n - 5] & 0xffffu,
-                        ob.w[ob.n - 4],
-                        ob.w[ob.n - 3]);
-                }
                 STEREO_LOG(
-                    "FS_QUERYSIZE_KIND opcode=%u (%s) wc=%u",
-                    op,
-                    spv_op_name(op),
-                    wc);
+                    "FS_REWRITE_QUERYSIZELOD_KEEP_TYPE "
+                    "resultType=%u "
+                    "result=%u "
+                    "image=%u "
+                    "lod=%u",
+                    w[1],
+                    w[2],
+                    w[3],
+                    w[4]);
             }
-            /*
-             * Original result stays ivec2
-             */
+            sb_push_n(&ob, w, wc);
+            if (w[1] < id_bound)
             {
-                uint32_t w[] =
-                {
-                    (7u << 16) | SpvOpVectorShuffle,
-                    s.v2int_id,
-                    in[i + 2],
-                    id_size3,
-                    id_size3,
-                    0,
-                    1
-                };
-                sb_push_n(&ob, w, 7);
+                emitted_type[w[1]] = true;
             }
-            STEREO_LOG(
-                "FS_QUERYSIZE_REWRITE result=%u image=%u temp3=%u",
-                in[i + 2],
-                in[i + 3],
-                id_size3);
             i += wc;
             continue;
         }
