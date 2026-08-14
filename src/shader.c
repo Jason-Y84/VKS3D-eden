@@ -6495,20 +6495,12 @@ bool spirv_patch_stereo_fs(
             i += wc; continue;
         }
         if (op == SpvOpFunction) in_func = true;
-        /*
-         * Log fragment shader output stores.
-         * OpStore operands:
-         *   word[1] = target variable
-         *   word[2] = stored value
-         *
-         * Used to identify SSAO/deferred lighting outputs.
-         */
         if (in_func &&
             op == SpvOpLoad &&
             wc >= 4)
         {
             uint32_t w[4];
-            memcpy(w, &in[i], wc * sizeof(uint32_t));
+            memcpy(w, &in[i], sizeof(w));
             STEREO_LOG(
                 "FS_LOAD_REWRITE_CHECK "
                 "ptr=%u",
@@ -6552,22 +6544,19 @@ bool spirv_patch_stereo_fs(
                     int img = fs_find_image_by_owner(&s, s.vars[v].id);
                     if (img >= 0)
                     {
-                        uint32_t new_ptr = s.images[img].replacement_owner_var;
-                        if (new_ptr)
-                        {
-                            STEREO_LOG(
-                                "FS_LOAD_REWRITE "
-                                "result=%u "
-                                "oldPtr=%u "
-                                "newPtr=%u "
-                                "binding=%u",
-                                w[2],
-                                w[3],
-                                new_ptr,
-                                s.images[img].binding);
-                            w[3] = new_ptr;
-                        }
-                        if (w[1] == s.images[img].sampled_type_id && s.images[img].replacement_sampled_type)
+                        FsImageInfo *image = &s.images[img];
+                        STEREO_LOG(
+                            "FS_LOAD_IMAGE "
+                            "owner=%u "
+                            "binding=%u "
+                            "replacementPointer=%u "
+                            "replacementSampled=%u",
+                            image->owner_var,
+                            image->binding,
+                            image->replacement_pointer_type,
+                            image->replacement_sampled_type);
+                        if (w[1] == image->sampled_type_id &&
+                            image->replacement_sampled_type)
                         {
                             STEREO_LOG(
                                 "FS_LOAD_PATCH "
@@ -6577,19 +6566,35 @@ bool spirv_patch_stereo_fs(
                                 "binding=%u",
                                 w[2],
                                 w[1],
-                                s.images[img].replacement_sampled_type,
-                                s.images[img].binding);
-                            w[1] = s.images[img].replacement_sampled_type;
+                                image->replacement_sampled_type,
+                                image->binding);
+                            w[1] = image->replacement_sampled_type;
                         }
-                        if (!new_ptr)
+                        else
                         {
-                        STEREO_LOG(
-                            "FS_LOAD_NO_REPLACEMENT "
-                            "ptr=%u "
-                            "binding=%u",
-                            w[3],
-                            s.images[img].binding);
+                            STEREO_LOG(
+                                "FS_LOAD_NO_TYPE_PATCH "
+                                "result=%u "
+                                "type=%u "
+                                "sampledType=%u "
+                                "replacementSampled=%u "
+                                "binding=%u",
+                                w[2],
+                                w[1],
+                                image->sampled_type_id,
+                                image->replacement_sampled_type,
+                                image->binding);
                         }
+                        STEREO_LOG(
+                            "FS_LOAD_KEEP_OWNER "
+                            "result=%u "
+                            "ptr=%u "
+                            "owner=%u "
+                            "binding=%u",
+                            w[2],
+                            w[3],
+                            image->owner_var,
+                            image->binding);
                     }
                     else
                     {
@@ -6601,29 +6606,25 @@ bool spirv_patch_stereo_fs(
                     break;
                 }
             }
-        STEREO_LOG(
-            "FS_LOAD_DECL "
-            "resultType=%u "
-            "result=%u "
-            "pointer=%u",
-            in[i + 1],
-            in[i + 2],
-            in[i + 3]);
-        STEREO_LOG(
-            "FS_LOAD_FINAL "
-            "result=%u "
-            "resultType=%u "
-            "ptr=%u",
-            w[2],
-            w[1],
-            w[3]);
-        sb_push_n(&ob, w, wc);
-        if (w[1] < id_bound)
-        {
-            emitted_type[w[1]] = true;
-        }
-        i += wc;
-        continue;
+            STEREO_LOG(
+                "FS_LOAD_DECL "
+                "resultType=%u "
+                "result=%u "
+                "pointer=%u",
+                in[i + 1],
+                in[i + 2],
+                in[i + 3]);
+            STEREO_LOG(
+                "FS_LOAD_FINAL "
+                "result=%u "
+                "resultType=%u "
+                "ptr=%u",
+                w[2],
+                w[1],
+                w[3]);
+            sb_push_n(&ob, w, wc);
+            i += wc;
+            continue;
         }
         if (op >= SpvOpImageSampleImplicitLod &&
             op <= SpvOpImageSampleProjDrefExplicitLod &&
