@@ -6903,6 +6903,18 @@ bool spirv_patch_stereo_fs(
             op == SpvOpImage &&
             wc >= 4)
         {
+            if ((in[i + 2] == 170 && in[i + 3] == 169) ||
+                (in[i + 2] == 38 && in[i + 3] == 37))
+            {
+                STEREO_LOG(
+                    "FS_TARGET_IMAGE "
+                    "result=%u "
+                    "resultType=%u "
+                    "sampledImage=%u",
+                    in[i + 2],
+                    in[i + 1],
+                    in[i + 3]);
+            }
             STEREO_LOG(
                 "FS_PATCH_IMAGE_VISIT result=%u resultType=%u sampledImage=%u",
                 in[i + 2],
@@ -7168,7 +7180,7 @@ bool spirv_patch_stereo_fs(
             i += wc;
             continue;
         }
-        if (in_func && op == 86 && wc >= 3)
+        if (in_func && op == SpvOpSampledImage && wc >= 3)
         {
             STEREO_LOG(
                 "FS_IMAGE imageResult=%u sampledImage=%u",
