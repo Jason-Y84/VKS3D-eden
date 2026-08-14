@@ -5857,11 +5857,7 @@ bool spirv_patch_stereo_fs(
                 w[1],
                 w[2],
                 w[3]);
-            sb_push_n(&ob, &in[i], wc);
-            if (in[i + 1] < id_bound)
-            {
-                emitted_type[in[i + 1]] = true;
-            }
+            bool stereo_pointer = false;
             for (uint32_t img = 0; img < s.n_img; ++img)
             {
                 if (in[i + 3] != s.images[img].sampled_type_id ||
@@ -5871,7 +5867,23 @@ bool spirv_patch_stereo_fs(
                 {
                     continue;
                 }
-                if (s.images[img].replacement_sampled_type == in[i + 3])
+                stereo_pointer = true;
+                break;
+            }
+            if (!stereo_pointer)
+            {
+                sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < id_bound)
+                {
+                    emitted_type[in[i + 1]] = true;
+                }
+            }
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (in[i + 3] != s.images[img].sampled_type_id ||
+                    !s.images[img].stereo ||
+                    s.images[img].replacement_sampled_type == 0 ||
+                    s.images[img].replacement_pointer_type == 0)
                 {
                     STEREO_LOG(
                         "FS_POINTER_SKIP_SAME_TYPE "
@@ -5902,8 +5914,11 @@ bool spirv_patch_stereo_fs(
                     continue;
                 }
                 if (s.images[img].replacement_pointer_type >= id_bound ||
-                    s.images[img].replacement_sampled_type >= id_bound ||
-                    !emitted_type[s.images[img].replacement_sampled_type])
+                    s.images[img].replacement_sampled_type >= id_bound)
+                {
+                    continue;
+                }
+                if (!emitted_type[s.images[img].replacement_sampled_type])
                 {
                     STEREO_LOG(
                         "FS_POINTER_SKIP_UNDEFINED "
