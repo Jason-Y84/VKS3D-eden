@@ -5771,6 +5771,7 @@ bool spirv_patch_stereo_fs(
             uint32_t sampled_id = in[i + 1];
             uint32_t image_type = in[i + 2];
             uint32_t replacement_image = 0;
+            uint32_t replacement_sampled = 0;
             bool patch_sampled = false;
             STEREO_LOG(
                 "FS_SAMPLED_IMAGE_DECL "
@@ -5810,8 +5811,14 @@ bool spirv_patch_stereo_fs(
                     !s.images[img].replacement_type)
                     continue;
                 replacement_image = s.images[img].replacement_type;
-                patch_sampled = true;
-                break;
+                replacement_sampled =
+                    s.images[img].replacement_sampled_type;
+                if (replacement_sampled != 0 &&
+                    replacement_sampled != sampled_id)
+                {
+                    patch_sampled = true;
+                    break;
+                }
             }
             if (patch_sampled)
             {
@@ -5819,14 +5826,18 @@ bool spirv_patch_stereo_fs(
                     "FS_SAMPLED_IMAGE_PATCH "
                     "result=%u "
                     "oldImageType=%u "
-                    "newImageType=%u",
+                    "newImageType=%u "
+                    "replacementSampled=%u",
                     sampled_id,
                     image_type,
-                    replacement_image);
-                uint32_t w[3];
-                memcpy(w, &in[i], sizeof(w));
-                w[2] = replacement_image;
-                sb_push_n(&ob, w, 3);
+                    replacement_image,
+                    replacement_sampled);
+                /*
+                 * The original sampled-image ID is being replaced by an
+                 * already-existing sampled-image type. Do not emit the old
+                 * result ID again; all pointer declarations will use the
+                 * replacement sampled-image ID.
+                 */
                 if (sampled_id < id_bound)
                     emitted_type[sampled_id] = true;
                 i += wc;
