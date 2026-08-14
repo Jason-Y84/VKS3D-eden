@@ -6352,28 +6352,7 @@ bool spirv_patch_stereo_fs(
                 in[i + 2],
                 in[i + 1],
                 in[i + 3]);
-            for (uint32_t img = 0; img < s.n_img; ++img)
-            {
-                STEREO_LOG(
-                    "FS_VAR_CHECK "
-                    "var=%u "
-                    "img=%u "
-                    "owner=%u "
-                    "binding=%u "
-                    "set=%u "
-                    "stereo=%u",
-                    in[i + 2],
-                    img,
-                    s.images[img].owner_var,
-                    s.images[img].binding,
-                    s.images[img].set,
-                    s.images[img].stereo);
-            }
-            sb_push_n(&ob, &in[i], wc);
-            if (in[i + 2] < id_bound)
-            {
-                emitted_type[in[i + 2]] = true;
-            }
+            bool replacement_emitted = false;
             if (in[i + 3] == SpvStorageClassUniformConstant)
             {
                 for (uint32_t img = 0; img < s.n_img; ++img)
@@ -6382,11 +6361,36 @@ bool spirv_patch_stereo_fs(
                         continue;
                     if (!s.images[img].replacement_pointer_type ||
                         !s.images[img].replacement_owner_var)
-                        break;
+                        continue;
+                    if (s.images[img].replacement_pointer_type >= id_bound ||
+                        s.images[img].replacement_owner_var >= id_bound)
+                        continue;
+                    uint32_t replacement_ptr =
+                        s.images[img].replacement_pointer_type;
+                    uint32_t replacement_var =
+                        s.images[img].replacement_owner_var;
+                    if (!emitted_type[replacement_ptr])
+                    {
+                        STEREO_LOG(
+                            "FS_VAR_SKIP_UNDEFINED_POINTER "
+                            "oldVar=%u "
+                            "newVar=%u "
+                            "oldPtr=%u "
+                            "newPtr=%u "
+                            "set=%u "
+                            "binding=%u",
+                            in[i + 2],
+                            replacement_var,
+                            in[i + 1],
+                            replacement_ptr,
+                            s.images[img].set,
+                            s.images[img].binding);
+                        continue;
+                    }
                     uint32_t w[4];
                     memcpy(w, &in[i], sizeof(w));
-                    w[1] = s.images[img].replacement_pointer_type;
-                    w[2] = s.images[img].replacement_owner_var;
+                    w[1] = replacement_ptr;
+                    w[2] = replacement_var;
                     STEREO_LOG(
                         "FS_VAR_CLONE "
                         "oldVar=%u "
@@ -6401,13 +6405,37 @@ bool spirv_patch_stereo_fs(
                         w[1],
                         s.images[img].set,
                         s.images[img].binding);
-                    sb_push_n(&ob, w, wc);
-                    if (w[2] < id_bound)
+                    if (w[2] < id_bound && emitted_type[w[2]])
                     {
-                        emitted_type[w[2]] = true;
+                        STEREO_LOG(
+                            "FS_VAR_SKIP_DUPLICATE "
+                            "newVar=%u "
+                            "newPtr=%u "
+                            "owner=%u "
+                            "binding=%u",
+                            w[2],
+                            w[1],
+                            s.images[img].owner_var,
+                            s.images[img].binding);
+                        replacement_emitted = true;
+                        break;
                     }
+                    sb_push_n(&ob, w, wc);
+                    replacement_emitted = true;
                     break;
                 }
+            }
+            if (!replacement_emitted)
+            {
+                STEREO_LOG(
+                    "FS_VAR_EMIT_ORIGINAL "
+                    "var=%u "
+                    "ptrType=%u "
+                    "storage=%u",
+                    in[i + 2],
+                    in[i + 1],
+                    in[i + 3]);
+                sb_push_n(&ob, &in[i], wc);
             }
             i += wc;
             continue;
