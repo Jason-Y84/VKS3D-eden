@@ -7303,7 +7303,7 @@ bool spirv_patch_stereo_fs(
                 w[3]);
             sb_push_n(&ob, w, wc);
             uint32_t shuffle[] = {
-                (5u << 16) | SpvOpVectorShuffle,
+                (7u << 16) | SpvOpVectorShuffle,
                 old_result_type,
                 old_result_id,
                 query_v3_id,
