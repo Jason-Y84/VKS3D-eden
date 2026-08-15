@@ -5855,7 +5855,6 @@ bool spirv_patch_stereo_fs(
             uint32_t sampled_id = in[i + 1];
             uint32_t image_type = in[i + 2];
             uint32_t replacement_image = 0;
-            uint32_t replacement_sampled = 0;
             bool patch_sampled = false;
             STEREO_LOG(
                 "FS_SAMPLED_IMAGE_DECL "
@@ -5895,14 +5894,8 @@ bool spirv_patch_stereo_fs(
                     !s.images[img].replacement_type)
                     continue;
                 replacement_image = s.images[img].replacement_type;
-                replacement_sampled =
-                    s.images[img].replacement_sampled_type;
-                if (replacement_sampled != 0 &&
-                    replacement_sampled != sampled_id)
-                {
-                    patch_sampled = true;
-                    break;
-                }
+                patch_sampled = true;
+                break;
             }
             if (patch_sampled)
             {
