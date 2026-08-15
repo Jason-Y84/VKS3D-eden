@@ -5557,6 +5557,7 @@ bool spirv_patch_stereo_fs(
         s.images[img].replacement_pointer_type = nid++;
     }
     uint32_t samp_nid      = nid;
+    uint32_t qsize_nid     = samp_nid + n_patches * 5 + 8;
     /*
      * ImageSample/ImageFetch consume 5 ids.
      * ImageQuerySizeLod consumes only 4 ids,
@@ -7270,7 +7271,7 @@ bool spirv_patch_stereo_fs(
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             uint32_t old_result_type = w[1];
             uint32_t old_result_id = w[2];
-            uint32_t query_v3_id = nid++;
+            uint32_t query_v3_id = qsize_nid++;
             if (!s.v3int_id)
             {
                 STEREO_LOG(
@@ -7294,12 +7295,14 @@ bool spirv_patch_stereo_fs(
                 "queryResultType=%u "
                 "oldResult=%u "
                 "queryResult=%u "
+                "qsizeNidNext=%u "
                 "image=%u",
                 spv_op_name(op),
                 old_result_type,
                 s.v3int_id,
                 old_result_id,
                 query_v3_id,
+                qsize_nid,
                 w[3]);
             sb_push_n(&ob, w, wc);
             uint32_t shuffle[] = {
