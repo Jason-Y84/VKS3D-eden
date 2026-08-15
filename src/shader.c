@@ -6146,6 +6146,14 @@ bool spirv_patch_stereo_fs(
                     "existing=%u",
                     img_idx,
                     existing);
+                STEREO_LOG(
+                    "FS_REUSE_IMAGE_CANDIDATE "
+                    "image=%u "
+                    "existing=%u "
+                    "existingEmitted=%u",
+                    img->id,
+                    existing,
+                    (existing < id_bound) ? emitted_type[existing] : 0);
                 if (existing != 0 &&
                     existing < id_bound &&
                     emitted_type[existing])
@@ -6180,6 +6188,19 @@ bool spirv_patch_stereo_fs(
                         existing_sampled >= id_bound ||
                         !emitted_type[existing_sampled])
                     {
+                        STEREO_LOG(
+                            "FS_REUSE_IMAGE_REJECT_ORDER "
+                            "image=%u "
+                            "existing=%u "
+                            "existingEmitted=%u "
+                            "existingSampled=%u "
+                            "sampledEmitted=%u",
+                            img->id,
+                            existing,
+                            (existing < id_bound) ? emitted_type[existing] : 0,
+                            existing_sampled,
+                            (existing_sampled < id_bound) ?
+                            emitted_type[existing_sampled] : 0);
                         sb_push_n(&ob, &in[i], wc);
                         if (in[i + 1] < id_bound)
                         {
