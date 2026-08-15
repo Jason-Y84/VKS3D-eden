@@ -7268,44 +7268,57 @@ bool spirv_patch_stereo_fs(
              */
             uint32_t w[5];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
-            /*
-             * OpImageQuerySize* already returns the dimensional size of the image.
-             * A 2D image, including a 2D array image, returns ivec2. Do not
-             * manufacture an ivec3.
-             */
-            STEREO_LOG(
-                "FS_REWRITE_QUERYSIZE_KEEP_TYPE "
-                "opcode=%s "
-                "resultType=%u "
-                "result=%u "
-                "image=%u",
-                spv_op_name(op),
-                w[1],
-                w[2],
-                w[3]);
-            if (op == SpvOpImageQuerySizeLod)
+            uint32_t old_result_type = w[1];
+            uint32_t old_result_id = w[2];
+            uint32_t query_v3_id = nid++;
+            if (!s.v3int_id)
             {
                 STEREO_LOG(
-                    "FS_REWRITE_QUERYSIZELOD_KEEP_TYPE "
-                    "resultType=%u "
-                    "result=%u "
-                    "image=%u "
-                    "lod=%u",
-                    w[1],
-                    w[2],
-                    w[3],
-                    w[4]);
+                    "FS_QSIZE_NO_V3INT_TYPE result=%u image=%u",
+                    old_result_id,
+                    w[3]);
+                sb_push_n(&ob, &in[i], wc);
+                if (w[1] < id_bound)
+                {
+                    emitted_type[w[1]] = true;
+                }
+                i += wc;
+                continue;
             }
+            w[1] = s.v3int_id;
+            w[2] = query_v3_id;
+            STEREO_LOG(
+                "FS_REWRITE_QUERYSIZE_V3 "
+                "opcode=%s "
+                "oldResultType=%u "
+                "queryResultType=%u "
+                "oldResult=%u "
+                "queryResult=%u "
+                "image=%u",
+                spv_op_name(op),
+                old_result_type,
+                s.v3int_id,
+                old_result_id,
+                query_v3_id,
+                w[3]);
             sb_push_n(&ob, w, wc);
-            if (w[1] < id_bound)
+            uint32_t shuffle[] = {
+                (5u << 16) | SpvOpVectorShuffle,
+                old_result_type,
+                old_result_id,
+                query_v3_id,
+                query_v3_id,
+                0,
+                1
+            };
+            sb_push_n(&ob, shuffle, 7);
+            if (old_result_type < id_bound)
             {
-                emitted_type[w[1]] = true;
+                emitted_type[old_result_type] = true;
             }
-            i += wc;
-            continue;
-            if (w[1] < id_bound)
+            if (query_v3_id < id_bound)
             {
-                emitted_type[w[1]] = true;
+                emitted_type[query_v3_id] = true;
             }
             i += wc;
             continue;
