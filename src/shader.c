@@ -5895,8 +5895,7 @@ bool spirv_patch_stereo_fs(
                 replacement_image = s.images[img].replacement_type;
                 replacement_sampled =
                     s.images[img].replacement_sampled_type;
-                if (replacement_sampled != 0 &&
-                    replacement_sampled != sampled_id)
+                if (replacement_sampled == sampled_id)
                 {
                     patch_sampled = true;
                     break;
@@ -5914,12 +5913,10 @@ bool spirv_patch_stereo_fs(
                     image_type,
                     replacement_image,
                     replacement_sampled);
-                /*
-                 * The original sampled-image ID is being replaced by an
-                 * already-existing sampled-image type. Do not emit the old
-                 * result ID again; all pointer declarations will use the
-                 * replacement sampled-image ID.
-                 */
+                uint32_t w[3];
+                memcpy(w, &in[i], sizeof(w));
+                w[2] = replacement_image;
+                sb_push_n(&ob, w, 3);
                 if (sampled_id < id_bound)
                     emitted_type[sampled_id] = true;
                 i += wc;
