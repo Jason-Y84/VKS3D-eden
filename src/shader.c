@@ -7258,31 +7258,45 @@ bool spirv_patch_stereo_fs(
                 continue;
             }
             /*
-             * OpImageQuerySize* already returns the dimensional size of the image.
-             * A 2D image, including a 2D array image, returns ivec2.  Do not
-             * manufacture an ivec3 and shuffle it back to ivec2.
+             * The stereo image replacement changes a 2D image into a 2D-array image.
+             * OpImageQuerySize* therefore needs a 3-component integer result type:
+             *   original 2D image       -> ivec2
+             *   stereo 2D-array image   -> ivec3
+             *
+             * Keep the query instruction itself unchanged apart from its Result Type.
              */
             uint32_t w[5];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
-            STEREO_LOG(
-                "FS_REWRITE_QUERYSIZE_KEEP_TYPE "
-                "opcode=%s "
-                "resultType=%u "
-                "result=%u "
-                "image=%u",
-                spv_op_name(op),
-                w[1],
-                w[2],
-                w[3]);
+            uint32_t old_result_type = w[1];
+            uint32_t query_result_type = old_result_type;
+            if (s.images[img_idx].replacement_type)
+            {
+                query_result_type = v3int_type;
+                STEREO_LOG(
+                    "FS_REWRITE_QUERYSIZE_ARRAY "
+                    "opcode=%s "
+                    "oldResultType=%u "
+                    "newResultType=%u "
+                    "result=%u "
+                    "image=%u",
+                    spv_op_name(op),
+                    old_result_type,
+                    query_result_type,
+                    w[2],
+                    w[3]);
+            }
+            w[1] = query_result_type;
             if (op == SpvOpImageQuerySizeLod)
             {
                 STEREO_LOG(
-                    "FS_REWRITE_QUERYSIZELOD_KEEP_TYPE "
-                    "resultType=%u "
+                    "FS_REWRITE_QUERYSIZELOD_ARRAY "
+                    "oldResultType=%u "
+                    "newResultType=%u "
                     "result=%u "
                     "image=%u "
                     "lod=%u",
-                    w[1],
+                    old_result_type,
+                    query_result_type,
                     w[2],
                     w[3],
                     w[4]);
