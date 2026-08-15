@@ -5460,13 +5460,13 @@ bool spirv_patch_stereo_fs(
         s.v3uint_id);
     for (uint32_t img = 0; img < s.n_img; ++img)
     {
-        if (!s.images[img].stereo)
+        if (!s.images[img].patchable)
             continue;
         uint32_t replacement = 0;
         uint32_t replacement_sampled = 0;
         for (uint32_t prev = 0; prev < img; ++prev)
         {
-            if (!s.images[prev].stereo)
+            if (!s.images[prev].patchable)
                 continue;
             if (s.images[prev].sampled_type_id != s.images[img].sampled_type_id)
                 continue;
@@ -5552,7 +5552,7 @@ bool spirv_patch_stereo_fs(
     }
     for (uint32_t img = 0; img < s.n_img; ++img)
     {
-        if (!s.images[img].stereo)
+        if (!s.images[img].patchable)
             continue;
         s.images[img].replacement_pointer_type = nid++;
     }
