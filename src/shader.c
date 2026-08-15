@@ -5914,12 +5914,12 @@ bool spirv_patch_stereo_fs(
                     image_type,
                     replacement_image,
                     replacement_sampled);
-                /*
-                 * The original sampled-image ID is being replaced by an
-                 * already-existing sampled-image type. Do not emit the old
-                 * result ID again; the pointer rewrite below will use the
-                 * replacement sampled-image ID.
-                 */
+                uint32_t w[3];
+                memcpy(w, &in[i], sizeof(w));
+                w[2] = replacement_image;
+                sb_push_n(&ob, w, 3);
+                if (sampled_id < id_bound)
+                    emitted_type[sampled_id] = true;
                 i += wc;
                 continue;
             }
