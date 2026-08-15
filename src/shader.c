@@ -5773,8 +5773,6 @@ bool spirv_patch_stereo_fs(
                         continue;
                     uint32_t first_param =
                     s.functions[fn].first_param;
-                    uint32_t param_count =
-                    s.functions[fn].id ? 0 : 0;
                     for (uint32_t p = 0; p < s.n_param; ++p)
                     {
                         if (s.params[p].function_id !=
@@ -7145,11 +7143,20 @@ bool spirv_patch_stereo_fs(
                     STEREO_LOG(
                         "FS_PATCH_OWNER_MATCH idx=%u",
                         img);
+                    STEREO_LOG(
+                        "FS_PATCH_TYPES "
+                        "idx=%u "
+                        "sampledType=%u "
+                        "replacementSampled=%u "
+                        "replacementImage=%u",
+                        img,
+                        s.images[img].sampled_type_id,
+                        s.images[img].replacement_sampled_type,
+                        s.images[img].replacement_type);
                     if (s.images[img].stereo &&
                         s.images[img].replacement_type &&
                         s.images[img].replacement_sampled_type &&
-                        s.images[img].replacement_sampled_type !=
-                            s.images[img].sampled_type_id)
+                        s.images[img].replacement_sampled_type)
                     {
                         STEREO_LOG(
                             "FS_PATCH_IMAGE_REWRITE result=%u oldType=%u newType=%u",
