@@ -7268,43 +7268,41 @@ bool spirv_patch_stereo_fs(
              */
             uint32_t w[5];
             memcpy(w, &in[i], wc * sizeof(uint32_t));
-            uint32_t old_result_type = w[1];
-            uint32_t query_result_type = old_result_type;
-            if (s.images[img_idx].stereo &&
-                s.images[img_idx].replacement_type &&
-                s.v3int_id)
-            {
-                query_result_type = s.v3int_id;
-                STEREO_LOG(
-                    "FS_REWRITE_QUERYSIZE_ARRAY "
-                    "opcode=%s "
-                    "oldResultType=%u "
-                    "newResultType=%u "
-                    "result=%u "
-                    "image=%u",
-                    spv_op_name(op),
-                    old_result_type,
-                    query_result_type,
-                    w[2],
-                    w[3]);
-            }
-            w[1] = query_result_type;
+            /*
+             * OpImageQuerySize* already returns the dimensional size of the image.
+             * A 2D image, including a 2D array image, returns ivec2. Do not
+             * manufacture an ivec3.
+             */
+            STEREO_LOG(
+                "FS_REWRITE_QUERYSIZE_KEEP_TYPE "
+                "opcode=%s "
+                "resultType=%u "
+                "result=%u "
+                "image=%u",
+                spv_op_name(op),
+                w[1],
+                w[2],
+                w[3]);
             if (op == SpvOpImageQuerySizeLod)
             {
                 STEREO_LOG(
-                    "FS_REWRITE_QUERYSIZELOD_ARRAY "
-                    "oldResultType=%u "
-                    "newResultType=%u "
+                    "FS_REWRITE_QUERYSIZELOD_KEEP_TYPE "
+                    "resultType=%u "
                     "result=%u "
                     "image=%u "
                     "lod=%u",
-                    old_result_type,
-                    query_result_type,
+                    w[1],
                     w[2],
                     w[3],
                     w[4]);
             }
             sb_push_n(&ob, w, wc);
+            if (w[1] < id_bound)
+            {
+                emitted_type[w[1]] = true;
+            }
+            i += wc;
+            continue;
             if (w[1] < id_bound)
             {
                 emitted_type[w[1]] = true;
