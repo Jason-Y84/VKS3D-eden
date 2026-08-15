@@ -2251,6 +2251,7 @@ typedef struct
 {
     uint32_t id;
     uint32_t first_param;
+    uint32_t type_id;
 } FsFunctionInfo;
 
 typedef struct
@@ -3698,11 +3699,14 @@ fs_scan_function(
         function_id;
     fn->first_param =
         s->n_param;
+    fn->type_id =
+        (wc >= 5) ? ins[4] : 0;
     STEREO_LOG(
-        "FS_FUNCTION_REGISTER id=%u index=%u firstParam=%u",
+        "FS_FUNCTION_REGISTER id=%u index=%u firstParam=%u type=%u",
         function_id,
         s->n_function - 1,
-        fn->first_param);
+        fn->first_param,
+        fn->type_id);
     STEREO_LOG(
         "FS_FUNCTION_BEGIN id=%u",
         function_id);
@@ -5753,6 +5757,97 @@ bool spirv_patch_stereo_fs(
                 }
             }
             i += wc; continue;
+        }
+        if (op == SpvOpTypeFunction &&
+            wc >= 3)
+        {
+            uint32_t function_type_id = in[i + 1];
+            bool patched = false;
+            uint32_t w[64];
+            if (wc <= 64)
+            {
+                memcpy(w, &in[i], wc * sizeof(uint32_t));
+                for (uint32_t fn = 0; fn < s.n_function; ++fn)
+                {
+                    if (s.functions[fn].type_id != function_type_id)
+                        continue;
+                    uint32_t first_param =
+                    s.functions[fn].first_param;
+                    uint32_t param_count =
+                    s.functions[fn].id ? 0 : 0;
+                    for (uint32_t p = 0; p < s.n_param; ++p)
+                    {
+                        if (s.params[p].function_id !=
+                            s.functions[fn].id)
+                            continue;
+                        if (p < first_param)
+                            continue;
+                        uint32_t function_param_index =
+                        p - first_param;
+                        uint32_t operand =
+                        3 + function_param_index;
+                        if (operand >= wc)
+                            break;
+                        uint32_t parameter_id =
+                        s.params[p].id;
+                        uint32_t replacement_pointer = 0;
+                        for (uint32_t cidx = 0;
+                            cidx < s.n_call;
+                            ++cidx)
+                        {
+                            const FsCallInfo *call =
+                            &s.calls[cidx];
+                            if (call->parameter_id != parameter_id)
+                                continue;
+                            for (uint32_t img = 0;
+                                img < s.n_img;
+                                ++img)
+                            {
+                                const FsImageInfo *image =
+                                &s.images[img];
+                                if (image->owner_var !=
+                                    call->argument_var)
+                                    continue;
+                                if (!image->stereo ||
+                                    !image->replacement_pointer_type)
+                                    continue;
+                                replacement_pointer =
+                                image->replacement_pointer_type;
+                                break;
+                            }
+                            if (replacement_pointer)
+                                break;
+                        }
+                        if (replacement_pointer &&
+                            w[operand] != replacement_pointer)
+                        {
+                            STEREO_LOG(
+                                "FS_FUNCTION_TYPE_REWRITE "
+                                "function=%u "
+                                "functionType=%u "
+                                "param=%u "
+                                "oldType=%u "
+                                "newType=%u",
+                                s.functions[fn].id,
+                                function_type_id,
+                                parameter_id,
+                                w[operand],
+                                replacement_pointer);
+                            w[operand] =
+                            replacement_pointer;
+                            patched = true;
+                        }
+                    }
+                }
+                if (patched)
+                {
+                    sb_push_n(&ob, w, wc);
+                    if (w[1] < id_bound)
+                        emitted_type[w[1]] = true;
+                    i += wc;
+                    continue;
+                }
+            }
         }
         if (op == SpvOpTypeSampledImage &&
             wc >= 3)
