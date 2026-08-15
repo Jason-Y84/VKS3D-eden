@@ -6146,7 +6146,9 @@ bool spirv_patch_stereo_fs(
                     "existing=%u",
                     img_idx,
                     existing);
-                if (existing != 0)
+                if (existing != 0 &&
+                    existing < id_bound &&
+                    emitted_type[existing])
                 {
                     uint32_t existing_sampled =
                     fs_find_matching_sampled_image(
@@ -6174,7 +6176,9 @@ bool spirv_patch_stereo_fs(
                         existing_sampled,
                         img->replacement_type,
                         img->replacement_sampled_type);
-                    if (existing_sampled == 0)
+                    if (existing_sampled == 0 ||
+                        existing_sampled >= id_bound ||
+                        !emitted_type[existing_sampled])
                     {
                         sb_push_n(&ob, &in[i], wc);
                         if (in[i + 1] < id_bound)
