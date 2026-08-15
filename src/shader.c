@@ -6607,6 +6607,7 @@ bool spirv_patch_stereo_fs(
             {
                 uint32_t w[]={(4u<<16)|SpvOpTypeVector, new_v3i_id, new_int_id, 3};
                 sb_push_n(&ob,w,4);
+                s.v3int_id = new_v3i_id;
                 STEREO_LOG(
                     "FS_EMIT_V3INT id=%u scalar=%u existingInt=%u",
                     new_v3i_id,
