@@ -5855,6 +5855,7 @@ bool spirv_patch_stereo_fs(
             uint32_t sampled_id = in[i + 1];
             uint32_t image_type = in[i + 2];
             uint32_t replacement_image = 0;
+            uint32_t replacement_sampled = 0;
             bool patch_sampled = false;
             STEREO_LOG(
                 "FS_SAMPLED_IMAGE_DECL "
