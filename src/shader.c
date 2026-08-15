@@ -7270,7 +7270,9 @@ bool spirv_patch_stereo_fs(
             memcpy(w, &in[i], wc * sizeof(uint32_t));
             uint32_t old_result_type = w[1];
             uint32_t query_result_type = old_result_type;
-            if (s.images[img_idx].replacement_type)
+            if (s.images[img_idx].stereo &&
+                s.images[img_idx].replacement_type &&
+                s.v3int_id)
             {
                 query_result_type = s.v3int_id;
                 STEREO_LOG(
