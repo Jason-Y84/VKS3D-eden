@@ -7271,7 +7271,7 @@ bool spirv_patch_stereo_fs(
             uint32_t query_result_type = old_result_type;
             if (s.images[img_idx].replacement_type)
             {
-                query_result_type = v3int_type;
+                query_result_type = s.v3int_id;
                 STEREO_LOG(
                     "FS_REWRITE_QUERYSIZE_ARRAY "
                     "opcode=%s "
