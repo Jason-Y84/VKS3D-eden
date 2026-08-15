@@ -7746,6 +7746,8 @@ bool spirv_patch_stereo_fs(
         }
         j += wc;
     }
+    if (nid > samp_nid)
+        samp_nid = nid;
     ob.w[3] = samp_nid + 1;
     *out   = ob.w;
     *out_c = ob.n;
