@@ -7751,7 +7751,7 @@ bool spirv_patch_stereo_fs(
     }
     if (nid > samp_nid)
         samp_nid = nid;
-    ob.w[3] = samp_nid + 1;
+    ob.w[3] = qsize_nid;
     *out   = ob.w;
     *out_c = ob.n;
     STEREO_LOG("FS patched: %u 2D img types→arr, %u samples extended, bound %u→%u",
@@ -7762,11 +7762,12 @@ bool spirv_patch_stereo_fs(
         in_c,
         ob.n);
     STEREO_LOG(
-        "FS_FINAL_BOUND old=%u new=%u nid=%u samp_nid=%u",
+        "FS_FINAL_BOUND old=%u new=%u nid=%u samp_nid=%u qsize_nid=%u",
         in[3],
         ob.w[3],
         nid,
-        samp_nid);
+        samp_nid,
+        qsize_nid);
     return true;
 }
 
