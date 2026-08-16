@@ -7,6 +7,9 @@ Set VKS3D_DIR=C:\Programs\VKS3D\Release
 Set VKS3D_BUILDS=C:\Programs\VKS3D\Release\Builds\dev
 
 For %%A in (%*) do (
+    Set STEREO_LOGFILE_PATH=%~dp0%%~nxA\%%~nxA+VKS3D.log
+    Set VKS3D_DUMP_SPIRV=%~dp0%%~nxA
+    Set VKS3D_SKIP_SHADER_PATCHES=
     If exist "%%~A\*.dll" (
         copy /y "%%~A\*.dll" "!VKS3D_DIR!"
         If !ErrorLevel! NEQ 0 (
