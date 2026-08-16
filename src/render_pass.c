@@ -116,8 +116,15 @@ stereo_CreateRenderPass(
     const VkAllocationCallbacks    *pAllocator,
     VkRenderPass                   *pRenderPass)
 {
+    STEREO_LOG("CALLED stereo_CreateRenderPass");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
+
+    STEREO_LOG(
+        "RP sd=%p enabled=%u real_device=%p",
+        (void*)sd,
+        sd ? sd->stereo.enabled : 0,
+        sd ? (void*)sd->real_device : NULL);
 
     STEREO_LOG("stereo_CreateRenderPass: attachments=%u",
                pCreateInfo ? pCreateInfo->attachmentCount : 0);
@@ -130,6 +137,7 @@ stereo_CreateRenderPass(
     if (sd->render_pass_count >= MAX_RENDER_PASSES)
         return VK_SUCCESS;
 
+    CHECK_ARRAY_COUNT(sd->render_pass_count, MAX_RENDER_PASSES, "render_pass_count");
     StereoRenderPassInfo *rpi =
         &sd->render_passes[sd->render_pass_count++];
 
@@ -230,6 +238,7 @@ stereo_CreateRenderPass2KHR(
     const VkAllocationCallbacks     *pAllocator,
     VkRenderPass                    *pRenderPass)
 {
+    STEREO_LOG("CALLED stereo_CreateRenderPass2KHR");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
     if (!sd->real.CreateRenderPass2KHR) return VK_ERROR_EXTENSION_NOT_PRESENT;
@@ -255,6 +264,7 @@ stereo_CreateRenderPass2KHR(
     if (res != VK_SUCCESS) return res;
 
     if (sd->render_pass_count >= MAX_RENDER_PASSES) return VK_SUCCESS;
+    CHECK_ARRAY_COUNT(sd->render_pass_count, MAX_RENDER_PASSES, "render_pass_count");
     StereoRenderPassInfo *rpi = &sd->render_passes[sd->render_pass_count++];
     rpi->handle = *pRenderPass; rpi->mv_handle = VK_NULL_HANDLE;
     rpi->has_multiview = false; rpi->view_mask = 0; rpi->subpass_count = sc;

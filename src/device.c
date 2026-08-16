@@ -174,6 +174,7 @@ stereo_CreateDevice(
     const VkAllocationCallbacks  *pAllocator,
     VkDevice                     *pDevice)
 {
+    STEREO_LOG("CALLED stereo_CreateDevice");
     OutputDebugStringA("[VKS3D] stereo_CreateDevice: ENTERED\n");
     STEREO_LOG("stereo_CreateDevice: called physicalDevice=%p (wrapper)", (void*)physicalDevice);
     StereoPhysdev    *sp           = (StereoPhysdev *)(uintptr_t)physicalDevice;
@@ -252,6 +253,12 @@ stereo_CreateDevice(
     sd->stereo       = sp_si->stereo;
     stereo_config_compute_offsets(&sd->stereo);
     stereo_populate_device_dispatch(sd, sp_si->real_instance);
+    STEREO_LOG(
+        "Dispatch GDPA=%p CreateGraphicsPipelines=%p CreateRenderPass=%p BeginRendering=%p",
+        (void*)sd->real.GetDeviceProcAddr,
+        (void*)sd->real.CreateGraphicsPipelines,
+        (void*)sd->real.CreateRenderPass,
+        (void*)sd->real.CmdBeginRendering);
     {
         uint32_t qf_count = 0;
         sp_si->real.GetPhysicalDeviceQueueFamilyProperties(real_physdev, &qf_count, NULL);
@@ -275,7 +282,11 @@ stereo_CreateDevice(
         }
     }
     *pDevice = real_dev;
-    STEREO_LOG("Device created: %p", (void*)real_dev);
+    STEREO_LOG(
+        "CREATEDEVICE EXIT wrapper_handle=%p real=%p sd=%p",
+        (void*)*pDevice,
+        (void*)sd->real_device,
+        (void*)sd);
     return VK_SUCCESS;
 }
 
@@ -283,6 +294,7 @@ stereo_CreateDevice(
 VKAPI_ATTR void VKAPI_CALL
 stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
 {
+    STEREO_LOG("CALLED stereo_DestroyDevice");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd)
         return;
@@ -294,7 +306,12 @@ stereo_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
     }
     sd->tmp_module_count = 0;
     for (uint32_t i = 0; i < sd->shader_cache_count; i++)
+    {
         free(sd->shader_cache[i].spv);
+        sd->shader_cache[i].spv = NULL;
+        sd->shader_cache[i].handle = VK_NULL_HANDLE;
+        sd->shader_cache[i].words = 0;
+    }
     sd->shader_cache_count = 0;
     if (sd->stereo_ubo != VK_NULL_HANDLE) {
         if (sd->stereo_ubo_map)

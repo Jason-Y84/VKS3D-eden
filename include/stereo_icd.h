@@ -136,6 +136,23 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
     do { ((VK_LOADER_DATA*)(void*)(obj))->loaderMagic = ICD_LOADER_MAGIC; } while(0)
 #endif
 
+#define CHECK_ARRAY_COUNT(count, max, name)                     \
+    STEREO_LOG(                                                 \
+        "ARRAY OVERFLOW CHECK %s count=%u max=%u",             \
+        name,                                                   \
+        (unsigned)(count),                                      \
+        (unsigned)(max));                                       \
+    do {                                                        \
+        if ((count) >= (max)) {                                 \
+            STEREO_LOG(                                          \
+                "ARRAY OVERFLOW %s count=%u max=%u",             \
+                name,                                            \
+                (unsigned)(count),                               \
+                (unsigned)(max));                                \
+            __debugbreak();                                      \
+        }                                                       \
+    } while (0)
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -154,7 +171,7 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
  * Stores original (unpatched) SPIR-V for vertex/geometry/tesseval shaders.   *
  * Used by stereo_CreateGraphicsPipelines to patch the correct stage.          *
  * Fragment and compute shaders are never cached.                              */
-#define MAX_SHADER_CACHE 2048
+#define MAX_SHADER_CACHE 65536
 typedef struct {
     VkShaderModule  handle;
     uint32_t       *spv;    /* heap copy of original SPIR-V words */
