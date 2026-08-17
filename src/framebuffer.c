@@ -1230,7 +1230,7 @@ stereo_CmdBindDescriptorSets(
                 {
                     STEREO_LOG(
                         "PROJ_BIND_CANDIDATE pipe=%p firstSet=%u setCount=%u targetSet=%u "
-                        "binding=%u member=%u dynamicOffsetCount=%u",
+                        "binding=%u member_mask=0x%x dynamicOffsetCount=%u",
                         (void *)pipe,
                         firstSet,
                         descriptorSetCount,
