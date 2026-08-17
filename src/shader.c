@@ -6971,7 +6971,6 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
-            int image_dim = -1;
             if (image_dim != SpvDim2D)
             {
                 STEREO_LOG(
