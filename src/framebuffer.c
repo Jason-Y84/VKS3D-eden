@@ -1229,6 +1229,24 @@ stereo_CmdBindDescriptorSets(
                 if (ds != VK_NULL_HANDLE)
                 {
                     STEREO_LOG(
+                        "PROJ_BIND_CANDIDATE pipe=%p firstSet=%u setCount=%u targetSet=%u "
+                        "binding=%u member=%u dynamicOffsetCount=%u",
+                        (void *)pipe,
+                        firstSet,
+                        descriptorSetCount,
+                        target_set,
+                        info->proj_binding,
+                        info->proj_member,
+                        dynamicOffsetCount);
+                    if (dynamicOffsetCount > 0 && pDynamicOffsets)
+                    {
+                        STEREO_LOG(
+                            "PROJ_BIND_DYNAMIC_OFFSETS pipe=%p first=%u count=%u",
+                            (void *)pipe,
+                            pDynamicOffsets[0],
+                            dynamicOffsetCount);
+                    }
+                    STEREO_LOG(
                         "PROJ_REWRITE_CHECK pipe=%p has=%u set=%u binding=%u mask=0x%X var=%u",
                         (void *)pipe,
                         info->has_proj_ubo,

@@ -8874,6 +8874,14 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 info->proj_binding          = dbg_out[p].proj_binding;
                 info->proj_member_mask      = dbg_out[p].proj_member_mask;
                 info->proj_var              = dbg_out[p].proj_var;
+                STEREO_LOG(
+                    "PROJ_PIPE_INFO pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                    (void *)info->pipeline,
+                    info->has_proj_ubo,
+                    info->proj_set,
+                    info->proj_binding,
+                    info->proj_member,
+                    info->proj_var);
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
                     const VkPipelineShaderStageCreateInfo *st =
