@@ -8880,7 +8880,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     info->has_proj_ubo,
                     info->proj_set,
                     info->proj_binding,
-                    info->proj_member,
+                    info->proj_member_mask,
                     info->proj_var);
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {

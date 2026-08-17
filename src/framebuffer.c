@@ -1236,7 +1236,7 @@ stereo_CmdBindDescriptorSets(
                         descriptorSetCount,
                         target_set,
                         info->proj_binding,
-                        info->proj_member,
+                        info->proj_member_mask,
                         dynamicOffsetCount);
                     if (dynamicOffsetCount > 0 && pDynamicOffsets)
                     {
