@@ -1254,18 +1254,6 @@ stereo_CmdBindDescriptorSets(
                         info->proj_binding,
                         info->proj_member_mask,
                         info->proj_var);
-                    /*
-                     * Prefer the fragment shader projection UBO when present.
-                     * VS/TES-derived proj info can be left in place for geometry,
-                     * but FS-only SSAO/reconstruction needs binding 4.
-                     */
-                    /*
-                     * Only rewrite true camera projection UBOs.
-                     *
-                     * FS reconstruction shaders frequently bind projection-like
-                     * matrices (SSAO/depth reconstruction), but those are not
-                     * compatible with StereoUBO layout.
-                     */
                     bool rewrite_proj = false;
                     STEREO_LOG(
                         "PROJ_REWRITE_DECISION pipe=%p rewrite=%u binding=%u mask=0x%X set=%u",
@@ -1285,6 +1273,12 @@ stereo_CmdBindDescriptorSets(
                             sd,
                             ds,
                             info->proj_binding);
+                        STEREO_LOG(
+                            "PROJ_BIND_REWRITE set=%p binding=%u buffer=%p member_mask=0x%x",
+                            (void *)(uintptr_t)ds,
+                            info->proj_binding,
+                            (void *)sd->stereo_ubo,
+                            info->proj_member_mask);
                         STEREO_LOG(
                             "PIPE_PROJ_REWRITE_END pipe=%p set=%u binding=%u ds=%p mask=0x%X",
                             (void *)pipe,
