@@ -6953,6 +6953,26 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
+            if (image_dim != SpvDim2D)
+            {
+                STEREO_LOG(
+                    "FS_PATCH_REJECT_NON2D "
+                    "sampledImage=%u "
+                    "descriptor=%u "
+                    "dim=%d "
+                    "coord=%u",
+                    in[i + 3],
+                    descriptor_var,
+                    image_dim,
+                    coord_id);
+                sb_push_n(&ob, &in[i], wc);
+                if (in[i + 1] < id_bound)
+                {
+                    emitted_type[in[i + 1]] = true;
+                }
+                i += wc;
+                continue;
+            }
             STEREO_LOG(
                 "FS_PATCH_ENTER "
                 "sampled=%u "
@@ -6974,6 +6994,7 @@ bool spirv_patch_stereo_fs(
                 (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
             int image_type = -1;
             int sampled_type = -1;
+            int image_dim = -1;
             for (uint32_t v = 0; v < s.n_var; ++v)
             {
                 if (s.vars[v].id == descriptor_var)
@@ -6981,6 +7002,23 @@ bool spirv_patch_stereo_fs(
                     sampled_type = s.vars[v].type;
                     break;
                 }
+            }
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (s.images[img].owner_var != descriptor_var)
+                    continue;
+                image_dim = (int)s.images[img].dim;
+                STEREO_LOG(
+                    "FS_SAMPLE_IMAGE_DESCRIPTOR "
+                    "descriptor=%u "
+                    "image=%u "
+                    "dim=%u "
+                    "stereo=%u",
+                    descriptor_var,
+                    s.images[img].id,
+                    s.images[img].dim,
+                    s.images[img].stereo);
+                break;
             }
             STEREO_LOG(
                 "FS_DESCRIPTOR_TYPES descriptor=%u sampledType=%d",
