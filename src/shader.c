@@ -3144,6 +3144,20 @@ fs_scan_type_instruction(
             img->stereo           = (arrayed != 0);
             img->replacement_type = 0;
             STEREO_LOG(
+                "FS_IMAGE_FIELDS_INIT "
+                "idx=%u "
+                "id=%u "
+                "sampled_type=%u "
+                "dim=%u "
+                "arrayed=%u "
+                "stereo=%u",
+                s->n_img - 1,
+                img->id,
+                img->sampled_type,
+                img->dim,
+                img->arrayed,
+                img->stereo);
+            STEREO_LOG(
                 "FS_NEW_IMAGE_DONE "
                 "idx=%u "
                 "id=%u",
