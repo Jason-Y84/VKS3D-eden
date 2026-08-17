@@ -6935,6 +6935,24 @@ bool spirv_patch_stereo_fs(
                 in[i+3],
                 descriptor_var,
                 in[i+2]);
+            int image_dim = -1;
+            for (uint32_t img = 0; img < s.n_img; ++img)
+            {
+                if (s.images[img].owner_var != descriptor_var)
+                    continue;
+                image_dim = (int)s.images[img].dim;
+                STEREO_LOG(
+                    "FS_SAMPLE_IMAGE_DESCRIPTOR "
+                    "descriptor=%u "
+                    "image=%u "
+                    "dim=%u "
+                    "stereo=%u",
+                    descriptor_var,
+                    s.images[img].id,
+                    s.images[img].dim,
+                    s.images[img].stereo);
+                break;
+            }
             if (!fs_should_patch_sample(&s, h, descriptor_var))
             {
                 STEREO_LOG(
@@ -6993,7 +7011,6 @@ bool spirv_patch_stereo_fs(
                 descriptor_var,
                 (vi >= 0) ? s.vars[vi].set : 0xffffffffu,
                 (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
-            int image_type = -1;
             int sampled_type = -1;
             for (uint32_t v = 0; v < s.n_var; ++v)
             {
@@ -7002,23 +7019,6 @@ bool spirv_patch_stereo_fs(
                     sampled_type = s.vars[v].type;
                     break;
                 }
-            }
-            for (uint32_t img = 0; img < s.n_img; ++img)
-            {
-                if (s.images[img].owner_var != descriptor_var)
-                    continue;
-                image_dim = (int)s.images[img].dim;
-                STEREO_LOG(
-                    "FS_SAMPLE_IMAGE_DESCRIPTOR "
-                    "descriptor=%u "
-                    "image=%u "
-                    "dim=%u "
-                    "stereo=%u",
-                    descriptor_var,
-                    s.images[img].id,
-                    s.images[img].dim,
-                    s.images[img].stereo);
-                break;
             }
             STEREO_LOG(
                 "FS_DESCRIPTOR_TYPES descriptor=%u sampledType=%d",
