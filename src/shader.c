@@ -6953,6 +6953,7 @@ bool spirv_patch_stereo_fs(
                 i += wc;
                 continue;
             }
+            int image_dim = -1;
             if (image_dim != SpvDim2D)
             {
                 STEREO_LOG(
@@ -6994,7 +6995,6 @@ bool spirv_patch_stereo_fs(
                 (vi >= 0) ? s.vars[vi].binding : 0xffffffffu);
             int image_type = -1;
             int sampled_type = -1;
-            int image_dim = -1;
             for (uint32_t v = 0; v < s.n_var; ++v)
             {
                 if (s.vars[v].id == descriptor_var)
