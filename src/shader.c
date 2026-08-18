@@ -8838,6 +8838,23 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 st->stage);
         }
     }
+    for (uint32_t dbg_p = 0; dbg_p < N; ++dbg_p) {
+        STEREO_LOG(
+            "[FINAL_PIPE %u] stages=%u patched=%u",
+            dbg_p,
+            pCI[dbg_p].stageCount,
+            patched[dbg_p]);
+        for (uint32_t dbg_s = 0; dbg_s < pCI[dbg_p].stageCount; ++dbg_s) {
+            const VkPipelineShaderStageCreateInfo *dbg_st =
+                &pCI[dbg_p].pStages[dbg_s];
+            STEREO_LOG(
+                "[FINAL_STAGE %u:%u] stage=0x%x module=%p",
+                dbg_p,
+                dbg_s,
+                dbg_st->stage,
+                (void *)dbg_st->module);
+        }
+    }
     VkResult res=sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,infos,pAlloc,pP);
     STEREO_LOG(
         "[PIPE AFTER DRIVER] res=%d",
