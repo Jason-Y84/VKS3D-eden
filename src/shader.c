@@ -8842,11 +8842,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         STEREO_LOG(
             "[FINAL_PIPE %u] stages=%u patched=%u",
             dbg_p,
-            pCI[dbg_p].stageCount,
-            patched[dbg_p]);
-        for (uint32_t dbg_s = 0; dbg_s < pCI[dbg_p].stageCount; ++dbg_s) {
+            infos[dbg_p].stageCount,
+            tst[dbg_p] != NULL);
+        for (uint32_t dbg_s = 0; dbg_s < infos[dbg_p].stageCount; ++dbg_s) {
             const VkPipelineShaderStageCreateInfo *dbg_st =
-                &pCI[dbg_p].pStages[dbg_s];
+            &infos[dbg_p].pStages[dbg_s];
             STEREO_LOG(
                 "[FINAL_STAGE %u:%u] stage=0x%x module=%p",
                 dbg_p,
