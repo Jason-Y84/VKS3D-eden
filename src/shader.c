@@ -8330,12 +8330,13 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 (unsigned long long)spv_hash,
                 fs_cache->words,
                 (void *)ci->pStages[fs_s].module);
-            STEREO_LOG(
-                "PATCH hash=%016llx words=%zu module=%p vs_stage=%u",
+            STREO_LOG(
+                "FS_PATCH_MODULE hash=%016llx words=%zu fs_module=%p vs_stage=%u vs_module=%p",
                 (unsigned long long)spv_hash,
                 fs_cache->words,
-                (void *)(has_vs ? ci->pStages[vs_stage].module : VK_NULL_HANDLE),
-                vs_stage);
+                (void *)ci->pStages[fs_s].module,
+                vs_stage,
+                (void *)(has_vs ? ci->pStages[vs_stage].module : VK_NULL_HANDLE));
             if (dump)
             {
                 char dp[512];
@@ -8775,11 +8776,12 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         if (pCI[p].renderPass != VK_NULL_HANDLE)
             rpi = stereo_rp_lookup(sd, pCI[p].renderPass);
         STEREO_LOG(
-            "PIPE_RP p=%u ci_rp=%p rpi=%p has_mv=%u mv=%p",
+            "PIPE_RP p=%u ci_rp=%p rpi=%p has_mv=%u view_mask=0x%X mv=%p",
             p,
             (void*)pCI[p].renderPass,
             (void*)rpi,
             rpi ? (unsigned)rpi->has_multiview : 0,
+            rpi ? rpi->view_mask : 0,
             rpi ? (void*)rpi->mv_handle : NULL);
         if (rpi && rpi->has_multiview) {
             STEREO_LOG("Pipe %u: binding MV render pass %p", p, (void*)rpi->mv_handle);
