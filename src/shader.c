@@ -1069,6 +1069,7 @@ typedef struct StereoDebugCtx {
     uint32_t stage;
     uint32_t vertex_binding_count;
     uint32_t is_quad;
+    uint32_t proj_member_mask;
     bool has_matrix_ops;
     bool direct_position_write;
 } StereoDebugCtx;
@@ -7999,12 +8000,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
     VkShaderModule                   *tmp_mod = calloc(N, sizeof(VkShaderModule));
     VkPipelineShaderStageCreateInfo **tst     = calloc(N, sizeof(void*));
     VkGraphicsPipelineCreateInfo     *infos   = malloc(N * sizeof(*infos));    for (uint32_t i = 0; i < N; i++)
-    {
-        dbg_out[i].proj_set             = UINT32_MAX;
-        dbg_out[i].proj_binding         = UINT32_MAX;
-        dbg_out[i].proj_member_mask     = UINT32_MAX;
-        dbg_out[i].proj_var             = UINT32_MAX;
-    }
     if (!tmp_mod||!tst||!infos) {
         free(tmp_mod); free(tst); free(infos);
         return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -8374,12 +8369,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     spv_scan(&fm);
                     if (fm.proj_found)
                     {
-                        dbg_out[p].has_proj_ubo = true;
-                        dbg_out[p].proj_set = fm.proj_set;
-                        dbg_out[p].proj_binding = fm.proj_binding;
-                        dbg_out[p].proj_member_mask =
-                            fm.proj_member_mask;
-                        dbg_out[p].proj_var = fm.proj_var;
                         STEREO_LOG(
                             "FS_PROJ_FOUND hash=%016llx set=%u binding=%u mask=0x%X var=%u",
                             (unsigned long long)hash_spv(
