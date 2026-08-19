@@ -315,10 +315,6 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
               stereo_CmdDrawIndirect);
     GDPA_WRAP("vkCmdDrawIndexedIndirect",
               stereo_CmdDrawIndexedIndirect);
-    GDPA_WRAP("vkUpdateDescriptorSets",
-              stereo_UpdateDescriptorSets);
-    GDPA_WRAP("vkCmdBindDescriptorSets",
-              stereo_CmdBindDescriptorSets);
     GDPA_WRAP("vkCreateRenderPass",
               stereo_CreateRenderPass);
 #ifdef VK_KHR_create_renderpass2
