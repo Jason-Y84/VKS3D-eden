@@ -521,6 +521,12 @@ typedef struct StereoPipelineInfo
     uint32_t vertex_binding_count;
     /* Vulkan 1.3 dynamic rendering multiview */
     uint32_t view_mask;
+    /* Projection-UBO candidate discovered while scanning the patched stage */
+    VkBool32 has_proj_ubo;
+    uint32_t proj_set;
+    uint32_t proj_binding;
+    uint32_t proj_member_mask;
+    uint32_t proj_var;
 } StereoPipelineInfo;
 
 typedef struct StereoDevice {
@@ -762,6 +768,9 @@ VKAPI_ATTR void     VKAPI_CALL stereo_CmdDraw(VkCommandBuffer, uint32_t, uint32_
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndexed(VkCommandBuffer, uint32_t, uint32_t, uint32_t, int32_t, uint32_t);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndirect(VkCommandBuffer, VkBuffer, VkDeviceSize, uint32_t, uint32_t);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndexedIndirect(VkCommandBuffer, VkBuffer, VkDeviceSize, uint32_t, uint32_t);
+VKAPI_ATTR void     VKAPI_CALL stereo_UpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *pDescriptorWrites, uint32_t descriptorCopyCount, const VkCopyDescriptorSet *pDescriptorCopies);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdBindDescriptorSets(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet, uint32_t descriptorSetCount, const VkDescriptorSet *pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets);
+
 /* shader.c */
 StereoPipelineInfo *
 find_pipeline_info(
@@ -787,7 +796,7 @@ bool spirv_patch_stereo_vertex(
     float lo, float ro,
     float conv,
     bool inj_vi,
-    const StereoDebugCtx *dbg);
+    StereoDebugCtx *dbg);
 void spirv_patched_free(uint32_t *w);
 
 StereoPipelineInfo *

@@ -1059,7 +1059,7 @@ typedef struct {
     uint32_t projection_mode;
     float lo_dbg;
     float ro_dbg;
-    const StereoDebugCtx *dbg;
+    StereoDebugCtx *dbg;
 } BodyCtx;
 
 typedef struct StereoDebugCtx {
@@ -1069,6 +1069,11 @@ typedef struct StereoDebugCtx {
     uint32_t stage;
     uint32_t vertex_binding_count;
     uint32_t is_quad;
+    VkBool32 has_proj_ubo;
+    uint32_t proj_set;
+    uint32_t proj_binding;
+    uint32_t proj_member_mask;
+    uint32_t proj_var;
     bool has_matrix_ops;
     bool direct_position_write;
 } StereoDebugCtx;
@@ -1359,7 +1364,7 @@ bool spirv_patch_stereo_vertex(
     float ro,
     float conv,
     bool inj_vi,
-    const StereoDebugCtx *dbg)
+    StereoDebugCtx *dbg)
 {
     STEREO_LOG("CALLED spirv_patch_stereo_vertex");
     if (!in || in_c < 5 || in[0] != SPIRV_MAGIC)
@@ -1551,6 +1556,34 @@ bool spirv_patch_stereo_vertex(
             m.proj_binding,
             m.proj_member_mask,
             m.proj_var);
+    }
+    if (dbg)
+    {
+        dbg->has_matrix_ops = m.has_matrix_ops;
+        dbg->direct_position_write = m.has_direct_position_write;
+        dbg->has_proj_ubo = false;
+        if (m.proj_found)
+        {
+            dbg->has_proj_ubo = true;
+            dbg->proj_set = m.proj_set;
+            dbg->proj_binding = m.proj_binding;
+            dbg->proj_member_mask = m.proj_member_mask;
+            dbg->proj_var = m.proj_var;
+        }
+        STEREO_LOG(
+            "PROJ_DETECT hash=%016llx found=%u set=%u binding=%u mask=0x%X var=%u",
+            (unsigned long long)spv_hash,
+            m.proj_found,
+            dbg->proj_set,
+            dbg->proj_binding,
+            dbg->proj_member_mask,
+            dbg->proj_var);
+        STEREO_LOG(
+            "PROJ_TRACE access_count=%u load_count=%u mtv_count=%u mask=0x%X",
+            m.proj_access_count,
+            m.proj_load_count,
+            m.proj_mtv_count,
+            m.proj_member_mask);
     }
     if (m.exec_model == SpvExecVertex)
     {
@@ -7998,7 +8031,9 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         return sd->real.CreateGraphicsPipelines(sd->real_device,pc,N,pCI,pAlloc,pP);
     VkShaderModule                   *tmp_mod = calloc(N, sizeof(VkShaderModule));
     VkPipelineShaderStageCreateInfo **tst     = calloc(N, sizeof(void*));
-    VkGraphicsPipelineCreateInfo     *infos   = malloc(N * sizeof(*infos));    for (uint32_t i = 0; i < N; i++)
+    VkGraphicsPipelineCreateInfo     *infos   = malloc(N * sizeof(*infos));
+    StereoDebugCtx                   *dbg_out = calloc(N, sizeof(*dbg_out));
+    for (uint32_t i = 0; i < N; i++)
     {
         dbg_out[i].proj_set             = UINT32_MAX;
         dbg_out[i].proj_binding         = UINT32_MAX;
@@ -8671,7 +8706,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 "PathB candidate module=%p words=%zu",
                 (void*)ci->pStages[vs_stage].module,
                 e->words);
-            StereoDebugCtx dbgB = {
+            StereoDebugCtx *dbgB = &dbg_out[p];
+            *dbgB = (StereoDebugCtx){
                 p,
                 ci->renderPass,
                 in_mv_rp,
@@ -8687,7 +8723,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     &patched, &pc2,
                     lo, ro, conv,
                     /*inj_vi=*/true,
-                    &dbgB)) {
+                    dbgB)) {
                 STEREO_LOG("Pipe %u PathB: VS patch failed",p); continue; }
             if (dump) {
                 uint64_t spv_hash = hash_spv(e->spv, e->words);
@@ -8854,6 +8890,19 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     pCI[p].pVertexInputState ?
                     pCI[p].pVertexInputState->vertexBindingDescriptionCount : 0;
                 info->view_mask = 0; /* default */
+                info->has_proj_ubo          = dbg_out[p].has_proj_ubo;
+                info->proj_set              = dbg_out[p].proj_set;
+                info->proj_binding          = dbg_out[p].proj_binding;
+                info->proj_member_mask      = dbg_out[p].proj_member_mask;
+                info->proj_var              = dbg_out[p].proj_var;
+                STEREO_LOG(
+                    "PROJ_PIPE_INFO pipe=%p has=%u set=%u binding=%u member=%u var=%u",
+                    (void *)info->pipeline,
+                    info->has_proj_ubo,
+                    info->proj_set,
+                    info->proj_binding,
+                    info->proj_member_mask,
+                    info->proj_var);
                 for (uint32_t s = 0; s < infos[p].stageCount; s++)
                 {
                     const VkPipelineShaderStageCreateInfo *st =
