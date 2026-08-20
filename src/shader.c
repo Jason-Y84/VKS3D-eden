@@ -1463,23 +1463,23 @@ bool spirv_patch_stereo_vertex(
      * World geometry always contains matrix math.
      * Fullscreen/UI shaders generally don't.
      */
-    if (m.exec_model == SpvExecVertex)
-    {
-        if (!m.has_matrix_ops)
-        {
-            STEREO_LOG(
-                "PATCH_SKIP no_matrix hash=%016llx exec=%u dots=%u direct=%u emit=%u pos=%u block=%u",
-                (unsigned long long)spv_hash,
-                m.exec_model,
-                m.dot_count,
-                m.has_direct_position_write,
-                m.emit_count,
-                m.pos_var,
-                m.pos_is_block);
-            free_spv_provenance(&m);
-            return false;
-        }
-    }
+    //if (m.exec_model == SpvExecVertex)
+    //{
+    //    if (!m.has_matrix_ops)
+    //    {
+    //        STEREO_LOG(
+    //            "PATCH_SKIP no_matrix hash=%016llx exec=%u dots=%u direct=%u emit=%u pos=%u block=%u",
+    //            (unsigned long long)spv_hash,
+    //            m.exec_model,
+    //            m.dot_count,
+    //            m.has_direct_position_write,
+    //            m.emit_count,
+    //            m.pos_var,
+    //            m.pos_is_block);
+    //        free_spv_provenance(&m);
+    //        return false;
+    //    }
+    //}
     {
         static bool skip_list_init;
         static char skip_list[1024];
