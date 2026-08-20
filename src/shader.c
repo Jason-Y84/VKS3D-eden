@@ -1207,7 +1207,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     }
     else
     {
-        sel = c->cl;
+        sel = c->cr;
     }
     {
         uint32_t w[] = {
