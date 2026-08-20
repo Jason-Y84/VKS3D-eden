@@ -1134,11 +1134,17 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
                 "type=%u "
                 "ptr=%u "
                 "ptrType=%u "
-                "signedType=%u",
+                "signedType=%u "
+                "haveView=%u "
+                "bt=%u "
+                "viewVar=%u",
                 m->it,
                 m->view_var,
                 m->ptr_in_int,
-                m->it);
+                m->it,
+                c->have_view,
+                c->bt,
+                m->view_var);
             uint32_t w[] = {
                 op_(SpvOpLoad, 4),
                 m->it,
