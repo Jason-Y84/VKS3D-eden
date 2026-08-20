@@ -1513,11 +1513,13 @@ bool spirv_patch_stereo_vertex(
         }
     }
     /*
-     * Reject known monoscopic screen-space shaders.
+     * Reject known monoscopic screen-space/UI shaders.
      *
-     * These shaders usually write clip-space positions directly
-     * and have no camera transform. Applying stereo offsets here
-     * creates excessive negative parallax.
+     * A direct position write alone is not sufficient to classify
+     * a vertex shader as UI: some geometry shaders also write
+     * positions directly without recognizable matrix operations.
+     * Use the quad/vertex-binding test together with the direct
+     * position test to identify screen-space shaders.
      */
     if (cfg && cfg->mono_ui)    {
         bool ui_candidate =
