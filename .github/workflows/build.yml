@@ -164,13 +164,13 @@ jobs:
           echo "CommitDate=$(git show -s --date=format:'%Y-%m-%d' --format=%cd)" >> $env:GITHUB_ENV
 
       - name: Download Win32
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{env.Title}}-Win32-Release
           path: Artifacts/Win32/
 
       - name: Download Win64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{env.Title}}-Win64-Release
           path: Artifacts/Win64/
