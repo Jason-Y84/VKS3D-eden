@@ -641,6 +641,15 @@ stereo_CmdBeginRenderPass(
             (void*)modified.renderPass,
             (void*)modified.framebuffer);
         STEREO_LOG(
+            "DXVK_RP_CORRELATE original=%p driver=%p framebuffer=%p lookup=%p lookup_orig=%p lookup_mv=%p has_mv=%u",
+            (void*)pRenderPassBegin->renderPass,
+            (void*)modified.renderPass,
+            (void*)modified.framebuffer,
+            (void*)lookup,
+            lookup ? (void*)lookup->handle : NULL,
+            lookup ? (void*)lookup->mv_handle : NULL,
+            lookup ? lookup->has_multiview : 0);
+        STEREO_LOG(
             "RP_BEGIN_DRIVER rp=%p fb=%p",
             (void*)modified.renderPass,
             (void*)modified.framebuffer);
