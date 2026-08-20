@@ -1126,6 +1126,24 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     uint32_t px = (*nid)++;
     uint32_t nx = (*nid)++;
     uint32_t np = (*nid)++;
+    STEREO_LOG(
+        "VIEW_PATH "
+        "haveView=%u "
+        "viewVar=%u "
+        "intType=%u "
+        "ptrInt=%u "
+        "boolType=%u "
+        "leftConst=%u "
+        "rightConst=%u "
+        "convConst=%u",
+        c->have_view,
+        m->view_var,
+        m->it,
+        m->ptr_in_int,
+        c->bt,
+        c->cl,
+        c->cr,
+        c->cc);
     if (c->have_view && m->view_var && m->it && c->bt)
     {
         {
@@ -1174,6 +1192,18 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             };
             sb_push_n(out, w, 6);
         }
+        STEREO_LOG(
+            "VIEW_SELECT "
+            "viewLoad=%u "
+            "isLeft=%u "
+            "selectedOffset=%u "
+            "leftConst=%u "
+            "rightConst=%u",
+            lv,
+            isl,
+            sel,
+            c->cl,
+            c->cr);
     }
     else
     {
