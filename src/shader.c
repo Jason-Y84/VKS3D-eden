@@ -1344,16 +1344,26 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
                 m->ft,
                 convsel,
                 isl,
-                convmag,
-                negconv
+                negconv,
+                convmag
             };
             sb_push_n(out, w, 6);
         }
         {
             uint32_t w[] = {
-                op_(SpvOpFAdd, 5),
+                op_(SpvOpFMul, 5),
                 m->ft,
                 tmp,
+                sel,
+                convsel
+            };
+            sb_push_n(out, w, 5);
+        }
+        {
+            uint32_t w[] = {
+                op_(SpvOpFAdd, 5),
+                m->ft,
+                nx,
                 px,
                 sel
             };
@@ -1364,8 +1374,8 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
                 op_(SpvOpFSub, 5),
                 m->ft,
                 nx,
-                tmp,
-                convsel
+                nx,
+                tmp
             };
             sb_push_n(out, w, 5);
         }
