@@ -1305,9 +1305,19 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     {
         uint32_t pw = (*nid)++;
         uint32_t convmag = (*nid)++;
-        uint32_t negconv = (*nid)++;
-        uint32_t convsel = (*nid)++;
         uint32_t tmp = (*nid)++;
+        STEREO_LOG(
+            "PROJ_PIVOT_IDS "
+            "pw=%u "
+            "convmag=%u "
+            "tmp=%u "
+            "px=%u "
+            "nx=%u",
+            pw,
+            convmag,
+            tmp,
+            px,
+            nx);
         {
             uint32_t w[] = {
                 op_(SpvOpCompositeExtract, 5),
@@ -1340,24 +1350,13 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         }
         {
             uint32_t w[] = {
-                op_(SpvOpSelect, 6),
-                m->ft,
-                convsel,
-                isl,
-                negconv,
-                convmag
-            };
-            sb_push_n(out, w, 6);
-        }
-        {
-            uint32_t w[] = {
                 op_(SpvOpFMul, 5),
                 m->ft,
                 tmp,
                 sel,
-                convsel
+                convmag
             };
-            sb_push_n(out, w, 5);
+            sb_push_n(out, w, 6);
         }
         {
             uint32_t w[] = {
@@ -1398,16 +1397,6 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         np,
         nx,
         m->view_var);
-    STEREO_LOG(
-        "PROJ_PIVOT_IDS pw=%u convmag=%u negconv=%u convsel=%u tmp=%u "
-        "px=%u nx=%u",
-        pw,
-        convmag,
-        negconv,
-        convsel,
-        tmp,
-        px,
-        nx);
     STEREO_LOG(
         "VIEWSPACE_PATCH "
         "mode=%d "
