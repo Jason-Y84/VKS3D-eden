@@ -116,11 +116,13 @@ typedef struct
     uint32_t view_var;
     /* Common types */
     uint32_t ft;
+    uint32_t v2t;
     uint32_t v4t;
     uint32_t it;
     uint32_t ut;
     uint32_t bt_type;
     uint32_t bt;
+    uint32_t ptr_in_v2;
     uint32_t ptr_out_v4;
     uint32_t ptr_in_int;
     /* Entry point */
@@ -135,6 +137,7 @@ typedef struct
     uint32_t dot_count;
     bool has_matrix_ops;
     bool has_direct_position_write;
+    bool has_v2_position_input;
     /* Matrix provenance tracking */
     uint32_t value_capacity;
     uint8_t *value_from_matrix;
@@ -449,7 +452,13 @@ static void do_scan(SpvMod *m, bool p2)
                 if(wc==3&&w[i+2]==32) m->ft=w[i+1];
                 break;
             case SpvOpTypeVector:
-                if(wc==4&&w[i+2]==m->ft&&w[i+3]==4) m->v4t=w[i+1];
+                if(wc==4&&w[i+2]==m->ft)
+                {
+                    if(w[i+3]==2)
+                        m->v2t=w[i+1];
+                    else if(w[i+3]==4)
+                        m->v4t=w[i+1];
+                }
                 break;
             case SpvOpTypeInt:
                 if (wc == 4 && w[i + 2] == 32)
@@ -722,6 +731,11 @@ static void do_scan(SpvMod *m, bool p2)
                         "VS_INPUT_POINTER ptr=%u pointeeType=%u",
                         w[i + 1],
                         w[i + 3]);
+                    if (m->v2t &&
+                        w[i + 3] == m->v2t)
+                    {
+                        m->ptr_in_v2 = w[i + 1];
+                    }
                     if (m->it &&
                         w[i + 3] == m->it)
                     {
@@ -757,6 +771,11 @@ static void do_scan(SpvMod *m, bool p2)
                         "VS_INPUT_VARIABLE var=%u ptr=%u",
                         w[i + 2],
                         w[i + 1]);
+                    if (m->ptr_in_v2 &&
+                        w[i + 1] == m->ptr_in_v2)
+                    {
+                        m->has_v2_position_input = true;
+                    }
                 }
                 break;
             case SpvOpDecorate:
@@ -1521,15 +1540,14 @@ bool spirv_patch_stereo_vertex(
      * Use the quad/vertex-binding test together with the direct
      * position test to identify screen-space shaders.
      */
-    if (cfg && cfg->mono_ui)    {
+    if (cfg && cfg->mono_ui) {
         bool ui_candidate =
-            dbg &&
-            (dbg->is_quad ||
-             dbg->vertex_binding_count == 0) &&
-            !m.has_matrix_ops &&
-            m.has_direct_position_write &&
-            !m.has_emit_vertex &&
-            m.exec_model == SpvExecVertex;
+        dbg &&
+        m.pos_is_block &&
+        !m.has_matrix_ops &&
+        m.has_v2_position_input &&
+        !m.has_emit_vertex &&
+        m.exec_model == SpvExecVertex;
         if (ui_candidate)
         {
             STEREO_LOG(
@@ -1553,7 +1571,7 @@ bool spirv_patch_stereo_vertex(
         return false;
     }
     STEREO_LOG(
-        "PATCH_ANALYSIS hash=%016llx exec=%u patchable=%d pos=%u block=%d member=%u view=%u matrix=%d direct=%d dots=%u emit=%u mv=%d",
+        "PATCH_ANALYSIS hash=%016llx exec=%u patchable=%d pos=%u block=%d member=%u view=%u matrix=%d direct=%d v2pos=%d dots=%u emit=%u mv=%d",
         (unsigned long long)spv_hash,
         m.exec_model,
         m.is_patchable,
@@ -1563,6 +1581,7 @@ bool spirv_patch_stereo_vertex(
         m.view_var,
         m.has_matrix_ops,
         m.has_direct_position_write,
+        m.has_v2_position_input,
         m.dot_count,
         m.emit_count,
         m.has_viewindex_builtin);
@@ -1632,10 +1651,21 @@ bool spirv_patch_stereo_vertex(
             free_spv_provenance(&m);
             return false;
         }
-        if (m.pos_is_block && !m.has_matrix_ops)
+        if (cfg && cfg->mono_ui &&
+            m.pos_is_block &&
+            !m.has_matrix_ops &&
+            m.has_v2_position_input)
         {
             STEREO_LOG(
-                "PATCH_SKIP screen-space position block");
+                "SCREENSPACE_SKIP hash=%016llx exec=%u pos=%u block=%u matrix=%u v2pos=%u direct=%u emit=%u",
+                (unsigned long long)spv_hash,
+                (unsigned)m.exec_model,
+                m.pos_var,
+                m.pos_is_block,
+                m.has_matrix_ops,
+                m.has_v2_position_input,
+                m.has_direct_position_write,
+                m.has_emit_vertex);
             free_spv_provenance(&m);
             return false;
         }
