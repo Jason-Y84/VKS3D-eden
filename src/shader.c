@@ -1392,12 +1392,23 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         sb_push_n(out, w, 6);
     }
     STEREO_LOG(
-        "PROJ_WRITE pos_var=%u pptr=%u new_pos=%u x=%u view=%u",
+        "PROJ_WRITE pos_var=%u pptr=%u new_pos=%u x=%u view=%u "
+        "pivot=1/conv",
         m->pos_var,
         pptr,
         np,
         nx,
         m->view_var);
+    STEREO_LOG(
+        "PROJ_PIVOT_IDS pw=%u convmag=%u negconv=%u convsel=%u tmp=%u "
+        "px=%u nx=%u",
+        pw,
+        convmag,
+        negconv,
+        convsel,
+        tmp,
+        px,
+        nx);
     STEREO_LOG(
         "VIEWSPACE_PATCH "
         "mode=%d "
