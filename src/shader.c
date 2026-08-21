@@ -1144,6 +1144,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     uint32_t sel = (*nid)++;
     uint32_t px = (*nid)++;
     uint32_t nx = (*nid)++;
+    uint32_t nx2 = (*nid)++;
     uint32_t np = (*nid)++;
     STEREO_LOG(
         "VIEW_PATH "
@@ -1267,6 +1268,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         "sel=%u "
         "px=%u "
         "nx=%u "
+        "nx2=%u "
         "np=%u "
         "mode=%d "
         "pos_var=%u "
@@ -1282,6 +1284,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         sel,
         px,
         nx,
+        nx2,
         np,
         c->projection_mode,
         m->pos_var,
@@ -1362,7 +1365,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             uint32_t w[] = {
                 op_(SpvOpFSub, 5),
                 m->ft,
-                nx,
+                nx2,
                 nx,
                 tmp
             };
@@ -1374,7 +1377,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             op_(SpvOpCompositeInsert, 6),
             m->v4t,
             np,
-            nx,
+            nx2,
             lp,
             0u
         };
@@ -1385,7 +1388,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         m->pos_var,
         pptr,
         np,
-        nx,
+        nx2,
         m->view_var);
     STEREO_LOG(
         "VIEWSPACE_PATCH "
