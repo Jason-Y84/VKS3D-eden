@@ -1623,23 +1623,23 @@ bool spirv_patch_stereo_vertex(
             m.proj_mtv_count,
             m.proj_member_mask);
     }
-    //if (m.exec_model == SpvExecVertex)
-    //{
-    //    if (!m.pos_var)
-    //    {
-    //        STEREO_LOG(
-    //            "PATCH_SKIP no gl_Position");
-    //        free_spv_provenance(&m);
-    //        return false;
-    //    }
-    //    if (m.pos_is_block && !m.has_matrix_ops)
-    //    {
-    //        STEREO_LOG(
-    //            "PATCH_SKIP screen-space position block");
-    //        free_spv_provenance(&m);
-    //        return false;
-    //    }
-    //}
+    if (m.exec_model == SpvExecVertex)
+    {
+        if (!m.pos_var)
+        {
+            STEREO_LOG(
+                "PATCH_SKIP no gl_Position");
+            free_spv_provenance(&m);
+            return false;
+        }
+        if (m.pos_is_block && !m.has_matrix_ops)
+        {
+            STEREO_LOG(
+                "PATCH_SKIP screen-space position block");
+            free_spv_provenance(&m);
+            return false;
+        }
+    }
     if (!m.is_patchable)
     {
         free_spv_provenance(&m);
