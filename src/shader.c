@@ -443,7 +443,7 @@ static void do_scan(SpvMod *m, bool p2)
             case SpvOpEntryPoint:
                 if(wc>=3){
                     uint32_t e=w[i+1];
-                    if(e==SpvExecVertex||e==SpvExecTessEval||e==SpvExecGeometry)
+                    if(e==SpvExecVertex||e==SpvExecTessEval||e==SpvExecGeometry||e==SpvExecMeshEXT)
                     {
                         m->is_patchable=true;
                         m->exec_model=(int)e;
