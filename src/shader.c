@@ -9243,6 +9243,31 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     }
                     continue;
                 }
+                if (e) {
+                    size_t scan_i = 5;
+                    while (scan_i < e->words) {
+                        uint32_t iw = e->spv[scan_i] >> 16;
+                        uint32_t io = e->spv[scan_i] & 0xffff;
+                        if (!iw || scan_i + iw > e->words)
+                            break;
+                        if (io == SpvOpEntryPoint && iw >= 3) {
+                            STEREO_LOG(
+                                "MESH_ENTRYPOINT p=%u exec_model=%u function=%u",
+                                p,
+                                e->spv[scan_i + 1],
+                                e->spv[scan_i + 2]);
+                        }
+                        scan_i += iw;
+                    }
+                }
+                uint64_t spv_hash = hash_spv(e->spv, e->words);
+                STEREO_LOG(
+                    "MESH_PATH p=%u hash=%016llx words=%zu module=%p exec=%d",
+                    p,
+                    (unsigned long long)spv_hash,
+                    e->words,
+                    (void*)ms_module,
+                    e->exec_model);
                 uint64_t spv_hash = hash_spv(e->spv, e->words);
                 STEREO_LOG(
                     "MESH_PATH p=%u hash=%016llx words=%zu module=%p exec=%d",
