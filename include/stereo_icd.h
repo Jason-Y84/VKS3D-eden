@@ -515,8 +515,10 @@ typedef struct StereoPipelineInfo
     VkShaderModule vs_module;
     VkShaderModule fs_module;
     VkShaderModule gs_module;
+    VkShaderModule ms_module;
     VkBool32 patched_vs;
     VkBool32 patched_fs;
+    VkBool32 patched_ms;
     /* Classification recorded at pipeline creation */
     VkBool32 is_quad;
     uint32_t vertex_binding_count;
