@@ -514,6 +514,7 @@ typedef struct StereoPipelineInfo
     uint32_t stage_count;
     VkShaderModule vs_module;
     VkShaderModule fs_module;
+    VkShaderModule gs_module;
     VkBool32 patched_vs;
     VkBool32 patched_fs;
     /* Classification recorded at pipeline creation */
@@ -527,7 +528,6 @@ typedef struct StereoPipelineInfo
     uint32_t proj_binding;
     uint32_t proj_member_mask;
     uint32_t proj_var;
-    uint32_t gs_module;
 } StereoPipelineInfo;
 
 typedef struct StereoDevice {
