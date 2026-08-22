@@ -527,6 +527,7 @@ typedef struct StereoPipelineInfo
     uint32_t proj_binding;
     uint32_t proj_member_mask;
     uint32_t proj_var;
+    uint32_t gs_module;
 } StereoPipelineInfo;
 
 typedef struct StereoDevice {
