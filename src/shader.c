@@ -8612,7 +8612,28 @@ static void cache_add(StereoDevice *sd, VkShaderModule h,
     memcpy(cp,spv,words*4);
     CHECK_ARRAY_COUNT(sd->shader_cache_count, MAX_SHADER_CACHE, "shader_cache_count");
     StereoShaderCache *e=&sd->shader_cache[sd->shader_cache_count++];
-    e->handle=h; e->spv=cp; e->words=words;
+    e->handle=h; e->spv=cp; e->words=words; e->exec_model=-1;
+    for (size_t i=5;i<words;) {
+        uint32_t wc=spv[i]>>16;
+        uint32_t op=spv[i]&0xffff;
+        if (!wc || i+wc>words) break;
+        if (op==SpvOpEntryPoint && wc>=3) {
+            e->exec_model=(int)spv[i+1];
+            STEREO_LOG(
+                "SHADER_CACHE_ENTRYPOINT module=%p exec_model=%d function=%u",
+                (void*)h,
+                e->exec_model,
+                spv[i+2]);
+            break;
+        }
+        i+=wc;
+    }
+    STEREO_LOG(
+        "SHADER_CACHE_ADD module=%p hash=%016llx words=%zu exec_model=%d",
+        (void*)h,
+        (unsigned long long)hash_spv(spv,words),
+        words,
+        e->exec_model);
 }
 static void cache_remove(StereoDevice *sd, VkShaderModule h)
 {
@@ -8686,9 +8707,35 @@ stereo_CreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo *pCI,
             fclose(f);
         }
     }
-    if (is_patchable_spv(spv, wc))
+    int create_exec_model=-1;
+    for (size_t i=5;i<wc;) {
+        uint32_t iw=spv[i]>>16;
+        uint32_t io=spv[i]&0xffff;
+        if (!iw || i+iw>wc) break;
+        if (io==SpvOpEntryPoint && iw>=3) {
+            create_exec_model=(int)spv[i+1];
+            STEREO_LOG(
+                "CREATE_SHADER_ENTRY module=%p exec_model=%d function=%u",
+                (void*)*pSM,
+                create_exec_model,
+                spv[i+2]);
+            break;
+        }
+        i+=iw;
+    }
+    bool create_is_mesh =
+    create_exec_model == SpvExecMeshEXT;
+    bool create_is_patchable =
+    is_patchable_spv(spv,wc);
+    STEREO_LOG(
+        "CREATE_SHADER_CLASS module=%p exec_model=%d patchable=%u mesh=%u",
+        (void*)*pSM,
+        create_exec_model,
+        (unsigned)create_is_patchable,
+        (unsigned)create_is_mesh);
+    if (create_is_patchable || create_is_mesh)
     {
-        cache_add(sd, *pSM, spv, wc);
+        cache_add(sd,*pSM,spv,wc);
     }
     STEREO_LOG(
         "CREATE_SHADER_DONE module=%p hash=%016llx",
