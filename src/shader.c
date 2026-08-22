@@ -8613,11 +8613,6 @@ static void cache_add(StereoDevice *sd, VkShaderModule h,
     CHECK_ARRAY_COUNT(sd->shader_cache_count, MAX_SHADER_CACHE, "shader_cache_count");
     StereoShaderCache *e=&sd->shader_cache[sd->shader_cache_count++];
     e->handle=h; e->spv=cp; e->words=words;
-    STEREO_LOG(
-        "SHADER_CACHE_ADD module=%p hash=%016llx words=%zu",
-        (void*)c->handle,
-        (unsigned long long)hash_spv(c->spv, c->words),
-        c->words);
 }
 static void cache_remove(StereoDevice *sd, VkShaderModule h)
 {
