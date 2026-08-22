@@ -23,6 +23,7 @@
 #define SpvExecVertex           0
 #define SpvExecTessEval         2
 #define SpvExecGeometry         3
+#define SpvExecFragment         4
 #define SpvStorageOutput        3
 #define SpvStorageInput         1
 #define SPIRV_MAGIC             0x07230203u
@@ -1144,6 +1145,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     uint32_t sel = (*nid)++;
     uint32_t px = (*nid)++;
     uint32_t nx = (*nid)++;
+    uint32_t nx2 = (*nid)++;
     uint32_t np = (*nid)++;
     STEREO_LOG(
         "VIEW_PATH "
@@ -1267,6 +1269,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         "sel=%u "
         "px=%u "
         "nx=%u "
+        "nx2=%u "
         "np=%u "
         "mode=%d "
         "pos_var=%u "
@@ -1282,6 +1285,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         sel,
         px,
         nx,
+        nx2,
         np,
         c->projection_mode,
         m->pos_var,
@@ -1305,9 +1309,19 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     {
         uint32_t pw = (*nid)++;
         uint32_t convmag = (*nid)++;
-        uint32_t negconv = (*nid)++;
-        uint32_t convsel = (*nid)++;
         uint32_t tmp = (*nid)++;
+        STEREO_LOG(
+            "PROJ_PIVOT_IDS "
+            "pw=%u "
+            "convmag=%u "
+            "tmp=%u "
+            "px=%u "
+            "nx=%u",
+            pw,
+            convmag,
+            tmp,
+            px,
+            nx);
         {
             uint32_t w[] = {
                 op_(SpvOpCompositeExtract, 5),
@@ -1330,30 +1344,19 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         }
         {
             uint32_t w[] = {
-                op_(SpvOpFSub, 5),
+                op_(SpvOpFMul, 5),
                 m->ft,
-                negconv,
-                c->cf0,
+                tmp,
+                sel,
                 convmag
             };
             sb_push_n(out, w, 5);
         }
         {
             uint32_t w[] = {
-                op_(SpvOpSelect, 6),
-                m->ft,
-                convsel,
-                isl,
-                convmag,
-                negconv
-            };
-            sb_push_n(out, w, 6);
-        }
-        {
-            uint32_t w[] = {
                 op_(SpvOpFAdd, 5),
                 m->ft,
-                tmp,
+                nx,
                 px,
                 sel
             };
@@ -1363,9 +1366,9 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             uint32_t w[] = {
                 op_(SpvOpFSub, 5),
                 m->ft,
+                nx2,
                 nx,
-                tmp,
-                convsel
+                tmp
             };
             sb_push_n(out, w, 5);
         }
@@ -1375,18 +1378,18 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             op_(SpvOpCompositeInsert, 6),
             m->v4t,
             np,
-            nx,
+            nx2,
             lp,
             0u
         };
         sb_push_n(out, w, 6);
     }
     STEREO_LOG(
-        "PROJ_WRITE pos_var=%u pptr=%u new_pos=%u x=%u view=%u",
+        "PROJ_WRITE pos_var=%u pptr=%u new_pos=%u x=%u view=%u pivot=1/conv",
         m->pos_var,
         pptr,
         np,
-        nx,
+        nx2,
         m->view_var);
     STEREO_LOG(
         "VIEWSPACE_PATCH "
@@ -1685,6 +1688,18 @@ bool spirv_patch_stereo_vertex(
      */
     bool is_gs =
         (m.exec_model == SpvExecGeometry);
+    if (is_gs)
+    {
+        STEREO_LOG(
+            "GS_PATCH hash=%016llx words=%zu pos=%u block=%d emit=%d matrix=%d view=%u",
+            (unsigned long long)spv_hash,
+            m.count,
+            m.pos_var,
+            m.pos_is_block,
+            m.has_emit_vertex,
+            m.has_matrix_ops,
+            m.view_var);
+    }
     uint32_t nid = m.bound;
     uint32_t id_ptr_v4 = nid++;
     uint32_t id_ptr_int = nid++;
@@ -7949,7 +7964,7 @@ static bool is_patchable_spv(const uint32_t *w, size_t c)
         uint32_t op=w[i]&0xffff, wc=w[i]>>16; if (!wc||i+wc>c) break;
         if (op==SpvOpEntryPoint&&wc>=2) {
             uint32_t e=w[i+1];
-            return e==SpvExecVertex||e==SpvExecGeometry||e==SpvExecTessEval||e==4/*Fragment*/;
+            return e==SpvExecVertex||e==SpvExecGeometry||e==SpvExecTessEval||e==SpvExecFragment;
         }
         i+=wc;
     }
@@ -8197,8 +8212,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                        ci ? (void*)ci->renderPass : NULL);
             continue;
         }
-        bool has_vs=false, has_tcs=false, has_tes=false;
-        uint32_t vs_stage=~0u, tes_stage=~0u;
+        bool has_vs=false, has_tcs=false, has_tes=false, has_gs=false;
+        uint32_t vs_stage=~0u, tes_stage=~0u, gs_stage=~0u;
         for (uint32_t s=0;s<ci->stageCount;s++) {
             VkShaderStageFlagBits st=ci->pStages[s].stage;
             if (st==VK_SHADER_STAGE_VERTEX_BIT)
@@ -8207,6 +8222,8 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 has_tcs=true;
             if (st==VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
                 { has_tes=true; tes_stage=s; }
+            if (st==VK_SHADER_STAGE_GEOMETRY_BIT)
+            { has_gs=true; gs_stage=s; }
         }
         /* ── Determine if this pipeline's render pass has multiview ──────
          * gl_ViewIndex is 0 in non-multiview passes.  Patching VS/TES there
@@ -8573,6 +8590,106 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                 sc2);
             continue;
         }
+        if (has_gs && gs_stage != ~0u) {
+            StereoShaderCache *e =
+            cache_find(sd, ci->pStages[gs_stage].module);
+            if (!e) {
+                continue;
+            }
+            uint64_t spv_hash = hash_spv(e->spv, e->words);
+            if (dump)
+            {
+                char dp[512];
+                _snprintf(
+                    dp,
+                    sizeof(dp)-1,
+                    "%s\\%016llx-gs.spv",
+                    dump,
+                    (unsigned long long)spv_hash);
+                FILE *f = fopen(dp, "rb");
+                if (!f)
+                {
+                    f = fopen(dp, "wb");
+                    if (f)
+                    {
+                        fwrite(e->spv, 4, e->words, f);
+                        fclose(f);
+                    }
+                }
+                else
+                {
+                    fclose(f);
+                }
+            }
+            uint32_t *patched = NULL;
+            size_t pc2 = 0;
+            StereoDebugCtx *dbgG = &dbg_out[p];
+            *dbgG = (StereoDebugCtx){
+                p,
+                ci->renderPass,
+                in_mv_rp,
+                (uint32_t)VK_SHADER_STAGE_GEOMETRY_BIT,
+                0,
+                0,
+                false,
+                false
+            };
+            if (!spirv_patch_stereo_vertex(
+                &sd->stereo,
+                e->spv, e->words,
+                &patched, &pc2,
+                lo, ro, conv,
+                true,
+                dbgG))
+            {
+                STEREO_LOG(
+                    "Pipe %u PathGS: GS patch failed hash=%016llx",
+                    p,
+                    (unsigned long long)spv_hash);
+                continue;
+            }
+            if (dump) {
+                char dp[512];
+                _snprintf(
+                    dp,
+                    sizeof(dp)-1,
+                    "%s\\%016llx+gs.spv",
+                    dump,
+                    (unsigned long long)spv_hash);
+                FILE *f=fopen(dp,"wb");
+                if (f) {
+                    fwrite(patched,4,pc2,f);
+                    fclose(f);
+                }
+            }
+            VkShaderModuleCreateInfo smci={
+                VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                NULL,0,pc2*4,patched};
+                VkShaderModule tmp=VK_NULL_HANDLE;
+                VkResult mr=sd->real.CreateShaderModule(
+                    sd->real_device,&smci,NULL,&tmp);
+                spirv_patched_free(patched);
+                if (mr!=VK_SUCCESS) {
+                    STEREO_ERR(
+                        "Pipe %u PathGS: module err %d",
+                        p,mr);
+                    continue;
+                }
+                uint32_t sc=ci->stageCount;
+                VkPipelineShaderStageCreateInfo *st=
+                malloc(sc*sizeof(*st));
+                if (!st) {
+                    sd->real.DestroyShaderModule(
+                        sd->real_device,tmp,NULL);
+                    continue;
+                }
+                memcpy(st,ci->pStages,sc*sizeof(*st));
+                st[gs_stage].module = tmp;
+                infos[p].pStages = st;
+                tmp_mod[p] = tmp;
+                tst[p] = st;
+                continue;
+            }
         /* ── Path A: patch existing TES ──────────────────────────────── */
         if (has_tes && tes_stage!=~0u) {
             StereoShaderCache *e=cache_find(sd, ci->pStages[tes_stage].module);
@@ -8981,6 +9098,10 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                         info->patched_vs =
                             (tmp_mod[p] != VK_NULL_HANDLE &&
                              st->module == tmp_mod[p]);
+                    }
+                    if (st->stage == VK_SHADER_STAGE_GEOMETRY_BIT)
+                    {
+                        info->gs_module = st->module;
                     }
                     if (st->stage == VK_SHADER_STAGE_FRAGMENT_BIT)
                     {
