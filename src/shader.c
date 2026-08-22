@@ -8859,7 +8859,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         in_mv_rp = true;
         }
         STEREO_LOG(
-            "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u view_mask=0x%x stages=%u has_vs=%u has_tes=%u quad=%u",
+            "PIPE_DECISION p=%u rp=%p rpi=%p in_mv=%u view_mask=0x%x stages=%u vs=%u tcs=%u tes=%u gs=%u ms=%u quad=%u",
             p,
             (void*)ci->renderPass,
             (void*)rpi,
@@ -8868,8 +8868,11 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             (unsigned)ci->stageCount,
             (unsigned)has_vs,
             (unsigned)has_tes,
+            (unsigned)has_tcs,
+            (unsigned)has_gs,
+            (unsigned)has_ms,
             (!ci->pVertexInputState ||
-             ci->pVertexInputState->vertexBindingDescriptionCount == 0));
+                ci->pVertexInputState->vertexBindingDescriptionCount == 0));
         for (uint32_t fs_dbg_i = 0; fs_dbg_i < ci->stageCount; fs_dbg_i++) {
             if (ci->pStages[fs_dbg_i].stage == VK_SHADER_STAGE_FRAGMENT_BIT) {
                 StereoShaderCache *fs_dbg =
