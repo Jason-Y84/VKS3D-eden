@@ -24,7 +24,7 @@
 #define SpvExecTessEval         2
 #define SpvExecGeometry         3
 #define SpvExecFragment         4
-#define SpvExecMeshEXT          5
+#define SpvExecMeshEXT          5365
 #define SpvStorageOutput        3
 #define SpvStorageInput         1
 #define SPIRV_MAGIC             0x07230203u
