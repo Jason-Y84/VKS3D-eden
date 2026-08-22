@@ -23,6 +23,7 @@
 #define SpvExecVertex           0
 #define SpvExecTessEval         2
 #define SpvExecGeometry         3
+#define SpvExecFragment         4
 #define SpvStorageOutput        3
 #define SpvStorageInput         1
 #define SPIRV_MAGIC             0x07230203u
@@ -1144,6 +1145,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     uint32_t sel = (*nid)++;
     uint32_t px = (*nid)++;
     uint32_t nx = (*nid)++;
+    uint32_t nx2 = (*nid)++;
     uint32_t np = (*nid)++;
     STEREO_LOG(
         "VIEW_PATH "
@@ -1267,6 +1269,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         "sel=%u "
         "px=%u "
         "nx=%u "
+        "nx2=%u "
         "np=%u "
         "mode=%d "
         "pos_var=%u "
@@ -1282,6 +1285,7 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         sel,
         px,
         nx,
+        nx2,
         np,
         c->projection_mode,
         m->pos_var,
@@ -1305,9 +1309,19 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
     {
         uint32_t pw = (*nid)++;
         uint32_t convmag = (*nid)++;
-        uint32_t negconv = (*nid)++;
-        uint32_t convsel = (*nid)++;
         uint32_t tmp = (*nid)++;
+        STEREO_LOG(
+            "PROJ_PIVOT_IDS "
+            "pw=%u "
+            "convmag=%u "
+            "tmp=%u "
+            "px=%u "
+            "nx=%u",
+            pw,
+            convmag,
+            tmp,
+            px,
+            nx);
         {
             uint32_t w[] = {
                 op_(SpvOpCompositeExtract, 5),
@@ -1330,30 +1344,19 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
         }
         {
             uint32_t w[] = {
-                op_(SpvOpFSub, 5),
+                op_(SpvOpFMul, 5),
                 m->ft,
-                negconv,
-                c->cf0,
+                tmp,
+                sel,
                 convmag
             };
             sb_push_n(out, w, 5);
         }
         {
             uint32_t w[] = {
-                op_(SpvOpSelect, 6),
-                m->ft,
-                convsel,
-                isl,
-                convmag,
-                negconv
-            };
-            sb_push_n(out, w, 6);
-        }
-        {
-            uint32_t w[] = {
                 op_(SpvOpFAdd, 5),
                 m->ft,
-                tmp,
+                nx,
                 px,
                 sel
             };
@@ -1363,9 +1366,9 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             uint32_t w[] = {
                 op_(SpvOpFSub, 5),
                 m->ft,
+                nx2,
                 nx,
-                tmp,
-                convsel
+                tmp
             };
             sb_push_n(out, w, 5);
         }
@@ -1375,18 +1378,18 @@ static void emit_body(SpvBuf *out, const BodyCtx *c, uint32_t *nid)
             op_(SpvOpCompositeInsert, 6),
             m->v4t,
             np,
-            nx,
+            nx2,
             lp,
             0u
         };
         sb_push_n(out, w, 6);
     }
     STEREO_LOG(
-        "PROJ_WRITE pos_var=%u pptr=%u new_pos=%u x=%u view=%u",
+        "PROJ_WRITE pos_var=%u pptr=%u new_pos=%u x=%u view=%u pivot=1/conv",
         m->pos_var,
         pptr,
         np,
-        nx,
+        nx2,
         m->view_var);
     STEREO_LOG(
         "VIEWSPACE_PATCH "
@@ -7949,7 +7952,7 @@ static bool is_patchable_spv(const uint32_t *w, size_t c)
         uint32_t op=w[i]&0xffff, wc=w[i]>>16; if (!wc||i+wc>c) break;
         if (op==SpvOpEntryPoint&&wc>=2) {
             uint32_t e=w[i+1];
-            return e==SpvExecVertex||e==SpvExecGeometry||e==SpvExecTessEval||e==4/*Fragment*/;
+            return e==SpvExecVertex||e==SpvExecGeometry||e==SpvExecTessEval||e==SpvExecFragment;
         }
         i+=wc;
     }
