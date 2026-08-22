@@ -8949,7 +8949,12 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
             p,
             is_quad,
             ci->stageCount);
-        if (is_quad && ci->stageCount > 0)
+        if (is_quad &&
+            !has_ms &&
+            !has_gs &&
+            !has_tes &&
+            !has_tcs &&
+            ci->stageCount > 0)
         {
             /* Find FS stage */
             uint32_t fs_s = ~0u;
