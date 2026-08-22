@@ -9213,16 +9213,44 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
         if (in_mv_rp &&
             has_ms &&
             ms_stage != ~0u) {
-            StereoShaderCache *e =
-                cache_find(sd, ci->pStages[ms_stage].module);
-            if (!e)
-                continue;
-            uint64_t spv_hash = hash_spv(e->spv, e->words);
-            STEREO_LOG(
-                "MESH_PATH p=%u hash=%016llx words=%zu",
-                p,
-                (unsigned long long)spv_hash,
-                e->words);
+            VkShaderModule ms_module =
+                ci->pStages[ms_stage].module;
+                STEREO_LOG(
+                    "MESH_GATE p=%u in_mv=%u has_ms=%u ms_stage=%u module=%p",
+                    p,
+                    (unsigned)in_mv_rp,
+                    (unsigned)has_ms,
+                    ms_stage,
+                    (void*)ms_module);
+                StereoShaderCache *e =
+                cache_find(sd, ms_module);
+                if (!e) {
+                    STEREO_LOG(
+                        "MESH_CACHE_MISS p=%u module=%p cache_count=%u",
+                        p,
+                        (void*)ms_module,
+                        (unsigned)sd->shader_cache_count);
+                    for (uint32_t k = 0; k < sd->shader_cache_count; ++k) {
+                        STEREO_LOG(
+                            "MESH_CACHE[%u] module=%p hash=%016llx words=%zu exec=%d",
+                            k,
+                            (void*)sd->shader_cache[k].handle,
+                            (unsigned long long)hash_spv(
+                                sd->shader_cache[k].spv,
+                                sd->shader_cache[k].words),
+                            sd->shader_cache[k].words,
+                            sd->shader_cache[k].exec_model);
+                    }
+                    continue;
+                }
+                uint64_t spv_hash = hash_spv(e->spv, e->words);
+                STEREO_LOG(
+                    "MESH_PATH p=%u hash=%016llx words=%zu module=%p exec=%d",
+                    p,
+                    (unsigned long long)spv_hash,
+                    e->words,
+                    (void*)ms_module,
+                    e->exec_model);
             if (dump)
             {
                 char dp[512];
