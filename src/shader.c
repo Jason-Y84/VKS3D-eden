@@ -9268,14 +9268,6 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                     e->words,
                     (void*)ms_module,
                     e->exec_model);
-                uint64_t spv_hash = hash_spv(e->spv, e->words);
-                STEREO_LOG(
-                    "MESH_PATH p=%u hash=%016llx words=%zu module=%p exec=%d",
-                    p,
-                    (unsigned long long)spv_hash,
-                    e->words,
-                    (void*)ms_module,
-                    e->exec_model);
             if (dump)
             {
                 char dp[512];
