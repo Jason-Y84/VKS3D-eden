@@ -24,6 +24,7 @@
 #define SpvExecTessEval         2
 #define SpvExecGeometry         3
 #define SpvExecFragment         4
+#define SpvExecMeshEXT          5
 #define SpvStorageOutput        3
 #define SpvStorageInput         1
 #define SPIRV_MAGIC             0x07230203u
@@ -8818,7 +8819,7 @@ stereo_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pc,
                        ci ? (void*)ci->renderPass : NULL);
             continue;
         }
-        bool has_vs=false, has_tcs=false, has_tes=false, has_gs=false, bool has_ms=false;
+        bool has_vs=false, has_tcs=false, has_tes=false, has_gs=false, has_ms=false;
         uint32_t vs_stage=~0u, tes_stage=~0u, gs_stage=~0u, ms_stage=~0u;
         for (uint32_t s=0;s<ci->stageCount;s++) {
             VkShaderStageFlagBits st=ci->pStages[s].stage;
