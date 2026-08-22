@@ -176,6 +176,7 @@ typedef struct {
     VkShaderModule  handle;
     uint32_t       *spv;    /* heap copy of original SPIR-V words */
     size_t          words;
+    int             exec_model;
 } StereoShaderCache;
 
 /* -- Stereo presentation mode ----------------------------------------------- */
