@@ -1625,18 +1625,31 @@ bool spirv_patch_stereo_mesh(
             dbg->proj_var = m.proj_var;
         }
     }
+    STEREO_LOG(
+        "MESH_SCAN hash=%016llx exec=%d patchable=%u pos=%u entry=%u matrix=%u direct=%u",
+        (unsigned long long)hash_spv(in, in_c),
+        m.exec_model,
+        m.is_patchable,
+        m.pos_var,
+        m.entry_function,
+        m.has_matrix_ops,
+        m.has_direct_position_write);
     if (m.exec_model != SpvExecMeshEXT)
     {
-        free_spv_provenance(&m);
-        return false;
-    }
-    if (!m.is_patchable)
-    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=exec_model exec=%d expected=%d",
+            (unsigned long long)hash_spv(in, in_c),
+            m.exec_model,
+            SpvExecMeshEXT);
         free_spv_provenance(&m);
         return false;
     }
     if (!m.pos_var)
     {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_position pos_var=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.pos_var);
         free_spv_provenance(&m);
         return false;
     }
@@ -1834,12 +1847,21 @@ bool spirv_patch_stereo_mesh(
     }
     if (!ins_t)
     {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_entry_function entry=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.entry_function);
         sb_free(&ann);
         sb_free(&te);
         sb_free(&ob);
         free_spv_provenance(&m);
         return false;
     }
+    STEREO_LOG(
+        "MESH_ENTRY_FOUND hash=%016llx entry=%u ins_t=%zu",
+        (unsigned long long)hash_spv(in, in_c),
+        m.entry_function,
+        ins_t);
     bool need_mv_cap =
         id_inj_view &&
         !m.has_mv_cap;
@@ -1999,6 +2021,11 @@ bool spirv_patch_stereo_mesh(
         sb_push_n(&ob, te.w, te.n);
     if (!patched_position)
     {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_position_store pos_var=%u entry=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.pos_var,
+            m.entry_function);
         sb_free(&ann);
         sb_free(&te);
         sb_free(&ob);
