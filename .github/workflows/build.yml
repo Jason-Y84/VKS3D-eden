@@ -11,6 +11,8 @@ on:
   push:
     branches:
       - $Branch
+    tags:
+      - '*'
   workflow_dispatch:
 
 jobs:
