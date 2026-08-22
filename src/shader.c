@@ -445,7 +445,7 @@ static void do_scan(SpvMod *m, bool p2)
                     uint32_t e=w[i+1];
                     STEREO_LOG(
                         "exec_model=%u",
-                        e);
+                        (int)e);
                     if(e==SpvExecVertex||e==SpvExecTessEval||e==SpvExecGeometry||e==SpvExecMeshEXT)
                     {
                         m->is_patchable=true;
