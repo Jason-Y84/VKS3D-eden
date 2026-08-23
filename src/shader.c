@@ -741,6 +741,16 @@ static void do_scan(SpvMod *m, bool p2)
                         w[i+3]);
                     m->proj_ptr_type = w[i+1];
                 }
+                if (m->exec_model == SpvExecMeshEXT &&
+                    w[i + 2] == SpvStorageOutput &&
+                    w[i + 3] == m->mesh_vertices_type)
+                {
+                    m->mesh_vertices_ptr_type = w[i + 1];
+                    STEREO_LOG(
+                        "MESH_VERTICES_POINTER ptr=%u array_type=%u",
+                        m->mesh_vertices_ptr_type,
+                        m->mesh_vertices_type);
+                }
                 if (w[i + 2] == SpvStorageOutput &&
                 m->v4t &&
                 w[i + 3] == m->v4t)
