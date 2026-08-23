@@ -1620,6 +1620,14 @@ bool spirv_patch_stereo_mesh(
         uint32_t dwc = in[di] >> 16;
         if (!dwc || di + dwc > in_c)
             break;
+        if (dop == SpvOpDecorate && dwc >= 4)
+        {
+            STEREO_LOG(
+                "MESH_DECORATE id=%u decoration=%u extra=%u",
+                in[di + 1],
+                in[di + 2],
+                dwc >= 4 ? in[di + 3] : 0);
+        }
         if (dop == SpvOpVariable && dwc >= 4)
         {
             STEREO_LOG(
@@ -1636,6 +1644,14 @@ bool spirv_patch_stereo_mesh(
                 in[di + 2],
                 in[di + 3],
                 dwc >= 5 ? in[di + 4] : 0);
+        }
+        else if (dop == SpvOpTypeStruct && dwc >= 2)
+        {
+            STEREO_LOG(
+                "MESH_STRUCT id=%u words=%u first_member=%u",
+                in[di + 1],
+                dwc,
+                dwc >= 3 ? in[di + 2] : 0);
         }
         else if (dop == SpvOpAccessChain && dwc >= 5)
         {
