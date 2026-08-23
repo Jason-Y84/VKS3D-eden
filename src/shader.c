@@ -2138,7 +2138,7 @@ bool spirv_patch_stereo_mesh(
                                 in[scan + 3],
                                 in[scan + 4],
                                 in[scan + sw - 1],
-                                dwc);
+                                wcx);
                         }
                     }
                     else if (in[scan + 3] == m.pos_var &&
