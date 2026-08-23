@@ -1757,13 +1757,14 @@ bool spirv_patch_stereo_mesh(
                 in[di + 4],
                 dwc >= 6 ? in[di + 5] : 0);
             if (m.exec_model == SpvExecMeshEXT &&
-                in[scan + 3] == m.mesh_vertices_var)
+                m.mesh_vertices_var &&
+                in[di + 3] == m.mesh_vertices_var)
             {
-                uint32_t member_id = in[scan + sw - 1];
+                uint32_t member_id = in[di + dwc - 1];
                 uint32_t member_value = member_id;
                 bool resolved =
                 spv_resolve_u32_constant(
-                    m,
+                    &m,
                     member_id,
                     &member_value);
                 STEREO_LOG(
@@ -1774,8 +1775,8 @@ bool spirv_patch_stereo_mesh(
                     "member_value=%u "
                     "resolved=%u "
                     "expected=%u",
-                    in[scan + 2],
-                    in[scan + 3],
+                    in[di + 2],
+                    in[di + 3],
                     member_id,
                     member_value,
                     resolved,
