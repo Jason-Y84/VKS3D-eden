@@ -1609,6 +1609,53 @@ bool spirv_patch_stereo_mesh(
         return false;
     }
     spv_scan(&m);
+    STEREO_LOG(
+        "MESH_OUTPUT_SCAN hash=%016llx pos_var=%u exec=%d",
+        (unsigned long long)hash_spv(in, in_c),
+        m.pos_var,
+        m.exec_model);
+    for (size_t di = 5; di < in_c;)
+    {
+        uint32_t dop = in[di] & 0xffff;
+        uint32_t dwc = in[di] >> 16;
+        if (!dwc || di + dwc > in_c)
+            break;
+        if (dop == SpvOpVariable && dwc >= 4)
+        {
+            STEREO_LOG(
+                "MESH_VAR id=%u type=%u storage=%u",
+                in[di + 2],
+                in[di + 1],
+                in[di + 3]);
+        }
+        else if (dop == SpvOpMemberDecorate && dwc >= 5)
+        {
+            STEREO_LOG(
+                "MESH_MEMBER_DECORATE struct=%u member=%u decoration=%u extra=%u",
+                in[di + 1],
+                in[di + 2],
+                in[di + 3],
+                dwc >= 5 ? in[di + 4] : 0);
+        }
+        else if (dop == SpvOpAccessChain && dwc >= 5)
+        {
+            STEREO_LOG(
+                "MESH_ACCESS_CHAIN result=%u ptr=%u base=%u index0=%u index1=%u",
+                in[di + 2],
+                in[di + 1],
+                in[di + 3],
+                in[di + 4],
+                dwc >= 6 ? in[di + 5] : 0);
+        }
+        else if (dop == SpvOpStore && dwc >= 3)
+        {
+            STEREO_LOG(
+                "MESH_STORE ptr=%u value=%u",
+                in[di + 1],
+                in[di + 2]);
+        }
+        di += dwc;
+    }
     if (dbg)
     {
         dbg->has_matrix_ops = m.has_matrix_ops;
