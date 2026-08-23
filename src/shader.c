@@ -135,6 +135,14 @@ typedef struct
     uint32_t position_function;
     /* Geometry */
     uint32_t emit_count;
+    /* Mesh output Position */
+    uint32_t mesh_vertices_var;
+    uint32_t mesh_vertices_type;
+    uint32_t mesh_vertices_ptr_type;
+    uint32_t mesh_per_vertex_type;
+    uint32_t mesh_position_member;
+    bool mesh_position_found;
+    uint32_t mesh_vertices_array_type;
     /* Shader analysis */
     uint32_t dot_count;
     bool has_matrix_ops;
@@ -522,6 +530,15 @@ static void do_scan(SpvMod *m, bool p2)
                         w[i + 1],
                         w[i + 2],
                         w[i + 3]);
+                    if (m->exec_model == SpvExecMeshEXT &&
+                        w[i + 2] == m->mesh_per_vertex_type)
+                    {
+                        m->mesh_vertices_type = w[i + 1];
+                        STEREO_LOG(
+                            "MESH_VERTICES_ARRAY type=%u elem=%u",
+                            m->mesh_vertices_type,
+                            m->mesh_per_vertex_type);
+                    }
                 }
                 break;
             case SpvOpTypeRuntimeArray:
@@ -729,6 +746,18 @@ static void do_scan(SpvMod *m, bool p2)
                 w[i + 3] == m->v4t)
                 {
                 m->ptr_out_v4 = w[i + 1];
+                if (m->exec_model == SpvExecMeshEXT &&
+                    w[i + 2] == SpvStorageOutput &&
+                    m->mesh_vertices_type &&
+                    w[i + 3] == m->mesh_vertices_type)
+                {
+                    m->mesh_vertices_var = w[i + 2];
+                    m->mesh_vertices_ptr_type = w[i + 1];
+                    STEREO_LOG(
+                        "MESH_VERTICES_POINTER ptr=%u array=%u",
+                        w[i + 1],
+                        m->mesh_vertices_type);
+                }
                 }
                 if (w[i + 2] == SpvStorageInput)
                 {
@@ -759,6 +788,21 @@ static void do_scan(SpvMod *m, bool p2)
                     PTR(w[i + 1]))
                 {
                     SETPTR(w[i + 2], 1);
+                }
+                if (m->exec_model == SpvExecMeshEXT &&
+                    m->mesh_vertices_type &&
+                    w[i + 3] == SpvStorageOutput &&
+                    PTR(w[i + 1]))
+                {
+                    if (w[i + 1] == m->pos_ptr_type ||
+                        w[i + 1] == m->mesh_vertices_ptr_type)
+                    {
+                        STEREO_LOG(
+                            "MESH_VERTICES_VAR var=%u ptr=%u array=%u",
+                            w[i + 2],
+                            w[i + 1],
+                            m->mesh_vertices_type);
+                    }
                 }
                 if (w[i+1] == m->proj_ptr_type &&
                     w[i+3] == SpvStorageClassUniform)
@@ -815,6 +859,16 @@ static void do_scan(SpvMod *m, bool p2)
                     m->pos_member_idx = w[i+2];
                     m->pos_is_block   = true;
                     m->pos_var        = 0;
+                    if (m->exec_model == SpvExecMeshEXT)
+                    {
+                        m->mesh_per_vertex_type = w[i+1];
+                        m->mesh_position_member = w[i+2];
+                        m->mesh_position_found = true;
+                        STEREO_LOG(
+                            "MESH_POSITION_MEMBER struct=%u member=%u",
+                            m->mesh_per_vertex_type,
+                            m->mesh_position_member);
+                    }
                 }
                 break;
             case SpvOpFunction:
@@ -1610,9 +1664,14 @@ bool spirv_patch_stereo_mesh(
     }
     spv_scan(&m);
     STEREO_LOG(
-        "MESH_OUTPUT_SCAN hash=%016llx pos_var=%u exec=%d",
+        "MESH_OUTPUT_SCAN hash=%016llx pos_var=%u "
+        "mesh_vertices_var=%u mesh_position_found=%u "
+        "mesh_position_member=%u exec=%d",
         (unsigned long long)hash_spv(in, in_c),
         m.pos_var,
+        m.mesh_vertices_var,
+        m.mesh_position_found,
+        m.mesh_position_member,
         m.exec_model);
     for (size_t di = 5; di < in_c;)
     {
@@ -1651,6 +1710,25 @@ bool spirv_patch_stereo_mesh(
                 in[di + 2],
                 in[di + 3],
                 dwc >= 5 ? in[di + 4] : 0);
+            if (in[di + 3] == SpvDecorationBuiltIn)
+            {
+                STEREO_LOG(
+                    "MESH_MEMBER_BUILTIN struct=%u member=%u builtin=%u",
+                    in[di + 1],
+                    in[di + 2],
+                    in[di + 4]);
+            }
+        }
+        if (dop == SpvOpMemberDecorate && dwc >= 5 &&
+            in[di + 3] == SpvDecorationBuiltIn &&
+            in[di + 4] == SpvBuiltInPosition)
+        {
+            mesh_per_vertex_type = in[di + 1];
+            mesh_position_member = in[di + 2];
+            STEREO_LOG(
+                "MESH_POSITION_MEMBER struct=%u member=%u",
+                mesh_per_vertex_type,
+                mesh_position_member);
         }
         else if (dop == SpvOpTypeStruct && dwc >= 2)
         {
@@ -1669,6 +1747,18 @@ bool spirv_patch_stereo_mesh(
                 in[di + 3],
                 in[di + 4],
                 dwc >= 6 ? in[di + 5] : 0);
+        }
+        if (dop == SpvOpAccessChain &&
+            dwc >= 6 &&
+            in[di + 3] == m->mesh_vertices_var &&
+            in[di + 5] == m->mesh_position_member)
+        {
+            STEREO_LOG(
+                "MESH_POSITION_CHAIN result=%u base=%u vertex=%u member=%u",
+                in[di + 2],
+                in[di + 3],
+                in[di + 4],
+                in[di + 5]);
         }
         else if (dop == SpvOpStore && dwc >= 3)
         {
@@ -1714,15 +1804,31 @@ bool spirv_patch_stereo_mesh(
         free_spv_provenance(&m);
         return false;
     }
-    //if (!m.pos_var)
-    //{
-    //    STEREO_LOG(
-    //        "MESH_REJECT hash=%016llx reason=no_position pos_var=%u",
-    //        (unsigned long long)hash_spv(in, in_c),
-    //        m.pos_var);
-    //    free_spv_provenance(&m);
-    //    return false;
-    //}
+    if (m.exec_model == SpvExecMeshEXT)
+    {
+        if (!m.mesh_vertices_var ||
+            !m.mesh_position_found)
+        {
+            STEREO_LOG(
+                "MESH_REJECT hash=%016llx reason=no_mesh_position "
+                "vertices_var=%u position_found=%u member=%u",
+                (unsigned long long)hash_spv(in, in_c),
+                m.mesh_vertices_var,
+                m.mesh_position_found,
+                m.mesh_position_member);
+            free_spv_provenance(&m);
+            return false;
+        }
+    }
+    else if (!m.pos_var)
+    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_position pos_var=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.pos_var);
+        free_spv_provenance(&m);
+        return false;
+    }
     int projection_mode =
         cfg ? cfg->projection :
         STEREO_PROJECTION_PARALLEL;
@@ -2019,12 +2125,29 @@ bool spirv_patch_stereo_mesh(
                 uint32_t sw = in[scan] >> 16;
                 if (!sw || scan + sw > i)
                     break;
-                if (so == SpvOpAccessChain &&
-                    sw >= 5 &&
-                    in[scan + 2] == m.pos_var &&
-                    in[scan + sw - 1] == 0)
+                if (so == SpvOpAccessChain && sw >= 5)
                 {
-                    position_store = true;
+                    if (m.exec_model == SpvExecMeshEXT)
+                    {
+                        if (m.mesh_vertices_var &&
+                            m.mesh_position_found &&
+                            in[scan + 3] == m.mesh_vertices_var &&
+                            in[scan + sw - 1] == m.mesh_position_member)
+                        {
+                            position_store = true;
+                            STEREO_LOG(
+                                "MESH_POSITION_CHAIN result=%u base=%u vertex=%u member=%u",
+                                in[scan + 2],
+                                in[scan + 3],
+                                in[scan + 4],
+                                in[scan + sw - 1]);
+                        }
+                    }
+                    else if (in[scan + 3] == m.pos_var &&
+                        in[scan + sw - 1] == 0)
+                    {
+                        position_store = true;
+                    }
                 }
                 scan += sw;
             }
@@ -2089,19 +2212,19 @@ bool spirv_patch_stereo_mesh(
         sb_push_n(&ob, ann.w, ann.n);
     if (!te_done)
         sb_push_n(&ob, te.w, te.n);
-    //if (!patched_position)
-    //{
-    //    STEREO_LOG(
-    //        "MESH_REJECT hash=%016llx reason=no_position_store pos_var=%u entry=%u",
-    //        (unsigned long long)hash_spv(in, in_c),
-    //        m.pos_var,
-    //        m.entry_function);
-    //    sb_free(&ann);
-    //    sb_free(&te);
-    //    sb_free(&ob);
-    //    free_spv_provenance(&m);
-    //    return false;
-    //}
+    if (!patched_position)
+    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_position_store pos_var=%u entry=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.pos_var,
+            m.entry_function);
+        sb_free(&ann);
+        sb_free(&te);
+        sb_free(&ob);
+        free_spv_provenance(&m);
+        return false;
+    }
     STEREO_LOG(
         "MESH_PATCH hash=%016llx words=%zu pos=%u view=%u matrix=%u",
         (unsigned long long)hash_spv(in, in_c),
