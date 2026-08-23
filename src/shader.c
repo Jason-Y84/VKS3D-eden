@@ -2142,7 +2142,7 @@ bool spirv_patch_stereo_mesh(
                             uint32_t member_id = in[scan + sw - 1];
                             uint32_t member_value = member_id;
                             if (spv_resolve_u32_constant(
-                                m,
+                                &m,
                                 member_id,
                                 &member_value) &&
                                 member_value == m.mesh_position_member)
