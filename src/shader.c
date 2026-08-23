@@ -2235,6 +2235,19 @@ bool spirv_patch_stereo_mesh(
         sb_push_n(&ob, ann.w, ann.n);
     if (!te_done)
         sb_push_n(&ob, te.w, te.n);
+    if (!patched_position)
+    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_position_store pos_var=%u entry=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.pos_var,
+            m.entry_function);
+        sb_free(&ann);
+        sb_free(&te);
+        sb_free(&ob);
+        free_spv_provenance(&m);
+        return false;
+    }
     STEREO_LOG(
         "MESH_PATCH_RESULT hash=%016llx patched_position=%u",
         (unsigned long long)hash_spv(in, in_c),
