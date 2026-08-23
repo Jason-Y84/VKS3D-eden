@@ -1631,17 +1631,21 @@ bool spirv_patch_stereo_mesh(
             {
                 STEREO_LOG(
                     "MESH_BUILTIN id=%u builtin=%u",
-                    in[di + 1],
-                    in[di + 3]);
+                    target,
+                    builtin);
             }
         }
         if (dop == SpvOpVariable && dwc >= 4)
         {
             STEREO_LOG(
-                "MESH_VAR id=%u type=%u storage=%u",
-                in[di + 2],
-                in[di + 1],
-                in[di + 3]);
+                "MESH_VAR id=%u type=%u storage=%u builtin=%u",
+                result,
+                type,
+                storage,
+                (result < m->value_capacity &&
+                   m->builtin[result] != 0xffffffffu)
+                ? m->builtin[result]
+                : 0xffffffffu);
         }
         else if (dop == SpvOpMemberDecorate && dwc >= 5)
         {
