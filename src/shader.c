@@ -1834,6 +1834,15 @@ bool spirv_patch_stereo_mesh(
         m.mesh_position_found,
         m.mesh_position_member,
         m.pos_var);
+    if (!m.pos_var)
+    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_position pos_var=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.pos_var);
+        free_spv_provenance(&m);
+        return false;
+    }
     int projection_mode =
         cfg ? cfg->projection :
         STEREO_PROJECTION_PARALLEL;
