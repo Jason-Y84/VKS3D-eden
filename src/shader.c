@@ -1827,13 +1827,19 @@ bool spirv_patch_stereo_mesh(
         free_spv_provenance(&m);
         return false;
     }
-    STEREO_LOG(
-        "MESH_POSITION_GATES_DISABLED "
-        "vertices_var=%u position_found=%u member=%u pos_var=%u",
-        m.mesh_vertices_var,
-        m.mesh_position_found,
-        m.mesh_position_member,
-        m.pos_var);
+    if (!m.mesh_vertices_var ||
+        !m.mesh_position_found)
+    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_mesh_position "
+            "vertices_var=%u position_found=%u member=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.mesh_vertices_var,
+            m.mesh_position_found,
+            m.mesh_position_member);
+        free_spv_provenance(&m);
+        return false;
+    }
     int projection_mode =
         cfg ? cfg->projection :
         STEREO_PROJECTION_PARALLEL;
