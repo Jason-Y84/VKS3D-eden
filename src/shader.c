@@ -1627,6 +1627,13 @@ bool spirv_patch_stereo_mesh(
                 in[di + 1],
                 in[di + 2],
                 dwc >= 4 ? in[di + 3] : 0);
+            if (in[di + 2] == SpvDecorationBuiltIn)
+            {
+                STEREO_LOG(
+                    "MESH_BUILTIN id=%u builtin=%u",
+                    in[di + 1],
+                    in[di + 3]);
+            }
         }
         if (dop == SpvOpVariable && dwc >= 4)
         {
