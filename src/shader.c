@@ -2133,11 +2133,12 @@ bool spirv_patch_stereo_mesh(
                         {
                             position_store = true;
                             STEREO_LOG(
-                                "MESH_POSITION_CHAIN result=%u base=%u vertex=%u member=%u",
+                                "MESH_POSITION_CHAIN result=%u base=%u vertex=%u member=%u words=%u",
                                 in[scan + 2],
                                 in[scan + 3],
                                 in[scan + 4],
-                                in[scan + sw - 1]);
+                                in[scan + sw - 1],
+                                dwc);
                         }
                     }
                     else if (in[scan + 3] == m.pos_var &&
@@ -2145,6 +2146,25 @@ bool spirv_patch_stereo_mesh(
                     {
                         position_store = true;
                     }
+                }
+                if (m.exec_model == SpvExecMeshEXT &&
+                    so == SpvOpAccessChain &&
+                    sw >= 6 &&
+                    in[scan + 2] == ptr &&
+                    in[scan + 3] == m.mesh_vertices_var &&
+                    in[scan + sw - 1] == m.mesh_position_member)
+                {
+                    position_store = true;
+                    STEREO_LOG(
+                        "MESH_POSITION_STORE_MATCH "
+                        "store_ptr=%u "
+                        "chain_result=%u "
+                        "base=%u "
+                        "member=%u",
+                        ptr,
+                        in[scan + 2],
+                        in[scan + 3],
+                        in[scan + sw - 1]);
                 }
                 scan += sw;
             }
