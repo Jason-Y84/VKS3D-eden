@@ -1756,6 +1756,31 @@ bool spirv_patch_stereo_mesh(
                 in[di + 3],
                 in[di + 4],
                 dwc >= 6 ? in[di + 5] : 0);
+            if (m.exec_model == SpvExecMeshEXT &&
+                in[scan + 3] == m.mesh_vertices_var)
+            {
+                uint32_t member_id = in[scan + sw - 1];
+                uint32_t member_value = member_id;
+                bool resolved =
+                spv_resolve_u32_constant(
+                    m,
+                    member_id,
+                    &member_value);
+                STEREO_LOG(
+                    "MESH_CHAIN_MEMBER "
+                    "result=%u "
+                    "base=%u "
+                    "member_id=%u "
+                    "member_value=%u "
+                    "resolved=%u "
+                    "expected=%u",
+                    in[scan + 2],
+                    in[scan + 3],
+                    member_id,
+                    member_value,
+                    resolved,
+                    m.mesh_position_member);
+            }
         }
         else if (dop == SpvOpStore && dwc >= 3)
         {
