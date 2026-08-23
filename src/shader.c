@@ -1791,41 +1791,41 @@ bool spirv_patch_stereo_mesh(
         m.entry_function,
         m.has_matrix_ops,
         m.has_direct_position_write);
-    //if (m.exec_model != SpvExecMeshEXT)
-    //{
-    //    STEREO_LOG(
-    //        "MESH_REJECT hash=%016llx reason=exec_model exec=%d expected=%d",
-    //        (unsigned long long)hash_spv(in, in_c),
-    //        m.exec_model,
-    //        SpvExecMeshEXT);
-    //    free_spv_provenance(&m);
-    //    return false;
-    //}
-    //if (m.exec_model == SpvExecMeshEXT)
-    //{
-    //    if (!m.mesh_vertices_var ||
-    //        !m.mesh_position_found)
-    //    {
-    //        STEREO_LOG(
-    //            "MESH_REJECT hash=%016llx reason=no_mesh_position "
-    //            "vertices_var=%u position_found=%u member=%u",
-    //            (unsigned long long)hash_spv(in, in_c),
-    //            m.mesh_vertices_var,
-    //            m.mesh_position_found,
-    //            m.mesh_position_member);
-    //        free_spv_provenance(&m);
-    //        return false;
-    //    }
-    //}
-    //else if (!m.pos_var)
-    //{
-    //    STEREO_LOG(
-    //        "MESH_REJECT hash=%016llx reason=no_position pos_var=%u",
-    //        (unsigned long long)hash_spv(in, in_c),
-    //        m.pos_var);
-    //    free_spv_provenance(&m);
-    //    return false;
-    //}
+    if (m.exec_model != SpvExecMeshEXT)
+    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=exec_model exec=%d expected=%d",
+            (unsigned long long)hash_spv(in, in_c),
+            m.exec_model,
+            SpvExecMeshEXT);
+        free_spv_provenance(&m);
+        return false;
+    }
+    if (m.exec_model == SpvExecMeshEXT)
+    {
+        if (!m.mesh_vertices_var ||
+            !m.mesh_position_found)
+        {
+            STEREO_LOG(
+                "MESH_REJECT hash=%016llx reason=no_mesh_position "
+                "vertices_var=%u position_found=%u member=%u",
+                (unsigned long long)hash_spv(in, in_c),
+                m.mesh_vertices_var,
+                m.mesh_position_found,
+                m.mesh_position_member);
+            free_spv_provenance(&m);
+            return false;
+        }
+    }
+    else if (!m.pos_var)
+    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_position pos_var=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.pos_var);
+        free_spv_provenance(&m);
+        return false;
+    }
     int projection_mode =
         cfg ? cfg->projection :
         STEREO_PROJECTION_PARALLEL;
@@ -2219,19 +2219,19 @@ bool spirv_patch_stereo_mesh(
         sb_push_n(&ob, ann.w, ann.n);
     if (!te_done)
         sb_push_n(&ob, te.w, te.n);
-    //if (!patched_position)
-    //{
-    //    STEREO_LOG(
-    //        "MESH_REJECT hash=%016llx reason=no_position_store pos_var=%u entry=%u",
-    //        (unsigned long long)hash_spv(in, in_c),
-    //        m.pos_var,
-    //        m.entry_function);
-    //    sb_free(&ann);
-    //    sb_free(&te);
-    //    sb_free(&ob);
-    //    free_spv_provenance(&m);
-    //    return false;
-    //}
+    if (!patched_position)
+    {
+        STEREO_LOG(
+            "MESH_REJECT hash=%016llx reason=no_position_store pos_var=%u entry=%u",
+            (unsigned long long)hash_spv(in, in_c),
+            m.pos_var,
+            m.entry_function);
+        sb_free(&ann);
+        sb_free(&te);
+        sb_free(&ob);
+        free_spv_provenance(&m);
+        return false;
+    }
     STEREO_LOG(
         "MESH_PATCH hash=%016llx words=%zu pos=%u view=%u matrix=%u",
         (unsigned long long)hash_spv(in, in_c),
