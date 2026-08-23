@@ -1719,17 +1719,6 @@ bool spirv_patch_stereo_mesh(
                     in[di + 4]);
             }
         }
-        if (dop == SpvOpMemberDecorate && dwc >= 5 &&
-            in[di + 3] == SpvDecorationBuiltIn &&
-            in[di + 4] == SpvBuiltInPosition)
-        {
-            mesh_per_vertex_type = in[di + 1];
-            mesh_position_member = in[di + 2];
-            STEREO_LOG(
-                "MESH_POSITION_MEMBER struct=%u member=%u",
-                mesh_per_vertex_type,
-                mesh_position_member);
-        }
         else if (dop == SpvOpTypeStruct && dwc >= 2)
         {
             STEREO_LOG(
@@ -1747,18 +1736,6 @@ bool spirv_patch_stereo_mesh(
                 in[di + 3],
                 in[di + 4],
                 dwc >= 6 ? in[di + 5] : 0);
-        }
-        if (dop == SpvOpAccessChain &&
-            dwc >= 6 &&
-            in[di + 3] == m->mesh_vertices_var &&
-            in[di + 5] == m->mesh_position_member)
-        {
-            STEREO_LOG(
-                "MESH_POSITION_CHAIN result=%u base=%u vertex=%u member=%u",
-                in[di + 2],
-                in[di + 3],
-                in[di + 4],
-                in[di + 5]);
         }
         else if (dop == SpvOpStore && dwc >= 3)
         {
