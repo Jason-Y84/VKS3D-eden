@@ -2134,28 +2134,37 @@ bool spirv_patch_stereo_mesh(
                 {
                     if (m.exec_model == SpvExecMeshEXT)
                     {
-                        if (!m.mesh_vertices_var ||
-                            !m.mesh_position_found)
+                        if (m.mesh_vertices_var &&
+                            m.mesh_position_found &&
+                            sw >= 5 &&
+                            in[scan + 2] == ptr &&
+                            in[scan + 3] == m.mesh_vertices_var)
                         {
-                            STEREO_LOG(
-                                "MESH_REJECT hash=%016llx reason=no_mesh_position "
-                                "vertices_var=%u position_found=%u member=%u",
-                                (unsigned long long)hash_spv(in, in_c),
-                                m.mesh_vertices_var,
-                                m.mesh_position_found,
-                                m.mesh_position_member);
-                            free_spv_provenance(&m);
-                            return false;
+                            uint32_t member_id = in[scan + sw - 1];
+                            uint32_t member_value = member_id;
+                            if (spv_resolve_u32_constant(
+                                &m,
+                                member_id,
+                                &member_value) &&
+                                member_value == m.mesh_position_member)
+                            {
+                                position_store = true;
+                                STEREO_LOG(
+                                    "MESH_POSITION_STORE_MATCH "
+                                    "store_ptr=%u "
+                                    "chain_result=%u "
+                                    "base=%u "
+                                    "member_id=%u "
+                                    "member=%u "
+                                    "words=%u",
+                                    ptr,
+                                    in[scan + 2],
+                                    in[scan + 3],
+                                    member_id,
+                                    member_value,
+                                    sw);
+                            }
                         }
-                    }
-                    else if (!m.pos_var)
-                    {
-                        STEREO_LOG(
-                            "MESH_REJECT hash=%016llx reason=no_position pos_var=%u",
-                            (unsigned long long)hash_spv(in, in_c),
-                            m.pos_var);
-                        free_spv_provenance(&m);
-                        return false;
                     }
                     else if (in[scan + 3] == m.pos_var &&
                         in[scan + sw - 1] == 0)
@@ -2226,19 +2235,6 @@ bool spirv_patch_stereo_mesh(
         sb_push_n(&ob, ann.w, ann.n);
     if (!te_done)
         sb_push_n(&ob, te.w, te.n);
-    if (!patched_position)
-    {
-        STEREO_LOG(
-            "MESH_REJECT hash=%016llx reason=no_position_store pos_var=%u entry=%u",
-            (unsigned long long)hash_spv(in, in_c),
-            m.pos_var,
-            m.entry_function);
-        sb_free(&ann);
-        sb_free(&te);
-        sb_free(&ob);
-        free_spv_provenance(&m);
-        return false;
-    }
     STEREO_LOG(
         "MESH_PATCH_RESULT hash=%016llx patched_position=%u",
         (unsigned long long)hash_spv(in, in_c),
