@@ -176,6 +176,7 @@ typedef struct {
     VkShaderModule  handle;
     uint32_t       *spv;    /* heap copy of original SPIR-V words */
     size_t          words;
+    int             exec_model;
 } StereoShaderCache;
 
 /* -- Stereo presentation mode ----------------------------------------------- */
@@ -514,8 +515,11 @@ typedef struct StereoPipelineInfo
     uint32_t stage_count;
     VkShaderModule vs_module;
     VkShaderModule fs_module;
+    VkShaderModule gs_module;
+    VkShaderModule ms_module;
     VkBool32 patched_vs;
     VkBool32 patched_fs;
+    VkBool32 patched_ms;
     /* Classification recorded at pipeline creation */
     VkBool32 is_quad;
     uint32_t vertex_binding_count;
@@ -527,7 +531,6 @@ typedef struct StereoPipelineInfo
     uint32_t proj_binding;
     uint32_t proj_member_mask;
     uint32_t proj_var;
-    uint32_t gs_module;
 } StereoPipelineInfo;
 
 typedef struct StereoDevice {
