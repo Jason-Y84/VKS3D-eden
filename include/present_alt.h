@@ -77,3 +77,26 @@ VkResult compose_present(StereoDevice *sd, StereoSwapchain *sc,
 
 /* ── Hotkeys ─────────────────────────────────────────────────────────────── */
 void hotkeys_poll(StereoDevice *sd);
+
+/* ── Diagnostic helper result ────────────────────────────────────────────── */
+typedef enum StereoDiagResult_ {
+    STEREO_DIAG_SKIPPED   = 0,  /* Did not run (too small, no cpu_map, etc.)     */
+    STEREO_DIAG_BLACK     = 1,  /* Ran, but frame was 100% clear/black (re-arm!) */
+    STEREO_DIAG_COMPLETED = 2   /* Ran and locked — real pixels compared.        */
+} StereoDiagResult;
+
+/* ── Diagnostic helper ───────────────────────────────────────────────────── *
+ *
+ * Compares layer 0 vs layer 1 pixels sampled across several scanlines using
+ * the CPU staging buffer (caller must invoke alt_cpu_readback first).  Prints
+ * a single STEREO_LOG line "[DIAG LAYER COMPARE]" containing the number of
+ * sampled vs differing pixels.  Intended use: prove whether the driver
+ * populated gl_ViewIndex during multiview rendering (if ViewIndex=0 everywhere
+ * both layers will be byte-identical → differing pixels = 0).
+ *
+ * Returns StereoDiagResult so the caller can RE-ARM the one-shot gate when
+ * the captured frame was pure black / clear-only (STEREO_DIAG_BLACK).         */
+StereoDiagResult stereo_diagnose_layer_compare(StereoDevice *sd, StereoSwapchain *sc);
+/* RE-ARM the one-shot gate after a BLACK-frame capture (call with v=0). */
+void stereo_diagnose_layer_compare_set_done(int v);
+int  stereo_diagnose_layer_compare_get_done(void);

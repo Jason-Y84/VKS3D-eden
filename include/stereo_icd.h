@@ -1,6 +1,6 @@
 #pragma once
 /*
- * stereo_icd.h — Vulkan 1.1 Stereoscopic ICD (VKS3D)
+ * stereo_icd.h — Vulkan 1.3 Stereoscopic ICD (VKS3D)
  */
 
 #include "platform.h"
@@ -136,22 +136,35 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
     do { ((VK_LOADER_DATA*)(void*)(obj))->loaderMagic = ICD_LOADER_MAGIC; } while(0)
 #endif
 
-#define CHECK_ARRAY_COUNT(count, max, name)                     \
-    STEREO_LOG(                                                 \
+/* When an array is full we log once per call-site and refuse the write —
+ * no __debugbreak(); crashing the game mid-level is never the right
+ * trade-off.  Objects that cannot be tracked will fall back to
+ * monoscopic behaviour (non-MV render pass / passthrough views).
+ * The per-site static flag is keyed on __LINE__ via an extra level of
+ * macro indirection so callers can pass string-literal `name` arguments
+ * (which cannot be concatenated into a C identifier). */
+#define CHECK_ARRAY_COUNT_IMPL(count, max, name, line)          \
+    STEREO_LOG_VERBOSE(                                         \
         "ARRAY OVERFLOW CHECK %s count=%u max=%u",             \
         name,                                                   \
         (unsigned)(count),                                      \
         (unsigned)(max));                                       \
     do {                                                        \
         if ((count) >= (max)) {                                 \
-            STEREO_LOG(                                          \
-                "ARRAY OVERFLOW %s count=%u max=%u",             \
-                name,                                            \
-                (unsigned)(count),                               \
-                (unsigned)(max));                                \
-            __debugbreak();                                      \
+            static int once_flag_##line = 0;                    \
+            if (!once_flag_##line) {                            \
+                once_flag_##line = 1;                           \
+                STEREO_LOG(                                     \
+                    "ARRAY OVERFLOW (non-fatal, tracking disabled) " \
+                    "%s count=%u max=%u",                       \
+                    name,                                       \
+                    (unsigned)(count),                          \
+                    (unsigned)(max));                           \
+            }                                                   \
         }                                                       \
     } while (0)
+#define CHECK_ARRAY_COUNT(count, max, name)                     \
+    CHECK_ARRAY_COUNT_IMPL(count, max, name, __LINE__)
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -163,20 +176,19 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
 #define MAX_INSTANCES           8
 #define MAX_PHYSICAL_DEVICES    16
 #define MAX_DEVICES             32
-#define MAX_RENDER_PASSES       4096
+#define MAX_RENDER_PASSES       (4096*4)
 #define MAX_SWAPCHAINS          64
-#define MAX_DEPTH_IMAGES        2048
+#define MAX_DEPTH_IMAGES        (2048*4)
 
 /* -- Shader module cache ---------------------------------------------------- *
  * Stores original (unpatched) SPIR-V for vertex/geometry/tesseval shaders.   *
  * Used by stereo_CreateGraphicsPipelines to patch the correct stage.          *
  * Fragment and compute shaders are never cached.                              */
-#define MAX_SHADER_CACHE 65536
+#define MAX_SHADER_CACHE (65536*4)
 typedef struct {
     VkShaderModule  handle;
     uint32_t       *spv;    /* heap copy of original SPIR-V words */
     size_t          words;
-    int             exec_model;
 } StereoShaderCache;
 
 /* -- Stereo presentation mode ----------------------------------------------- */
@@ -213,6 +225,7 @@ typedef struct StereoConfig {
     StereoProjectionMode    projection;
     float                   step_separation;
     float                   step_convergence;
+    bool                    image_shift;
 } StereoConfig;
 
 void stereo_config_init(StereoConfig *cfg);
@@ -390,6 +403,11 @@ typedef struct RealDeviceDispatch {
     PFN_vkCmdClearDepthStencilImage  CmdClearDepthStencilImage;
     PFN_vkCmdClearAttachments        CmdClearAttachments;
     PFN_vkCmdResolveImage            CmdResolveImage;
+    PFN_vkCmdBlitImage2              CmdBlitImage2;
+    PFN_vkCmdCopyImage2              CmdCopyImage2;
+    PFN_vkCmdResolveImage2           CmdResolveImage2;
+    PFN_vkCmdCopyBufferToImage2      CmdCopyBufferToImage2;
+    PFN_vkCmdCopyImageToBuffer2      CmdCopyImageToBuffer2;
     PFN_vkCmdSetEvent                CmdSetEvent;
     PFN_vkCmdResetEvent              CmdResetEvent;
     PFN_vkCmdWaitEvents              CmdWaitEvents;
@@ -401,6 +419,8 @@ typedef struct RealDeviceDispatch {
     PFN_vkCmdCopyQueryPoolResults    CmdCopyQueryPoolResults;
     PFN_vkCmdPushConstants           CmdPushConstants;
     PFN_vkCmdBeginRenderPass         CmdBeginRenderPass;
+    PFN_vkCmdBeginRenderPass2        CmdBeginRenderPass2;
+    PFN_vkCmdBeginRenderPass2KHR     CmdBeginRenderPass2KHR;
     PFN_vkCmdNextSubpass             CmdNextSubpass;
     PFN_vkCmdEndRenderPass           CmdEndRenderPass;
     PFN_vkCmdBeginRendering          CmdBeginRendering;
@@ -469,7 +489,7 @@ typedef struct StereoSwapchain {
     VkCommandBuffer  *barrier_cmds;
     VkFence          *barrier_fences;
     uint32_t          acquire_idx;
-    /* GPU blit compose � replaces CPU readback + GDI for SBS/TAB */
+    /* GPU blit compose � replaces CPU readback + GDI for SBS/TAB */
     VkImage    *comp_sc_images;     /* real output swapchain images  */
     uint32_t    comp_sc_count;
     VkSemaphore comp_acquire_sem;   /* image-available semaphore     */
@@ -495,7 +515,7 @@ typedef struct StereoRenderPassInfo {
     bool          has_multiview;
     uint32_t      view_mask;
     uint32_t      subpass_count;
-    VkRenderPass  mv_handle;     /* multiview version � VK_NULL_HANDLE until framebuffer confirms */
+    VkRenderPass  mv_handle;     /* multiview version � VK_NULL_HANDLE until framebuffer confirms */
     uint8_t       _pad[7];
 } StereoRenderPassInfo;
 
@@ -515,11 +535,8 @@ typedef struct StereoPipelineInfo
     uint32_t stage_count;
     VkShaderModule vs_module;
     VkShaderModule fs_module;
-    VkShaderModule gs_module;
-    VkShaderModule ms_module;
     VkBool32 patched_vs;
     VkBool32 patched_fs;
-    VkBool32 patched_ms;
     /* Classification recorded at pipeline creation */
     VkBool32 is_quad;
     uint32_t vertex_binding_count;
@@ -551,16 +568,16 @@ typedef struct StereoDevice {
     VkImage                intercepted_depth[MAX_DEPTH_IMAGES];
     uint32_t               intercepted_depth_count;
     /* Color attachment images also upgraded to arrayLayers=2 for deferred stereo */
-#define MAX_COLOR_IMAGES        2048
+#define MAX_COLOR_IMAGES        (2048*4)
     VkImage                intercepted_color[MAX_COLOR_IMAGES];
     uint32_t               intercepted_color_count;
     uint32_t               stereo_w, stereo_h;
     /* Upgraded image-view tracking for per-framebuffer multiview decision */
-#define MAX_UPGRADED_VIEWS     4096
+#define MAX_UPGRADED_VIEWS     (4096*4)
     VkImageView            upgraded_views[MAX_UPGRADED_VIEWS];
     uint32_t               upgraded_view_count;
     /* Per-framebuffer: which render pass (multiview version) was used */
-#define MAX_FB_TRACK           512
+#define MAX_FB_TRACK           (4096*16)
     StereoFramebufferTrack fb_tracks[MAX_FB_TRACK];
     uint32_t               fb_track_count;
     stereo_mutex_t         lock;
@@ -585,7 +602,7 @@ typedef struct StereoDevice {
      * Driver 426.06 holds a reference to module SPIR-V even after           *
      * CreateGraphicsPipelines returns, so we must not destroy the temp      *
      * module immediately.  Pool them here and destroy in stereo_DestroyDevice */
-#define MAX_TMP_MODULES 512
+#define MAX_TMP_MODULES (512*4)
     VkShaderModule         tmp_modules[MAX_TMP_MODULES];
     uint32_t               tmp_module_count;
     /* -- D3D11 / DXGI stereo output ---------------------------------------- */
@@ -623,7 +640,7 @@ typedef struct StereoDevice {
     uint32_t pipeline_info_count;
     uint32_t pipeline_info_capacity;
     /* -- CommandBuffer -> currently bound graphics pipeline -------- */
-#define MAX_CB_TRACK 4096
+#define MAX_CB_TRACK (4096*4)
     struct {
         VkCommandBuffer cb;
         VkPipeline pipeline;
@@ -751,6 +768,10 @@ VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateImageView(VkDevice, const VkImageVie
 VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateFramebuffer(VkDevice, const VkFramebufferCreateInfo *, const VkAllocationCallbacks *, VkFramebuffer *);
 VKAPI_ATTR void     VKAPI_CALL stereo_DestroyFramebuffer(VkDevice, VkFramebuffer, const VkAllocationCallbacks *);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdBeginRenderPass(VkCommandBuffer, const VkRenderPassBeginInfo *, VkSubpassContents);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdBeginRenderPass2(VkCommandBuffer, const VkRenderPassBeginInfo *, VkSubpassContents);
+#ifdef VK_KHR_create_renderpass2
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdBeginRenderPass2KHR(VkCommandBuffer, const VkRenderPassBeginInfo *, VkSubpassContents);
+#endif
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo *pRenderingInfo);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdEndRendering(VkCommandBuffer commandBuffer);
 VKAPI_ATTR VkResult VKAPI_CALL stereo_CreateImage(VkDevice, const VkImageCreateInfo*, const VkAllocationCallbacks*, VkImage*);
@@ -774,6 +795,31 @@ VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndirect(VkCommandBuffer, VkBuffer,
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdDrawIndexedIndirect(VkCommandBuffer, VkBuffer, VkDeviceSize, uint32_t, uint32_t);
 VKAPI_ATTR void     VKAPI_CALL stereo_UpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *pDescriptorWrites, uint32_t descriptorCopyCount, const VkCopyDescriptorSet *pDescriptorCopies);
 VKAPI_ATTR void     VKAPI_CALL stereo_CmdBindDescriptorSets(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet, uint32_t descriptorSetCount, const VkDescriptorSet *pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdBlitImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageBlit* pRegions, VkFilter filter);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageCopy* pRegions);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdResolveImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageResolve* pRegions);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkBufferImageCopy* pRegions);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyImageToBuffer(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkBuffer dstBuffer, uint32_t regionCount, const VkBufferImageCopy* pRegions);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdBlitImage2(VkCommandBuffer commandBuffer, const VkBlitImageInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyImage2(VkCommandBuffer commandBuffer, const VkCopyImageInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdResolveImage2(VkCommandBuffer commandBuffer, const VkResolveImageInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyBufferToImage2(VkCommandBuffer commandBuffer, const VkCopyBufferToImageInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyImageToBuffer2(VkCommandBuffer commandBuffer, const VkCopyImageToBufferInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdBlitImage2KHR(VkCommandBuffer commandBuffer, const VkBlitImageInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyImage2KHR(VkCommandBuffer commandBuffer, const VkCopyImageInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdResolveImage2KHR(VkCommandBuffer commandBuffer, const VkResolveImageInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer, const VkCopyBufferToImageInfo2* pInfo);
+VKAPI_ATTR void     VKAPI_CALL stereo_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer, const VkCopyImageToBufferInfo2* pInfo);
+
+/* -- image_blit.c helpers ------------------------------------------------ */
+/* Returns true if image is tracked as a 2-layer upgraded image (intercepted
+ * color / intercepted_depth / upgraded_images). */
+bool stereo_image_is_layered2(StereoDevice *sd, VkImage image);
+
+/* Returns true if image is specifically a stereo swapchain color image
+ * (intercepted_color list only — excludes depth and upgraded RT images).
+ * Used to decide whether to insert layout-fix barrier after blit. */
+bool stereo_image_is_intercepted_color(StereoDevice *sd, VkImage image);
 
 /* shader.c */
 StereoPipelineInfo *

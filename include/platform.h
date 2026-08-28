@@ -427,6 +427,36 @@ extern "C" {
 extern HANDLE g_vks3d_log_handle;
 extern int    g_vks3d_log_enabled;
 
+/* Aggregate stereo patch counters (always-logged summary on detach).
+ * Defined in stereo.c. */
+extern volatile uint32_t g_stat_pipes_total;
+extern volatile uint32_t g_stat_pipes_mv;
+extern volatile uint32_t g_stat_pipes_mono;
+extern volatile uint32_t g_stat_pipes_patch_ok;
+extern volatile uint32_t g_stat_pipes_patch_fail;
+extern volatile uint32_t g_stat_shaders_total;
+extern volatile uint32_t g_stat_shaders_patch_ok;
+extern volatile uint32_t g_stat_shaders_skip_no_mv;
+extern volatile uint32_t g_stat_shaders_skip_no_mx;
+extern volatile uint32_t g_stat_shaders_skip_no_pos;
+extern volatile uint32_t g_stat_shaders_skip_unpch;
+extern volatile uint32_t g_stat_shaders_skip_ui;
+extern volatile uint32_t g_stat_rp_total;
+extern volatile uint32_t g_stat_rp_mv_upgraded;
+extern volatile uint32_t g_stat_fb_total;
+extern volatile uint32_t g_stat_fb_mv_upgraded;
+extern volatile uint32_t g_stat_iv_total;
+extern volatile uint32_t g_stat_iv_upgraded;
+extern volatile uint32_t g_stat_proj_found;
+extern volatile uint32_t g_stat_proj_miss;
+extern volatile uint32_t g_stat_beginrp_mv;
+extern volatile uint32_t g_stat_beginrp_mv_lost;
+extern volatile uint32_t g_stat_beginrp_mono;
+extern volatile uint32_t g_stat_fb_track_peak;
+extern volatile uint32_t g_stat_beginrender_total;
+extern volatile uint32_t g_stat_beginrender_mv;
+extern volatile uint32_t g_stat_beginrender_mono;
+
 /* Ensures vks3d_log_open() is only executed once per process */
 static int g_vks3d_log_initialized = 0;
 
@@ -524,6 +554,21 @@ static inline void vks3d_logf(const char *prefix, const char *fmt, ...)
 #  define STEREO_ERR(fmt, ...) \
     do { if (g_vks3d_log_enabled) \
         vks3d_logf("[ERROR] ", fmt, ##__VA_ARGS__); \
+    } while (0)
+/* Verbose per-draw-call / per-frame debug logging — disabled by default.
+ * Set STEREO_VERBOSE=1 env var to enable.  Keeps the log file small
+ * (startup + config + errors only) for normal use. */
+extern int g_vks3d_verbose;
+#  define STEREO_LOG_VERBOSE(fmt, ...) \
+    do { if (g_vks3d_log_enabled && g_vks3d_verbose) \
+        vks3d_logf("", fmt, ##__VA_ARGS__); \
+    } while (0)
+/* First-call trace: logs once per call-site, then never again.
+ * Used to track execution flow without flooding the log. */
+#  define STEREO_LOG_ONCE(fmt, ...) \
+    do { static int _once_flag_ = 0; \
+         if (!_once_flag_) { _once_flag_ = 1; \
+             STEREO_LOG(fmt, ##__VA_ARGS__); } \
     } while (0)
 #  endif
 
