@@ -163,9 +163,9 @@ static void test_zero_separation_zero_offset(void)
     }
 }
 
-static void test_left_negative_right_positive(void)
+static void test_left_positive_right_negative(void)
 {
-    TEST("Left eye has negative offset, right has positive (no flip)");
+    TEST("Left eye has positive offset, right has negative (no flip)");
     StereoConfig cfg;
     cfg.enabled     = true;
     cfg.separation  = 0.065f;
@@ -174,10 +174,10 @@ static void test_left_negative_right_positive(void)
     cfg.projection = STEREO_PROJECTION_PARALLEL;
     stereo_config_compute_offsets(&cfg);
 
-    if (cfg.left_eye_offset >= 0.0f) {
-        FAIL("left eye offset should be negative");
-    } else if (cfg.right_eye_offset <= 0.0f) {
-        FAIL("right eye offset should be positive");
+    if (cfg.left_eye_offset <= 0.0f) {
+        FAIL("left eye offset should be positive");
+    } else if (cfg.right_eye_offset >= 0.0f) {
+        FAIL("right eye offset should be negative");
     } else {
         PASS();
     }
@@ -185,7 +185,7 @@ static void test_left_negative_right_positive(void)
 
 static void test_convergence_direction(void)
 {
-    TEST("Convergence moves eyes toward centre");
+    TEST("Parallel mode constants are pure ±sep/2 (no baked convergence)");
     StereoConfig cfg;
     cfg.enabled     = true;
     cfg.separation  = 0.065f;
@@ -194,13 +194,16 @@ static void test_convergence_direction(void)
     cfg.projection = STEREO_PROJECTION_PARALLEL;
     stereo_config_compute_offsets(&cfg);
 
-    /* With convergence, the right eye should be less positive */
-    float right_no_conv = 0.065f / 2.0f;          /* half_sep */
-    float right_with_conv = cfg.right_eye_offset;
-    /* right_with_conv = half_sep - half_conv = smaller positive */
+    /* In Shader-HIT parallel mode, convergence is applied per-vertex
+     * in the SPIR-V shader (multiplied by gl_Position.w).  The
+     * constant offsets returned here must NOT contain convergence. */
+    float expected_left  = 0.065f / 2.0f;
+    float expected_right = -0.065f / 2.0f;
 
-    if (right_with_conv >= right_no_conv) {
-        FAIL("convergence should reduce right offset");
+    if (!approx_eq(cfg.left_eye_offset, expected_left, 1e-5f) ||
+        !approx_eq(cfg.right_eye_offset, expected_right, 1e-5f))
+    {
+        FAIL("parallel mode constants must be pure ±sep/2");
     } else {
         PASS();
     }
@@ -208,7 +211,7 @@ static void test_convergence_direction(void)
 
 static void test_offset_formula(void)
 {
-    TEST("Offset formula: left=-(sep/2)+(conv/2), right=+(sep/2)-(conv/2)");
+    TEST("Offset formula: left=+(sep/2), right=-(sep/2)");
     StereoConfig cfg;
     cfg.enabled     = true;
     cfg.separation  = 0.060f;
@@ -217,8 +220,8 @@ static void test_offset_formula(void)
     cfg.projection = STEREO_PROJECTION_PARALLEL;
     stereo_config_compute_offsets(&cfg);
 
-    float expected_left  = -(0.060f / 2.0f) + (0.020f / 2.0f);
-    float expected_right = +(0.060f / 2.0f) - (0.020f / 2.0f);
+    float expected_left  = +(0.060f / 2.0f);
+    float expected_right = -(0.060f / 2.0f);
 
     if (!approx_eq(cfg.left_eye_offset,  expected_left,  1e-5f) ||
         !approx_eq(cfg.right_eye_offset, expected_right, 1e-5f)) {
@@ -296,7 +299,7 @@ int main(void)
 
     printf("\nOffset Calculation:\n");
     test_zero_separation_zero_offset();
-    test_left_negative_right_positive();
+    test_left_positive_right_negative();
     test_convergence_direction();
     test_offset_formula();
     test_extreme_separation();
