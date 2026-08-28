@@ -296,6 +296,11 @@ bool dxgi_sc_create(StereoDevice *sd, StereoSwapchain *sc, HANDLE *out_nt_handle
 
     BOOL wse = ((BOOL(WINAPI*)(void*))(*(void***)pFact2)[14])(pFact2);
     STEREO_LOG("[DXGI] IsWindowedStereoEnabled = %s", wse ? "TRUE" : "FALSE");
+    if (!wse) {
+        STEREO_LOG("[DXGI] Windowed stereo disabled — bailing out before Stereo=TRUE swapchain");
+        COM_RELEASE(pFact2);
+        return false;
+    }
 
     DXGI_SWAP_CHAIN_DESC1_ scd = {
         .Width=sc->app_width, .Height=sc->app_height,

@@ -116,17 +116,17 @@ stereo_CreateRenderPass(
     const VkAllocationCallbacks    *pAllocator,
     VkRenderPass                   *pRenderPass)
 {
-    STEREO_LOG("CALLED stereo_CreateRenderPass");
+    STEREO_LOG_VERBOSE("CALLED stereo_CreateRenderPass");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
 
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "RP sd=%p enabled=%u real_device=%p",
         (void*)sd,
         sd ? sd->stereo.enabled : 0,
         sd ? (void*)sd->real_device : NULL);
 
-    STEREO_LOG("stereo_CreateRenderPass: attachments=%u",
+    STEREO_LOG_VERBOSE("stereo_CreateRenderPass: attachments=%u",
                pCreateInfo ? pCreateInfo->attachmentCount : 0);
 
     /* Step 1: create ORIGINAL render pass */
@@ -146,11 +146,12 @@ stereo_CreateRenderPass(
     rpi->has_multiview = false;
     rpi->view_mask     = 0;
     rpi->subpass_count = pCreateInfo->subpassCount;
+    InterlockedIncrement((volatile long*)&g_stat_rp_total);
 
     /* Step 2: classify */
     bool depth_only = is_depth_only_renderpass(pCreateInfo);
 
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "RenderPass classify: depth_only=%d attachments=%u fmt0=%u",
         depth_only,
         pCreateInfo->attachmentCount,
@@ -164,6 +165,14 @@ stereo_CreateRenderPass(
         !depth_only;
     if (!mv_eligible)
     {
+        STEREO_LOG(
+            "RP_SUMMARY orig=%p status=MONO reason=%s att=%u sub=%u stereo=%d mv=%d",
+            (void*)*pRenderPass,
+            depth_only ? "DEPTH_ONLY" : (!sd->stereo.multiview ? "MULTIVIEW_OFF" : "STEREO_DISABLED"),
+            (unsigned)pCreateInfo->attachmentCount,
+            (unsigned)pCreateInfo->subpassCount,
+            (unsigned)sd->stereo.enabled,
+            (unsigned)sd->stereo.multiview);
         return VK_SUCCESS;
     }
 
@@ -182,8 +191,15 @@ stereo_CreateRenderPass(
                 rpi->mv_handle     = ex->mv_handle;
                 rpi->has_multiview = true;
                 rpi->view_mask     = STEREO_VIEW_MASK;
+                InterlockedIncrement((volatile long*)&g_stat_rp_mv_upgraded);
 
-                STEREO_LOG("RenderPass %p: reused existing mv=%p",
+                STEREO_LOG(
+                    "RP_SUMMARY orig=%p status=MV_REUSED mv=%p att=%u sub=%u",
+                    (void*)*pRenderPass,
+                    (void*)ex->mv_handle,
+                    (unsigned)pCreateInfo->attachmentCount,
+                    (unsigned)pCreateInfo->subpassCount);
+                STEREO_LOG_VERBOSE("RenderPass %p: reused existing mv=%p",
                            (void*)*pRenderPass,
                            (void*)ex->mv_handle);
 
@@ -198,23 +214,29 @@ stereo_CreateRenderPass(
     if (create_mv_rp(sd, pCreateInfo, pAllocator, &mv) == VK_SUCCESS && mv)
     {
         rpi->mv_handle     = mv;
+        rpi->has_multiview = true;
+        rpi->view_mask     = STEREO_VIEW_MASK;
+        InterlockedIncrement((volatile long*)&g_stat_rp_mv_upgraded);
+        sd->multiview_pass_exists = true;
         STEREO_LOG(
+            "RP_SUMMARY orig=%p status=MV_CREATED mv=%p att=%u sub=%u viewMask=0x%x",
+            (void*)*pRenderPass,
+            (void*)mv,
+            (unsigned)pCreateInfo->attachmentCount,
+            (unsigned)pCreateInfo->subpassCount,
+            (unsigned)rpi->view_mask);
+        STEREO_LOG_VERBOSE(
             "RP_PAIR original=%p mv=%p",
             (void*)*pRenderPass,
             (void*)mv);
-        rpi->has_multiview = true;
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "RP_STORE slot=%u handle=%08x mv=%08x has_mv=%u addr=%08x",
             (unsigned)(sd->render_pass_count - 1),
             (unsigned)(uintptr_t)rpi->handle,
             (unsigned)(uintptr_t)rpi->mv_handle,
             (unsigned)rpi->has_multiview,
             (unsigned)(uintptr_t)rpi);
-        rpi->view_mask     = STEREO_VIEW_MASK;
-
-        sd->multiview_pass_exists = true;
-
-        STEREO_LOG("RenderPass %p: original=returned mv=%p (att=%u sub=%u)",
+        STEREO_LOG_VERBOSE("RenderPass %p: original=returned mv=%p (att=%u sub=%u)",
                    (void*)*pRenderPass,
                    (void*)mv,
                    pCreateInfo->attachmentCount,
@@ -222,6 +244,11 @@ stereo_CreateRenderPass(
     }
     else
     {
+        STEREO_LOG(
+            "RP_SUMMARY orig=%p status=MV_FAILED att=%u sub=%u reason=create_mv_rp_failed",
+            (void*)*pRenderPass,
+            (unsigned)pCreateInfo->attachmentCount,
+            (unsigned)pCreateInfo->subpassCount);
         STEREO_ERR("RenderPass %p: mv creation failed",
                    (void*)*pRenderPass);
     }
@@ -238,7 +265,7 @@ stereo_CreateRenderPass2KHR(
     const VkAllocationCallbacks     *pAllocator,
     VkRenderPass                    *pRenderPass)
 {
-    STEREO_LOG("CALLED stereo_CreateRenderPass2KHR");
+    STEREO_LOG_VERBOSE("CALLED stereo_CreateRenderPass2KHR");
     StereoDevice *sd = stereo_device_from_handle(device);
     if (!sd) return VK_ERROR_DEVICE_LOST;
     if (!sd->real.CreateRenderPass2KHR) return VK_ERROR_EXTENSION_NOT_PRESENT;
@@ -299,7 +326,7 @@ stereo_CreateRenderPass2KHR(
                 rpi->mv_handle = mv; rpi->has_multiview = true;
                 rpi->view_mask = STEREO_VIEW_MASK;
                 sd->multiview_pass_exists = true;
-                STEREO_LOG("RenderPass2 %p: mv=%p (att=%u)", (void*)*pRenderPass, (void*)mv, ac);
+                STEREO_LOG_VERBOSE("RenderPass2 %p: mv=%p (att=%u)", (void*)*pRenderPass, (void*)mv, ac);
             }
         }
         free(pa2); free(subs); free(corr);

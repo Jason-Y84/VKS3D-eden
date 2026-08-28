@@ -37,7 +37,7 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 
     StereoInstance *si = stereo_instance_from_handle(instance);
 
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "GIPA request: %s instance=%p",
         name ? name : "<NULL>",
         (void *)(uintptr_t)instance);
@@ -241,14 +241,14 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
         PFN_vkVoidFunction fn =
             si->real_get_instance_proc_addr(si->real_instance, name);
         if (fn) {
-            STEREO_LOG("GIPA fallback(real): %s -> %p", name, fn);
+            STEREO_LOG_VERBOSE("GIPA fallback(real): %s -> %p", name, fn);
             return fn;
         }
         PFN_vkGetInstanceProcAddr pdPA = stereo_get_real_pdPA();
         if (pdPA) {
             PFN_vkVoidFunction fp =
                 pdPA(si->real_instance, name);
-            STEREO_LOG("GIPA fallback(loader): %s -> %p", name, fp);
+            STEREO_LOG_VERBOSE("GIPA fallback(loader): %s -> %p", name, fp);
             return fp;
         }
     }
@@ -270,16 +270,16 @@ static PFN_vkVoidFunction get_instance_proc_addr_internal(
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
 {
-    STEREO_LOG("CALLED stereo_GetDeviceProcAddr");
+    STEREO_LOG_VERBOSE("CALLED stereo_GetDeviceProcAddr");
     if (!pName)
         return NULL;
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "GDPA request: %s device=%p",
         pName,
         (void *)(uintptr_t)device);
 #define GDPA_WRAP(name, fn) \
     if (!strcmp(pName, name)) { \
-        STEREO_LOG("GDPA WRAPPED %s -> %p", name, (void *)fn); \
+        STEREO_LOG_VERBOSE("GDPA WRAPPED %s -> %p", name, (void *)fn); \
         return (PFN_vkVoidFunction)fn; \
     }
     /* ── VKS3D wrapped device commands ───────────────────────────── */
@@ -297,6 +297,12 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
               stereo_DestroyFramebuffer);
     GDPA_WRAP("vkCmdBeginRenderPass",
               stereo_CmdBeginRenderPass);
+    GDPA_WRAP("vkCmdBeginRenderPass2",
+              stereo_CmdBeginRenderPass2);
+#ifdef VK_KHR_create_renderpass2
+    GDPA_WRAP("vkCmdBeginRenderPass2KHR",
+              stereo_CmdBeginRenderPass2KHR);
+#endif
     GDPA_WRAP("vkCmdBeginRendering",
               stereo_CmdBeginRendering);
     GDPA_WRAP("vkCmdBeginRenderingKHR",
@@ -332,14 +338,14 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
     GDPA_WRAP("vkDestroyShaderModule",
               stereo_DestroyShaderModule);
     if (!strcmp(pName, "vkCreateGraphicsPipelines")) {
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "GDPA wrapper addr=%p stereo_CreateGraphicsPipelines=%p",
             (void*)stereo_CreateGraphicsPipelines,
             (void*)&stereo_CreateGraphicsPipelines);
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "GDPA returning stereo_CreateGraphicsPipelines=%p",
             (void*)stereo_CreateGraphicsPipelines);
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "GDPA WRAPPED vkCreateGraphicsPipelines -> %p",
             (void*)stereo_CreateGraphicsPipelines);
         return (PFN_vkVoidFunction)stereo_CreateGraphicsPipelines;
@@ -354,6 +360,55 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
               stereo_AcquireNextImageKHR);
     GDPA_WRAP("vkQueuePresentKHR",
               stereo_QueuePresentKHR);
+    /* ── Yuzu / Switch emulator: image copy / blit command wrappers ────── *
+     * Yuzu's presentation path renders to an intermediate render target
+     * (upgraded to arrayLayers=2 by stereo_CreateImage) and then issues
+     * vkCmdBlitImage/CopyImage to the swapchain image.  Without these
+     * wrappers, only layer 0 is copied → layer 1 remains UNDEFINED →
+     * the right eye appears completely black in the SBS composite.
+     * Each wrapper issues two real commands: layer 0→0 and layer 1→1. */
+    GDPA_WRAP("vkCmdBlitImage",
+              stereo_CmdBlitImage);
+    GDPA_WRAP("vkCmdCopyImage",
+              stereo_CmdCopyImage);
+    GDPA_WRAP("vkCmdResolveImage",
+              stereo_CmdResolveImage);
+    GDPA_WRAP("vkCmdCopyBufferToImage",
+              stereo_CmdCopyBufferToImage);
+    GDPA_WRAP("vkCmdCopyImageToBuffer",
+              stereo_CmdCopyImageToBuffer);
+    /* ── Yuzu / Vulkan 1.3 Synchronization2 (sync2) command wrappers ──── *
+     * Yuzu + other modern Vulkan 1.2+ renderers exclusively use the      *
+     * Synchronization2 family of transfer commands (with the `2` suffix  *
+     * or `2KHR` suffix).  These variants are NOT covered by the legacy   *
+     * wrappers above; if they fall through to the real driver unmodified *
+     * they copy only layer 0 of our upgraded 2-layer images, leaving the *
+     * right-eye layer untouched and BLACK on-screen.                     *
+     * We register ALL variants with identical semantics so every image   *
+     * transfer — including SBS-present-time blits from the intermediate  *
+     * stereo texture to the swapchain image — walks both layer 0 and 1.  *
+     *   ── core 1.3 sync2 variants:                                      */
+    GDPA_WRAP("vkCmdBlitImage2",
+              stereo_CmdBlitImage2);
+    GDPA_WRAP("vkCmdCopyImage2",
+              stereo_CmdCopyImage2);
+    GDPA_WRAP("vkCmdResolveImage2",
+              stereo_CmdResolveImage2);
+    GDPA_WRAP("vkCmdCopyBufferToImage2",
+              stereo_CmdCopyBufferToImage2);
+    GDPA_WRAP("vkCmdCopyImageToBuffer2",
+              stereo_CmdCopyImageToBuffer2);
+    /*   ── KHR-promoted aliases (binary identical signatures):           */
+    GDPA_WRAP("vkCmdBlitImage2KHR",
+              stereo_CmdBlitImage2KHR);
+    GDPA_WRAP("vkCmdCopyImage2KHR",
+              stereo_CmdCopyImage2KHR);
+    GDPA_WRAP("vkCmdResolveImage2KHR",
+              stereo_CmdResolveImage2KHR);
+    GDPA_WRAP("vkCmdCopyBufferToImage2KHR",
+              stereo_CmdCopyBufferToImage2KHR);
+    GDPA_WRAP("vkCmdCopyImageToBuffer2KHR",
+              stereo_CmdCopyImageToBuffer2KHR);
 #undef GDPA_WRAP
     /*
      * Forward everything else.
@@ -368,7 +423,7 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
             if (real_gdpa) {
                 PFN_vkVoidFunction fp =
                     real_gdpa(g_devices[i].real_device, pName);
-                STEREO_LOG(
+                STEREO_LOG_VERBOSE(
                     "GDPA FALLBACK %s -> %p",
                     pName,
                     (void *)fp);
@@ -377,7 +432,7 @@ stereo_GetDeviceProcAddr(VkDevice device, const char *pName)
             break;
         }
     }
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "GDPA FALLBACK NO DEVICE %s",
         pName);
     return get_instance_proc_addr_internal(
@@ -488,10 +543,10 @@ vk_icdGetInstanceProcAddr(VkInstance instance, const char *pName)
 {
     if (!pName)
         return NULL;
-    STEREO_LOG("vk_icdGetInstanceProcAddr: instance=%p name='%s'",
+    STEREO_LOG_VERBOSE("vk_icdGetInstanceProcAddr: instance=%p name='%s'",
                (void*)instance, pName);
     PFN_vkVoidFunction fn = get_instance_proc_addr_internal(instance, pName);
-    STEREO_LOG("vk_icdGetInstanceProcAddr: '%s' -> %p", pName, (void*)(uintptr_t)fn);
+    STEREO_LOG_VERBOSE("vk_icdGetInstanceProcAddr: '%s' -> %p", pName, (void*)(uintptr_t)fn);
     return fn;
 }
 
@@ -501,10 +556,10 @@ vk_icdGetPhysicalDeviceProcAddr(VkInstance instance, const char *pName)
 {
     if (!pName)
         return NULL;
-    STEREO_LOG("vk_icdGetPhysicalDeviceProcAddr: instance=%p name='%s'",
+    STEREO_LOG_VERBOSE("vk_icdGetPhysicalDeviceProcAddr: instance=%p name='%s'",
                (void*)instance, pName);
     PFN_vkVoidFunction fn = get_instance_proc_addr_internal(instance, pName);
-    STEREO_LOG("vk_icdGetPhysicalDeviceProcAddr: '%s' -> %p", pName, (void*)(uintptr_t)fn);
+    STEREO_LOG_VERBOSE("vk_icdGetPhysicalDeviceProcAddr: '%s' -> %p", pName, (void*)(uintptr_t)fn);
     return fn;
 }
 

@@ -156,7 +156,8 @@ VkResult alt_alloc_stereo_image(StereoDevice *sd, StereoSwapchain *sc,
         .samples       = VK_SAMPLE_COUNT_1_BIT,
         .tiling        = VK_IMAGE_TILING_OPTIMAL,
         .usage         = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT        |
+                         VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
@@ -258,7 +259,7 @@ VkResult alt_cpu_staging_init(StereoDevice *sd, StereoSwapchain *sc)
     sd->real.CreateFence(sd->real_device, &fci, NULL, &sc->cpu_fence);
 
     sc->cpu_ok = true;
-    STEREO_LOG("CPU staging init: %u bytes/eye (%ux%u)", eye_bytes,
+    STEREO_LOG_VERBOSE("CPU staging init: %u bytes/eye (%ux%u)", eye_bytes,
                sc->app_width, sc->app_height);
     return VK_SUCCESS;
 }
@@ -283,8 +284,10 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
     if (!sc->cpu_ok) return VK_ERROR_INITIALIZATION_FAILED;
 
     /* gl_ViewIndex is broken on 426.06 — both layers are identical.
-     * Read only layer 0; compose_present applies image-space stereo shift. */
-    uint32_t layer_count = (sd->stereo.multiview && sd->multiview_pass_exists) ? 2 : 1;
+     * Read only layer 0; compose_present applies image-space stereo shift.
+     * When image_shift=1, we know both layers are identical, so read 1. */
+    uint32_t layer_count = (sd->stereo.multiview && sd->multiview_pass_exists
+                            && !sd->stereo.image_shift) ? 2 : 1;
 
     sd->real.ResetFences(sd->real_device, 1, &sc->cpu_fence);
     sd->real.ResetCommandBuffer(sc->cpu_cmd, 0);
@@ -295,11 +298,44 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
     };
     sd->real.BeginCommandBuffer(sc->cpu_cmd, &begin);
 
+    /* Two-step layout transition to handle unknown actual layout.
+     * Problem: caller passes layout_in=COLOR_ATTACHMENT_OPTIMAL, but Eden
+     * may have already transitioned stereo_images[0] to PRESENT_SRC_KHR
+     * before calling vkQueuePresentKHR.  Mismatched oldLayout causes
+     * NVIDIA driver to discard image content (returns black).
+     *
+     * Step 1: ANY → GENERAL.  VK_ACCESS_MEMORY_WRITE_BIT is the broadest
+     *         access mask — it waits for ALL prior GPU writes regardless
+     *         of the actual layout.  GENERAL is the universal layout that
+     *         can be transitioned to/from any other layout.
+     * Step 2: GENERAL → TRANSFER_SRC_OPTIMAL.  Safe, well-defined.
+     *
+     * If NVIDIA still discards content with oldLayout=layout_in, the
+     * GENERAL intermediate step at least gives us a known layout state
+     * for step 2 to work correctly. */
+    VkImageMemoryBarrier b_general = {
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask       = VK_ACCESS_MEMORY_WRITE_BIT,
+        .dstAccessMask       = VK_ACCESS_MEMORY_WRITE_BIT,
+        .oldLayout           = layout_in,
+        .newLayout           = VK_IMAGE_LAYOUT_GENERAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image               = sc->stereo_images[0],
+        .subresourceRange    = {
+            VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layer_count
+        },
+    };
+    sd->real.CmdPipelineBarrier(sc->cpu_cmd,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        0, 0, NULL, 0, NULL, 1, &b_general);
+
     VkImageMemoryBarrier b0 = {
         .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcAccessMask       = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .srcAccessMask       = VK_ACCESS_MEMORY_WRITE_BIT,
         .dstAccessMask       = VK_ACCESS_TRANSFER_READ_BIT,
-        .oldLayout           = layout_in,
+        .oldLayout           = VK_IMAGE_LAYOUT_GENERAL,
         .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -309,7 +345,7 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
         },
     };
     sd->real.CmdPipelineBarrier(sc->cpu_cmd,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         0, 0, NULL, 0, NULL, 1, &b0);
 
@@ -352,8 +388,15 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
     if (wait_sem_count > 0) {
         masks = malloc(wait_sem_count * sizeof(VkPipelineStageFlags));
         if (!masks) return VK_ERROR_OUT_OF_HOST_MEMORY;
+        /* Must wait on ALL_COMMANDS_BIT, not just COLOR_ATTACHMENT_OUTPUT.
+         * Eden's final blit (vkCmdBlitImage) runs in TRANSFER stage, which
+         * happens AFTER COLOR_ATTACHMENT_OUTPUT. If we only wait on
+         * COLOR_ATTACHMENT_OUTPUT, the readback command buffer may execute
+         * BEFORE the blit completes, capturing stale/empty content.
+         * ALL_COMMANDS_BIT ensures we wait for ALL prior GPU work including
+         * the TRANSFER-stage blit that fills stereo_images[0]. */
         for (uint32_t i = 0; i < wait_sem_count; i++)
-            masks[i] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            masks[i] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     }
     VkSubmitInfo si = {
         .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -364,7 +407,7 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
         .pCommandBuffers      = &sc->cpu_cmd,
     };
     /* ---- QueueSubmit diagnostics ---- */
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "CPU_READBACK_SUBMIT queue=%p waits=%u cmds=%u signals=%u fence=%p",
         (void *)queue,
         si.waitSemaphoreCount,
@@ -373,12 +416,12 @@ VkResult alt_cpu_readback(StereoDevice *sd, StereoSwapchain *sc,
         (void *)sc->cpu_fence);
     if (si.commandBufferCount)
     {
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "CPU_READBACK_CMD[0]=%p",
             (void *)si.pCommandBuffers[0]);
     }
     VkResult res = sd->real.QueueSubmit(queue, 1, &si, sc->cpu_fence);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "CPU_READBACK_SUBMIT_RESULT res=%d",
         res);
     free(masks);
@@ -460,7 +503,7 @@ bool dx9_init(StereoDevice *sd, StereoSwapchain *sc)
             return false;
         }
     }
-    STEREO_LOG("[DX9] Device: %p  %ux%u @ %uHz  windowed=%d", pDev, w, h, rr, pp.Windowed);
+    STEREO_LOG_VERBOSE("[DX9] Device: %p  %ux%u @ %uHz  windowed=%d", pDev, w, h, rr, pp.Windowed);
 
     void *hStereo = NULL;
     if (s_nvQI_alt) {
@@ -469,7 +512,7 @@ bool dx9_init(StereoDevice *sd, StereoSwapchain *sc)
         if (fnCr && fnCr(pDev, &hStereo) == 0) {
             typedef int (*PFN_NvH)(void*);
             PFN_NvH fnAct = (PFN_NvH)nv_q(0xF6A1AD68u);
-            if (fnAct) { int r = fnAct(hStereo); STEREO_LOG("[DX9] NvAPI_Stereo_Activate=%d",r); }
+            if (fnAct) { int r = fnAct(hStereo); STEREO_LOG_VERBOSE("[DX9] NvAPI_Stereo_Activate=%d",r); }
         }
     }
 
@@ -524,7 +567,7 @@ static bool dx9_create_stereo_surface(StereoDevice *sd, uint32_t w, uint32_t h)
         return false;
     }
 
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[DX9] CreateRenderTarget OK surf=%p size=%ux%u",
         pSurf,
         w * 2,
@@ -538,7 +581,7 @@ static bool dx9_create_stereo_surface(StereoDevice *sd, uint32_t w, uint32_t h)
 
     HRESULT hrLock = fnLock(pSurf, &lr, NULL, 0);
 
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[DX9] create-surface LockRect hr=0x%08x",
         (unsigned)hrLock);
 
@@ -552,7 +595,7 @@ static bool dx9_create_stereo_surface(StereoDevice *sd, uint32_t w, uint32_t h)
         hdr->dwHeight    = h;
         hdr->dwBPP       = 32;
         hdr->dwFlags     = 0;
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "[DX9] NV header written sig=0x%08x w=%u h=%u",
             hdr->dwSignature,
             hdr->dwWidth,
@@ -561,7 +604,7 @@ static bool dx9_create_stereo_surface(StereoDevice *sd, uint32_t w, uint32_t h)
     }
 
     sd->dx9_surf = pSurf;
-    STEREO_LOG("[DX9] NV stereo surface: %ux%u", w*2, h+1);
+    STEREO_LOG_VERBOSE("[DX9] NV stereo surface: %ux%u", w*2, h+1);
     return true;
 }
 
@@ -596,7 +639,7 @@ VkResult dx9_present(StereoDevice *sd, StereoSwapchain *sc,
         D3DLOCKED_RECT_ locked;
         HRESULT hrLock = fnLock(pSurf, &locked, NULL, 0);
 
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "[DX9] LockRect hr=0x%08x pitch=%d",
             (unsigned)hrLock,
             SUCCEEDED(hrLock) ? locked.Pitch : 0);
@@ -624,20 +667,20 @@ VkResult dx9_present(StereoDevice *sd, StereoSwapchain *sc,
             ((PFN_SR)(*(void***)pDev)[D3DDEV9_StretchRect])(
                 pDev, pSurf, NULL, pBB, NULL, 2);
 
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "[DX9] StretchRect hr=0x%08x",
             (unsigned)hrStretch);
         ((void(WINAPI*)(void*))(*(void***)pBB)[D3DSURF_Release])(pBB);
     }
 
     typedef HRESULT (WINAPI *PFN_PR)(void*, const RECT*, const RECT*, HWND, void*);
-    STEREO_LOG("[DX9] before Present");
+    STEREO_LOG_VERBOSE("[DX9] before Present");
 
     HRESULT hr =
         ((PFN_PR)(*(void***)pDev)[D3DDEV9_Present])(
             pDev, NULL, NULL, NULL, NULL);
 
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[DX9] Present hr=0x%08x",
         (unsigned)hr);
     if (FAILED(hr)) STEREO_ERR("[DX9] Present failed: 0x%x", (unsigned)hr);
@@ -663,7 +706,7 @@ bool compose_init(StereoDevice *sd, StereoSwapchain *sc)
     sd->comp_w    = w;
     sd->comp_h    = h;
     sd->comp_ok   = true;
-    STEREO_LOG("[Compose] init: GDI StretchDIBits  hwnd=%p  %ux%u", sc->hwnd, w, h);
+    STEREO_LOG_VERBOSE("[Compose] init: GDI StretchDIBits  hwnd=%p  %ux%u", sc->hwnd, w, h);
     return true;
 }
 
@@ -718,11 +761,27 @@ VkResult compose_present(StereoDevice *sd, StereoSwapchain *sc,
     /* When gl_ViewIndex worked correctly, both layers contain unique per-view
      * renders: layer 0 = left eye, layer 1 = right eye.  Use them directly.
      * Fall back to image-space shift of layer 0 when only one layer is valid
-     * (e.g. multiview disabled, or driver did not populate gl_ViewIndex).   */
-    bool two_layers = sd->stereo.multiview && sd->multiview_pass_exists;
-    STEREO_LOG("[PRESENT] using present_alt compose path");
+     * (e.g. multiview disabled, or driver did not populate gl_ViewIndex).
+     * image_shift=1 forces the fallback even when multiview passes exist,
+     * to work around broken gl_ViewIndex injection on NVIDIA drivers. */
+    bool two_layers = sd->stereo.multiview && sd->multiview_pass_exists
+                      && !sd->stereo.image_shift;
+    STEREO_LOG_VERBOSE("[PRESENT] using present_alt compose path");
     const uint8_t *left_eye  = (const uint8_t *)sc->cpu_map;
-    const uint8_t *right_eye = left_eye + sc->cpu_eye_bytes;
+    /* When two_layers=false, both eyes use layer 0 (image-space shift
+     * creates the stereo effect from a single rendered image). */
+    const uint8_t *right_eye = two_layers ? (left_eye + sc->cpu_eye_bytes)
+                                         : left_eye;
+    /* ── Diagnostic (first-call only): compare layer 0 vs layer 1 pixels
+     * at a handful of scanlines to prove/disprove whether ViewIndex was
+     * populated by the driver during multiview rendering.  If the two
+     * layers are byte-identical at every sampled pixel, the driver did
+     * NOT inject a different ViewIndex per view (NVIDIA 426+ bug).
+     * If any sample differs, ViewIndex works and the no-3D symptom has
+     * a different root cause.                                         */
+    /* Diagnostic helper fires once.  Compares layer 0 vs layer 1 pixel
+     * samples and logs a one-line summary.  Safe to call repeatedly. */
+    stereo_diagnose_layer_compare(sd, sc);
     uint8_t *out = (uint8_t *)sd->comp_composed;
 
     switch (mode) {
@@ -732,7 +791,7 @@ VkResult compose_present(StereoDevice *sd, StereoSwapchain *sc,
         /* two_layers: no shift needed — each layer is a distinct eye render.
          * single layer: apply image-space shift to fake depth from screen plane. */
         int shift_px = two_layers ? 0 : (int)(sd->stereo.separation * (float)w * 0.5f);
-        STEREO_LOG("[Compose SBS] two_layers=%d  shift_px=%d  sep=%.4f  w=%u",
+        STEREO_LOG_VERBOSE("[Compose SBS] two_layers=%d  shift_px=%d  sep=%.4f  w=%u",
                    (int)two_layers, shift_px, sd->stereo.separation, w);
         for (uint32_t y = 0; y < h; y++) {
             const uint8_t *lrow = left_eye  + y * w * 4;
@@ -861,7 +920,7 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
         .presentMode      = pmode,
         .clipped          = VK_TRUE,
     };
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE EXTENT] current=%ux%u min=%ux%u max=%ux%u",
         caps.currentExtent.width,
         caps.currentExtent.height,
@@ -869,34 +928,34 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
         caps.minImageExtent.height,
         caps.maxImageExtent.width,
         caps.maxImageExtent.height);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE] caps extent=%ux%u app extent=%ux%u",
         caps.currentExtent.width,
         caps.currentExtent.height,
         sc->app_width,
         sc->app_height);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE] requested extent=%ux%u",
         sc->app_width,
         sc->app_height);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE CREATE] oldSwapchain=%p current=%p extent=%ux%u",
         sci.oldSwapchain,
         sc->real_swapchain,
         sci.imageExtent.width,
         sci.imageExtent.height);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE CREATE] handle before create=%p",
         sc->real_swapchain);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE] surface=%p real_swapchain=%p",
         surface,
         sc->real_swapchain);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE CAPS] usage=0x%08X supported=0x%08X",
         VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         caps.supportedUsageFlags);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE CAPS] minImages=%u maxImages=%u transform=0x%X",
         caps.minImageCount,
         caps.maxImageCount,
@@ -906,7 +965,7 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
         &sci,
         NULL,
         &sc->real_swapchain);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE CREATE RESULT] res=%d new_real=%p old=%p",
         (int)res,
         sc->real_swapchain,
@@ -914,12 +973,12 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
     
     if (res == VK_ERROR_OUT_OF_DATE_KHR)
     {
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "[GPU Compose] init failed currentExtent=%ux%u",
             caps.currentExtent.width,
             caps.currentExtent.height);
 
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "[GPU Compose] CreateSwapchainKHR OUT_OF_DATE");
 
         return false;
@@ -927,7 +986,7 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
 
     if (res != VK_SUCCESS)
     {
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "[GPU Compose] init failed currentExtent=%ux%u",
             caps.currentExtent.width,
             caps.currentExtent.height);
@@ -939,7 +998,7 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
         return false;
     }
 
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[COMPOSE CREATE] created=%p",
         sc->real_swapchain);
 
@@ -948,7 +1007,7 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
     if (!sc->comp_sc_images) {
         VkSwapchainKHR dead = sc->real_swapchain;
 
-        STEREO_LOG(
+        STEREO_LOG_VERBOSE(
             "[COMPOSE DESTROY] sc=%p real=%p",
             sc,
             sc->real_swapchain);
@@ -962,14 +1021,14 @@ bool gpu_compose_sc_init(StereoDevice *sd, StereoSwapchain *sc, VkSurfaceKHR sur
     }
     sd->real.GetSwapchainImagesKHR(sd->real_device, sc->real_swapchain,
                                     &sc->comp_sc_count, sc->comp_sc_images);
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "[GPU Compose] real swapchain image_count=%u",
         sc->comp_sc_count);
     VkSemaphoreCreateInfo sinfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
     sd->real.CreateSemaphore(sd->real_device, &sinfo, NULL, &sc->comp_acquire_sem);
     sd->real.CreateSemaphore(sd->real_device, &sinfo, NULL, &sc->comp_blit_done_sem);
 
-    STEREO_LOG("[GPU Compose] init: sc=%p  %u images  %ux%u  %s",
+    STEREO_LOG_VERBOSE("[GPU Compose] init: sc=%p  %u images  %ux%u  %s",
                (void*)sc->real_swapchain, sc->comp_sc_count,
                sc->app_width, sc->app_height,
                pmode == VK_PRESENT_MODE_MAILBOX_KHR ? "MAILBOX" : "FIFO");
@@ -1055,25 +1114,68 @@ VkResult gpu_compose_present(StereoDevice *sd, StereoSwapchain *sc,
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,NULL,0,NULL,1,&b1);
 
-    /* Blit: layer0 → left half, layer1 → right half */
-    VkImageBlit blits[2] = {
-        {
+    /* When image_shift=1 (gl_ViewIndex broken on NVIDIA drivers), both
+     * layers contain identical renders.  Fall back to image-space shift:
+     *   - Left eye reads src starting at x=+shift_px (content shifts left)
+     *   - Right eye reads src ending at x=-shift_px  (content shifts right)
+     * Both eyes sample layer 0 only (layer 1 is identical).
+     * Otherwise use standard two-layer blit. */
+    bool shift_mode = sd->stereo.image_shift;
+    int32_t hw = w / 2;
+    int32_t shift_px = 0;
+    if (shift_mode) {
+        /* Mirror compose_present CPU shift logic:
+         *   shift_px = separation * w * 0.5  (in image pixel units) */
+        shift_px = (int32_t)(sd->stereo.separation * (float)w * 0.5f);
+        if (shift_px < 0) shift_px = 0;
+        if (shift_px >= w - 1) shift_px = w - 1;
+        STEREO_LOG_VERBOSE(
+            "[GPU Compose] image_shift: shift_px=%d  sep=%.4f",
+            shift_px, sd->stereo.separation);
+    }
+    VkImageBlit blits[2] = {0};
+    uint32_t blit_count = 0;
+    if (shift_mode) {
+        /* Both eyes from layer 0, with pixel-space source shift. */
+        int32_t l_src_x0 = shift_px;            /* left: read from +shift_px */
+        int32_t l_src_x1 = w;
+        int32_t r_src_x0 = 0;                   /* right: read to -shift_px */
+        int32_t r_src_x1 = w - shift_px;
+        if (l_src_x1 <= l_src_x0) l_src_x1 = l_src_x0 + 1;
+        if (r_src_x1 <= r_src_x0) r_src_x1 = r_src_x0 + 1;
+        blits[0] = (VkImageBlit){
+            .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+            .srcOffsets     = { {l_src_x0,0,0}, {l_src_x1,h,1} },
+            .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+            .dstOffsets     = { {0,0,0}, {hw,h,1} },
+        };
+        blits[1] = (VkImageBlit){
+            .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+            .srcOffsets     = { {r_src_x0,0,0}, {r_src_x1,h,1} },
+            .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+            .dstOffsets     = { {hw,0,0}, {w,h,1} },
+        };
+        blit_count = 2;
+    } else {
+        /* Standard two-layer multiview blit (layer 0 → left, layer 1 → right). */
+        blits[0] = (VkImageBlit){
             .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
             .srcOffsets     = { {0,0,0}, {w,h,1} },
             .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-            .dstOffsets     = { {0,0,0}, {w/2,h,1} },
-        },
-        {
+            .dstOffsets     = { {0,0,0}, {hw,h,1} },
+        };
+        blits[1] = (VkImageBlit){
             .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 1 },
             .srcOffsets     = { {0,0,0}, {w,h,1} },
             .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-            .dstOffsets     = { {w/2,0,0}, {w,h,1} },
-        },
-    };
+            .dstOffsets     = { {hw,0,0}, {w,h,1} },
+        };
+        blit_count = 2;
+    }
     sd->real.CmdBlitImage(cmd,
         src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        2, blits, VK_FILTER_LINEAR);
+        blit_count, blits, VK_FILTER_LINEAR);
 
     /* stereo_images[0] → COLOR_ATTACHMENT (ready for next frame) */
     VkImageMemoryBarrier b2 = b0;
@@ -1159,6 +1261,168 @@ static uint32_t sample_hotkeys(void)
     return mask;
 }
 
+/* ── Diagnostic helper (one-shot pixel comparison) ──────────────────────── *
+ *
+ * The one-shot gate is deliberately soft: if the captured frame is pure black
+ * (clear-only, e.g. immediately after a swapchain resize) the function returns
+ * STEREO_DIAG_BLACK and the caller must RE-ARM both its own s_diag_fired flag
+ * and this function's internal one-shot gate, so the next real 3D frame can be
+ * compared.  Only STEREO_DIAG_COMPLETED (non-black, real content) is truly
+ * one-shot.                                                                   */
+/* ── Pixel-compare diagnostic: one-shot gate (file-scope so callers can
+ *    RE-ARM via stereo_diag_layer_compare_reset when they get BLACK result) */
+static int s_layer_compare_done = 0;
+
+StereoDiagResult stereo_diagnose_layer_compare(StereoDevice *sd, StereoSwapchain *sc)
+{
+    if (s_layer_compare_done) return STEREO_DIAG_COMPLETED;
+
+    if (!sc || !sc->cpu_map) {
+        STEREO_LOG("[DIAG LAYER COMPARE] SKIP (no cpu_map — CPU staging uninitialised).");
+        /* Don't consume the one-shot: a bigger frame with cpu_map may come. */
+        return STEREO_DIAG_SKIPPED;
+    }
+
+    bool two_layers = sd->stereo.multiview && sd->multiview_pass_exists
+                      && !sd->stereo.image_shift;
+    uint32_t w = sc->app_width, h = sc->app_height;
+
+    /* Skip tiny frames (post-processing helper RTs, ImGui surfaces, etc.).
+     * They typically use 2D ScreenRectQuad shaders which VKS3D intentionally
+     * rejects, so differing=0 there would be a false negative.  Only accept
+     * a main-window-sized frame for the definitive verdict. */
+    if (w < 800 || h < 600) {
+        STEREO_LOG(
+            "[DIAG LAYER COMPARE] DEFER w=%u h=%u (too small — waiting for >= 800x600 main frame).",
+            w, h);
+        return STEREO_DIAG_SKIPPED;
+    }
+
+    if (!two_layers) {
+        STEREO_LOG(
+            "[DIAG LAYER COMPARE] two_layers=NO  "
+            "(image_shift=%d multiview=%d mv_pass=%d — skipping layer compare).",
+            (int)sd->stereo.image_shift,
+            (int)sd->stereo.multiview,
+            (int)sd->multiview_pass_exists);
+        s_layer_compare_done = 1;
+        return STEREO_DIAG_COMPLETED;
+    }
+
+    const uint8_t *left_eye  = (const uint8_t *)sc->cpu_map;
+    const uint8_t *right_eye = left_eye + sc->cpu_eye_bytes;
+
+    uint64_t diff_bytes = 0;
+    uint64_t sample_bytes = 0;
+    /* Dense step: 16 px horizontal x 16 px vertical = ~4× more samples. */
+    const uint32_t ystep = 16;
+    const uint32_t xstep = 16;
+    for (uint32_t y = 0; y < h; y += ystep) {
+        const uint8_t *lrow = left_eye  + (size_t)y * w * 4;
+        const uint8_t *rrow = right_eye + (size_t)y * w * 4;
+        for (uint32_t x = 0; x < w; x += xstep) {
+            const uint8_t *lp = lrow + (size_t)x * 4;
+            const uint8_t *rp = rrow + (size_t)x * 4;
+            if (lp[0] != rp[0] || lp[1] != rp[1] ||
+                lp[2] != rp[2] || lp[3] != rp[3]) {
+                diff_bytes++;
+            }
+            sample_bytes++;
+        }
+    }
+    STEREO_LOG(
+        "[DIAG LAYER COMPARE] two_layers=YES  "
+        "w=%u h=%u eye_bytes=%zu  "
+        "sampled=%llu  differing=%llu  ratio=%.3f  "
+        "(diff=0 → ViewIndex broken on this driver; diff>0 → ViewIndex works)",
+        w, h, (size_t)sc->cpu_eye_bytes,
+        (unsigned long long)sample_bytes,
+        (unsigned long long)diff_bytes,
+        sample_bytes ? (double)diff_bytes / (double)sample_bytes : 0.0);
+
+    bool frame_is_black = false;
+    if (diff_bytes == 0) {
+        /* Spot-check a handful of non-zero RGBA samples so we can verify the
+         * readback captured the scene (not all black) and that layer0 and
+         * layer1 really are byte-identical at those locations. */
+        int printed = 0;
+        for (uint32_t y = h/4; y < h && printed < 4; y += 64) {
+            for (uint32_t x = w/4; x < w && printed < 4; x += 256) {
+                const uint8_t *lp = left_eye  + ((size_t)y * w + x) * 4;
+                const uint8_t *rp = right_eye + ((size_t)y * w + x) * 4;
+                if (lp[0] || lp[1] || lp[2]) {
+                    STEREO_LOG(
+                        "[DIAG LAYER COMPARE] SPOT pixel@(%4u,%4u) "
+                        "L0=0x%02X%02X%02X%02X  L1=0x%02X%02X%02X%02X "
+                        "(both identical to confirm readback OK, scene non-blank)",
+                        x, y,
+                        lp[0], lp[1], lp[2], lp[3],
+                        rp[0], rp[1], rp[2], rp[3]);
+                    printed++;
+                }
+            }
+        }
+        if (printed == 0) {
+            frame_is_black = true;
+            /* Hex dump first 16 bytes of each layer to confirm whether the
+             * staging buffer is genuinely zeroed (readback captured nothing)
+             * or contains stale data from a prior frame. This distinguishes
+             * a sync bug (stale) from a layout-discard bug (zeroed). */
+            const uint8_t *lb = left_eye;
+            const uint8_t *rb = right_eye;
+            STEREO_LOG(
+                "[DIAG LAYER COMPARE] SPOT all zero — frame is entirely black / clear-only. "
+                "RE-ARMING one-shot gate; waiting for a rendered 3D scene frame. "
+                "L0[0..15]=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x  "
+                "L1[0..15]=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x",
+                lb[0],lb[1],lb[2],lb[3], lb[4],lb[5],lb[6],lb[7],
+                lb[8],lb[9],lb[10],lb[11], lb[12],lb[13],lb[14],lb[15],
+                rb[0],rb[1],rb[2],rb[3], rb[4],rb[5],rb[6],rb[7],
+                rb[8],rb[9],rb[10],rb[11], rb[12],rb[13],rb[14],rb[15]);
+        }
+    } else {
+        /* Print first 3 differing pixel locations (RGB deltas help estimate
+         * if difference is from colour-tint mismatch or from actual shift). */
+        int printed = 0;
+        for (uint32_t y = 0; y < h && printed < 3; y += ystep) {
+            const uint8_t *lrow = left_eye  + (size_t)y * w * 4;
+            const uint8_t *rrow = right_eye + (size_t)y * w * 4;
+            for (uint32_t x = 0; x < w && printed < 3; x += xstep) {
+                const uint8_t *lp = lrow + (size_t)x * 4;
+                const uint8_t *rp = rrow + (size_t)x * 4;
+                if (lp[0] != rp[0] || lp[1] != rp[1] ||
+                    lp[2] != rp[2] || lp[3] != rp[3]) {
+                    STEREO_LOG(
+                        "[DIAG LAYER COMPARE] DIFF pixel@(%4u,%4u) "
+                        "L0=0x%02X%02X%02X%02X  L1=0x%02X%02X%02X%02X  "
+                        "(R%d G%d B%d A%d)",
+                        x, y,
+                        lp[0], lp[1], lp[2], lp[3],
+                        rp[0], rp[1], rp[2], rp[3],
+                        (int)lp[0]-(int)rp[0], (int)lp[1]-(int)rp[1],
+                        (int)lp[2]-(int)rp[2], (int)lp[3]-(int)rp[3]);
+                    printed++;
+                }
+            }
+        }
+    }
+
+    /* Lock the one-shot gate only for a real-content verdict.
+     * Black-frames do NOT consume: caller RE-ARMs by calling
+     * stereo_diagnose_layer_compare_reset(0). */
+    if (frame_is_black) {
+        return STEREO_DIAG_BLACK;
+    }
+    s_layer_compare_done = 1;
+    return STEREO_DIAG_COMPLETED;
+}
+
+/* Reset / query the file-scope one-shot gate.  Used by swapchain.c to
+ * RE-ARM after a BLACK-frame capture. */
+void stereo_diagnose_layer_compare_set_done(int v) { s_layer_compare_done = v ? 1 : 0; }
+int  stereo_diagnose_layer_compare_get_done(void)  { return s_layer_compare_done; }
+
+/* ──────────────────────────────────────────────────────────────────────── */
 void hotkeys_poll(StereoDevice *sd)
 {
     uint32_t cur  = sample_hotkeys();
@@ -1174,22 +1438,22 @@ void hotkeys_poll(StereoDevice *sd)
         cfg->separation -= cfg->step_separation;
         if (cfg->separation < 0.0f) cfg->separation = 0.0f;
         changed = true;
-        STEREO_LOG("[Hotkey] Separation → %.4f", cfg->separation);
+        STEREO_LOG("[Hotkey] Separation = %.4f", cfg->separation);
     }
     if (rise & (1u << HOT_INC_SEP)) {
         cfg->separation += cfg->step_separation;
         changed = true;
-        STEREO_LOG("[Hotkey] Separation → %.4f", cfg->separation);
+        STEREO_LOG("[Hotkey] Separation = %.4f", cfg->separation);
     }
     if (rise & (1u << HOT_DEC_CONV)) {
         cfg->convergence -= cfg->step_convergence;
         changed = true;
-        STEREO_LOG("[Hotkey] Convergence → %.4f", cfg->convergence);
+        STEREO_LOG("[Hotkey] Convergence = %.4f", cfg->convergence);
     }
     if (rise & (1u << HOT_INC_CONV)) {
         cfg->convergence += cfg->step_convergence;
         changed = true;
-        STEREO_LOG("[Hotkey] Convergence → %.4f", cfg->convergence);
+        STEREO_LOG("[Hotkey] Convergence = %.4f", cfg->convergence);
     }
 
     if (changed) {
@@ -1203,7 +1467,7 @@ void hotkeys_poll(StereoDevice *sd)
         const char *ini = sd->local_ini[0] ? sd->local_ini : sd->global_ini;
         ini_write_float(ini, "VKS3D", "separation",  cfg->separation);
         ini_write_float(ini, "VKS3D", "convergence", cfg->convergence);
-        STEREO_LOG("[Hotkey] Saved sep=%.4f conv=%.4f → %s",
+        STEREO_LOG("[Hotkey] Saved sep=%.4f conv=%.4f to %s",
                    cfg->separation, cfg->convergence, ini);
         Beep(880, 80);
     }

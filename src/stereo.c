@@ -24,6 +24,36 @@
 
 HANDLE g_vks3d_log_handle  = INVALID_HANDLE_VALUE;
 int    g_vks3d_log_enabled = 0;
+int    g_vks3d_verbose     = 0;
+
+/* ── Aggregate stereo patch counters (always-logged summary on detach) ── */
+volatile uint32_t g_stat_pipes_total        = 0;
+volatile uint32_t g_stat_pipes_mv           = 0;
+volatile uint32_t g_stat_pipes_mono         = 0;
+volatile uint32_t g_stat_pipes_patch_ok     = 0;
+volatile uint32_t g_stat_pipes_patch_fail   = 0;
+volatile uint32_t g_stat_shaders_total      = 0;
+volatile uint32_t g_stat_shaders_patch_ok   = 0;
+volatile uint32_t g_stat_shaders_skip_no_mv = 0;
+volatile uint32_t g_stat_shaders_skip_no_mx = 0;
+volatile uint32_t g_stat_shaders_skip_no_pos= 0;
+volatile uint32_t g_stat_shaders_skip_unpch = 0;
+volatile uint32_t g_stat_shaders_skip_ui    = 0;
+volatile uint32_t g_stat_rp_total           = 0;
+volatile uint32_t g_stat_rp_mv_upgraded     = 0;
+volatile uint32_t g_stat_fb_total           = 0;
+volatile uint32_t g_stat_fb_mv_upgraded     = 0;
+volatile uint32_t g_stat_iv_total           = 0;
+volatile uint32_t g_stat_iv_upgraded        = 0;
+volatile uint32_t g_stat_proj_found         = 0;
+volatile uint32_t g_stat_proj_miss          = 0;
+volatile uint32_t g_stat_beginrp_mv         = 0;
+volatile uint32_t g_stat_beginrp_mv_lost    = 0;
+volatile uint32_t g_stat_beginrp_mono      = 0;
+volatile uint32_t g_stat_fb_track_peak     = 0;
+volatile uint32_t g_stat_beginrender_total  = 0;
+volatile uint32_t g_stat_beginrender_mv    = 0;
+volatile uint32_t g_stat_beginrender_mono  = 0;
 
 /* Version/commit baked in by CMake.  Fallbacks for manual builds. */
 #ifndef VKS3D_VERSION
@@ -164,27 +194,41 @@ void stereo_config_init(StereoConfig *cfg)
     const char *env_en = stereo_getenv("STEREO_ENABLED");
     if (env_en && atoi(env_en) == 0) cfg->enabled = false;
 
-    /* ── stereo parameters ── */
-    cfg->separation  = cfg_float("separation",  0.065f);
-    cfg->convergence = cfg_float("convergence", 0.030f);
+    /* ── stereo parameters ──
+     *
+     * Shader-HIT clip-space formula (projection=parallel):
+     *     L: x' = x + (separation/2)*w - convergence*w
+     *     R: x' = x - (separation/2)*w + convergence*w
+     *
+     * where gl_Position.w is the negative camera-space Z (i.e.
+     * linear distance from the camera along the view axis).
+     *
+     * RECOMMENDED RANGE (clip-space floats, no "0-500" integer
+     * scaling):
+     *     separation: 0.05 ~ 1.0   — larger = stronger 3D pop
+     *     convergence: 0.0 ~ 0.499 of separation
+     *         0.0     → everything pops out / goes in (depends on sign)
+     *         ~sep/3  → mid-range depth (common "comfortable" setting)
+     *         =sep/2  → zero parallax everywhere (flat, do NOT use)
+     *         >sep/2  → depth inversion (do NOT use)
+     *
+     * For users familiar with integer 0-500 scale mods, the
+     * approximate mapping is:
+     *     clip_sep  = integer_value / 1000.0
+     *     clip_conv = integer_value / 1000.0
+     */
+    cfg->separation  = cfg_float("separation",  0.25f);
+    cfg->convergence = cfg_float("convergence", 0.08f);
 
-    /* Sanity: separation must be positive.  Convergence must be in [0, sep).
-     * If sep <= 0 or conv >= sep, the net eye offset is zero or reversed,
-     * which produces no visible stereo or inverted depth.  Warn and clamp. */
+    /* Sanity: separation must be non-negative; convergence must be
+     * non-negative.  For OFF_AXIS, convergence > 0 shifts the
+     * zero-parallax plane toward the camera. */
     if (cfg->separation < 0.0f) {
         STEREO_ERR("INI: separation=%.4f is negative — clamping to 0", cfg->separation);
         cfg->separation = 0.0f;
     }
     if (cfg->convergence < 0.0f) {
         STEREO_ERR("INI: convergence=%.4f is negative — clamping to 0", cfg->convergence);
-        cfg->convergence = 0.0f;
-    }
-    if (cfg->convergence >= cfg->separation) {
-        STEREO_ERR("INI: convergence=%.4f >= separation=%.4f — "
-                   "this cancels the stereo offset to zero or less! "
-                   "Clamping convergence to 0.0. "
-                   "Set convergence < separation (e.g. sep=0.065 conv=0.030).",
-                   cfg->convergence, cfg->separation);
         cfg->convergence = 0.0f;
     }
     cfg->flip_eyes   = cfg_bool ("flip_eyes",   false);
@@ -196,6 +240,14 @@ void stereo_config_init(StereoConfig *cfg)
     if (ini_read_str(g_local_ini,  "VKS3D", "presentation_mode", mode_str, sizeof(mode_str)))
         STEREO_LOG("INI load: [local]  presentation_mode = %s", mode_str);
     cfg->present_mode = parse_present_mode(mode_str);
+    int present_mode_before = (int)cfg->present_mode;
+    /* ── Hard-force SBS for Eden + Vulkan ────────────────────────────────
+     * Per project memory: AUTO/DXGI path causes NV3D crash; SBS bypasses
+     * the buggy compositor.  Override ANY user config to SBS unless the
+     * user explicitly selected DX9 direct (for nvidia 3D Vision setup). */
+    if (cfg->present_mode != STEREO_PRESENT_DX9) {
+        cfg->present_mode = STEREO_PRESENT_SBS;
+    }
 
     /* ── output resolution / refresh ── */
     cfg->override_width  = (uint32_t)cfg_int("width",        0);
@@ -211,11 +263,56 @@ void stereo_config_init(StereoConfig *cfg)
     /* Flatten detected screen-space UI by skipping stereo patching. */
     cfg->mono_ui = cfg_bool("mono_ui", true);
 
-    cfg->projection = cfg_bool("projection", 1);
+    /* Projection mode: 0=parallel (default, shift gl_Position.x),
+     * 1=off-axis (requires projection matrix UBO detection).
+     * Accept numeric (0/1) or string ("parallel"/"off-axis"). */
+    {
+        char proj_buf[32];
+        cfg->projection = STEREO_PROJECTION_PARALLEL;
+        if (ini_read_str(g_global_ini, "VKS3D", "projection",
+                         proj_buf, sizeof(proj_buf)))
+        {
+            if (!_stricmp(proj_buf, "1") ||
+                !_stricmp(proj_buf, "true") ||
+                !_stricmp(proj_buf, "off-axis") ||
+                !_stricmp(proj_buf, "offaxis"))
+                cfg->projection = STEREO_PROJECTION_OFF_AXIS;
+            STEREO_LOG("INI load: [global] projection = %s -> %d",
+                       proj_buf, (int)cfg->projection);
+        }
+        if (ini_read_str(g_local_ini, "VKS3D", "projection",
+                         proj_buf, sizeof(proj_buf)))
+        {
+            if (!_stricmp(proj_buf, "1") ||
+                !_stricmp(proj_buf, "true") ||
+                !_stricmp(proj_buf, "off-axis") ||
+                !_stricmp(proj_buf, "offaxis"))
+                cfg->projection = STEREO_PROJECTION_OFF_AXIS;
+            else if (!_stricmp(proj_buf, "0") ||
+                     !_stricmp(proj_buf, "false") ||
+                     !_stricmp(proj_buf, "parallel"))
+                cfg->projection = STEREO_PROJECTION_PARALLEL;
+            STEREO_LOG("INI load: [local]  projection = %s -> %d",
+                       proj_buf, (int)cfg->projection);
+        }
+    }
+
+    /* Print CONFIG AFTER all INI fields are read so multiview/projection
+     * values are accurate (not stale defaults from early print). */
+    STEREO_LOG("CONFIG: present_mode before=%d forced=%d (SBS=3 DX9=2). "
+               "multiview=%d projection=%d sep=%.4f conv=%.4f flip_eyes=%d",
+               present_mode_before, (int)cfg->present_mode,
+               (int)cfg->multiview, (int)cfg->projection,
+               cfg->separation, cfg->convergence, (int)cfg->flip_eyes);
 
     /* ── hotkey steps ── */
     cfg->step_separation  = cfg_float("step_separation",  0.005f);
     cfg->step_convergence = cfg_float("step_convergence", 0.005f);
+
+    /* image_shift: fallback for broken gl_ViewIndex on NVIDIA drivers.
+     * When enabled, uses CPU compose path with per-pixel horizontal shift
+     * instead of GPU blit of two (possibly identical) layers. */
+    cfg->image_shift = cfg_bool("image_shift", false);
 
     stereo_config_compute_offsets(cfg);
     STEREO_LOG(
@@ -239,31 +336,32 @@ void stereo_config_init(StereoConfig *cfg)
 void stereo_config_compute_offsets(StereoConfig *cfg)
 {
     /* Stereo eye offsets.
-
-       Parallel:
-           left  = -(sep/2) + (conv/2)
-           right = +(sep/2) - (conv/2)
-
-       Off-axis:
-           left  = -(sep/2)
-           right = +(sep/2)
-
-       In off-axis mode convergence is applied later during
-       projection/frustum adjustment, not in the eye offsets.
-    */
+     *
+     * Both PARALLEL and OFF_AXIS modes use the same constant offsets
+     * (±separation/2).  The difference is in the SPIR-V patch:
+     *
+     * PARALLEL:  nx = px + sel             (clip-space constant)
+     *            NDC offset = sel/w → depth-dependent parallax
+     *
+     * OFF_AXIS:  nx = px + sel - conv*w   (clip-space constant + conv)
+     *            NDC offset = (sel - conv*w)/w = sel/w - conv
+     *            Convergence shifts the zero-parallax plane.
+     *
+     * Both produce correct depth-dependent stereo parallax because
+     * the separation term (sel) is a clip-space constant, which after
+     * perspective divide becomes sel/w (larger for near objects).
+     */
     float half_sep = cfg->separation * 0.5f;
 
     if (cfg->projection == STEREO_PROJECTION_PARALLEL)
     {
-        float half_conv = cfg->convergence * 0.5f;
-
-        cfg->left_eye_offset  = -half_sep + half_conv;
-        cfg->right_eye_offset =  half_sep - half_conv;
+        cfg->left_eye_offset  =  half_sep;
+        cfg->right_eye_offset = -half_sep;
     }
     else /* off-axis */
     {
-        cfg->left_eye_offset  = -half_sep;
-        cfg->right_eye_offset =  half_sep;
+        cfg->left_eye_offset  =  half_sep;
+        cfg->right_eye_offset = -half_sep;
     }
 
     if (cfg->flip_eyes)
@@ -498,7 +596,7 @@ StereoInstance *stereo_instance_from_handle(VkInstance h) {
     if (!h) return NULL;
     StereoInstance *si = (StereoInstance *)(uintptr_t)h;
     if (si >= g_instances && si < g_instances + g_instance_count) {
-        STEREO_LOG("stereo_instance_from_handle: h=%p -> slot %u (magic=0x%llx)",
+        STEREO_LOG_VERBOSE("stereo_instance_from_handle: h=%p -> slot %u (magic=0x%llx)",
                    (void*)h, (uint32_t)(si - g_instances),
                    (unsigned long long)si->loader_data.loaderMagic);
         return si;
@@ -651,7 +749,7 @@ StereoRenderPassInfo *stereo_rp_lookup(StereoDevice *dev, VkRenderPass rp) {
         if (rpi->handle == rp)
         {
             const unsigned char *b = (const unsigned char *)rpi;
-            STEREO_LOG(
+            STEREO_LOG_VERBOSE(
                 "RPINFO_BYTES "
                 "%02x %02x %02x %02x "
                 "%02x %02x %02x %02x "
@@ -665,7 +763,7 @@ StereoRenderPassInfo *stereo_rp_lookup(StereoDevice *dev, VkRenderPass rp) {
                 b[12], b[13], b[14], b[15],
                 b[16], b[17], b[18], b[19],
                 b[20], b[21], b[22], b[23]);
-            STEREO_LOG(
+            STEREO_LOG_VERBOSE(
                 "RP_LOOKUP hit handle=%08x mv=%08x has_mv=%u addr=%08x",
                 (unsigned)(uintptr_t)rpi->handle,
                 (unsigned)(uintptr_t)rpi->mv_handle,
@@ -674,7 +772,7 @@ StereoRenderPassInfo *stereo_rp_lookup(StereoDevice *dev, VkRenderPass rp) {
             return rpi;
         }
     }
-    STEREO_LOG(
+    STEREO_LOG_VERBOSE(
         "RP_LOOKUP miss handle=%p",
         rp);
     return NULL;
@@ -824,11 +922,16 @@ void stereo_populate_device_dispatch(StereoDevice *sd, VkInstance real_inst)
     L(CmdCopyBufferToImage); L(CmdCopyImageToBuffer);
     L(CmdUpdateBuffer); L(CmdFillBuffer);
     L(CmdClearColorImage); L(CmdClearDepthStencilImage); L(CmdClearAttachments);
-    L(CmdResolveImage); L(CmdSetEvent); L(CmdResetEvent); L(CmdWaitEvents);
+    L(CmdResolveImage);
+    /* Vulkan 1.3 Synchronization2 transfer variants (sync2).
+     * These are used exclusively by modern renderers like Yuzu. */
+    L(CmdBlitImage2); L(CmdCopyImage2); L(CmdResolveImage2);
+    L(CmdCopyBufferToImage2); L(CmdCopyImageToBuffer2);
+    L(CmdSetEvent); L(CmdResetEvent); L(CmdWaitEvents);
     L(CmdPipelineBarrier); L(CmdBeginQuery); L(CmdEndQuery);
     L(CmdResetQueryPool); L(CmdWriteTimestamp); L(CmdCopyQueryPoolResults);
     L(CmdPushConstants);
-    L(CmdBeginRenderPass); L(CmdNextSubpass); L(CmdEndRenderPass);
+    L(CmdBeginRenderPass); L(CmdBeginRenderPass2); L(CmdBeginRenderPass2KHR); L(CmdNextSubpass); L(CmdEndRenderPass);
     L(CmdBeginRendering);
     L(CmdEndRendering);
     L(CmdExecuteCommands);
@@ -972,6 +1075,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         DisableThreadLibraryCalls(hinstDLL);
         vks3d_log_open();
         vks3d_log_write("\n\n");   /* blank separator between appended sessions */
+        /* Check for verbose per-draw-call logging */
+        {
+            char vbuf[16];
+            DWORD vn = GetEnvironmentVariableA("STEREO_VERBOSE", vbuf, sizeof(vbuf));
+            if (vn > 0 && (vbuf[0] == '1' || vbuf[0] == 't' || vbuf[0] == 'T'))
+                g_vks3d_verbose = 1;
+        }
         STEREO_LOG("===== VKS3D DLL_PROCESS_ATTACH =====");
         STEREO_LOG("VKS3D version %s  commit %s  built %s  %s",
                    VKS3D_VERSION, VKS3D_GIT_COMMIT, VKS3D_BUILD_DATE,
@@ -1133,6 +1243,44 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         STEREO_LOG("DllMain: complete, returning TRUE");
     } else if (fdwReason == DLL_PROCESS_DETACH) {
         STEREO_LOG("===== VKS3D DLL_PROCESS_DETACH =====");
+        STEREO_LOG("STATS pipes total=%u mv=%u mono=%u patch_ok=%u patch_fail=%u",
+                   (unsigned)g_stat_pipes_total,
+                   (unsigned)g_stat_pipes_mv,
+                   (unsigned)g_stat_pipes_mono,
+                   (unsigned)g_stat_pipes_patch_ok,
+                   (unsigned)g_stat_pipes_patch_fail);
+        STEREO_LOG("STATS shaders total=%u patched=%u "
+                   "skip_no_mv=%u skip_no_matrix=%u skip_no_pos=%u skip_unpatchable=%u skip_ui=%u",
+                   (unsigned)g_stat_shaders_total,
+                   (unsigned)g_stat_shaders_patch_ok,
+                   (unsigned)g_stat_shaders_skip_no_mv,
+                   (unsigned)g_stat_shaders_skip_no_mx,
+                   (unsigned)g_stat_shaders_skip_no_pos,
+                   (unsigned)g_stat_shaders_skip_unpch,
+                   (unsigned)g_stat_shaders_skip_ui);
+        STEREO_LOG("STATS projection found=%u miss=%u  "
+                   "renderpass total=%u mv_upgraded=%u  "
+                   "framebuffer total=%u mv_upgraded=%u  "
+                   "imageview total=%u upgraded=%u",
+                   (unsigned)g_stat_proj_found,
+                   (unsigned)g_stat_proj_miss,
+                   (unsigned)g_stat_rp_total,
+                   (unsigned)g_stat_rp_mv_upgraded,
+                   (unsigned)g_stat_fb_total,
+                   (unsigned)g_stat_fb_mv_upgraded,
+                   (unsigned)g_stat_iv_total,
+                   (unsigned)g_stat_iv_upgraded);
+        STEREO_LOG("STATS beginrp mv_substituted=%u mv_lost=%u mono=%u",
+                   (unsigned)g_stat_beginrp_mv,
+                   (unsigned)g_stat_beginrp_mv_lost,
+                   (unsigned)g_stat_beginrp_mono);
+        STEREO_LOG("STATS fb_track peak=%u max=%u",
+                   (unsigned)g_stat_fb_track_peak,
+                   (unsigned)MAX_FB_TRACK);
+        STEREO_LOG("STATS beginrender total=%u mv=%u mono=%u",
+                   (unsigned)g_stat_beginrender_total,
+                   (unsigned)g_stat_beginrender_mv,
+                   (unsigned)g_stat_beginrender_mono);
     }
     return TRUE;
 }

@@ -187,33 +187,120 @@ stereo_CreateDevice(
     }
     STEREO_LOG("stereo_CreateDevice: wrapper=%p real_pd=%p si=%p",
                (void*)physicalDevice, (void*)real_physdev, (void*)sp_si);
+    /* Query multiview support from the physical device */
+    {
+        VkPhysicalDeviceFeatures2 pdf2 = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        };
+        VkPhysicalDeviceMultiviewFeatures mvq = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
+        };
+        pdf2.pNext = &mvq;
+        sp_si->real.GetPhysicalDeviceFeatures2(real_physdev, &pdf2);
+        STEREO_LOG("PHYSDEV_MULTIVIEW_SUPPORT multiview=%u mvGeo=%u mvTess=%u",
+                   (unsigned)mvq.multiview,
+                   (unsigned)mvq.multiviewGeometryShader,
+                   (unsigned)mvq.multiviewTessellationShader);
+        /* Also check multiview properties */
+        VkPhysicalDeviceMultiviewProperties mvp = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES,
+        };
+        VkPhysicalDeviceProperties2 pdp2 = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+            .pNext = &mvp,
+        };
+        sp_si->real.GetPhysicalDeviceProperties2(real_physdev, &pdp2);
+        STEREO_LOG("PHYSDEV_MULTIVIEW_PROPS maxView=%u maxInstIdx=%u apiVer=0x%x",
+                   (unsigned)mvp.maxMultiviewViewCount,
+                   (unsigned)mvp.maxMultiviewInstanceIndex,
+                   (unsigned)pdp2.properties.apiVersion);
+    }
     VkPhysicalDeviceMultiviewFeatures multiview_feat = {
         .sType                     = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
         .multiview                 = VK_TRUE,
         .multiviewGeometryShader   = VK_TRUE,
         .multiviewTessellationShader = VK_TRUE,
     };
+    /* Query supported Vulkan 1.1 features from the physical device.
+     * Eden uses KHR extension structs (VkPhysicalDevice16BitStorageFeatures etc.)
+     * instead of VkPhysicalDeviceVulkan11Features.  On some NVIDIA drivers
+     * (especially with Vulkan 1.3+ instances), the driver checks
+     * VkPhysicalDeviceVulkan11Features.multiview FIRST and ignores
+     * VkPhysicalDeviceMultiviewFeatures if Vulkan11Features is absent from
+     * the pNext chain.  This leaves multiview disabled and gl_ViewIndex
+     * always 0, producing identical left/right eye images.
+     *
+     * Fix: when the app did NOT provide VkPhysicalDeviceVulkan11Features,
+     * synthesize one.  Copy all supported feature flags from the physical
+     * device (so we don't accidentally disable features the app enabled via
+     * KHR structs), then force multiview=VK_TRUE. */
+    VkPhysicalDeviceVulkan11Features supp_v11 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+    };
+    {
+        VkPhysicalDeviceFeatures2 supp_f2 = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = &supp_v11,
+        };
+        sp_si->real.GetPhysicalDeviceFeatures2(real_physdev, &supp_f2);
+    }
+    VkPhysicalDeviceVulkan11Features v11_feat = supp_v11;
+    v11_feat.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    v11_feat.multiview = VK_TRUE;
+    v11_feat.multiviewGeometryShader = VK_TRUE;
+    v11_feat.multiviewTessellationShader = VK_TRUE;
     VkPhysicalDeviceFeatures base_feats = {0};
     if (pCreateInfo->pEnabledFeatures)
         base_feats = *pCreateInfo->pEnabledFeatures;
     base_feats.tessellationShader = VK_TRUE;
     bool has_mv_feat = false;
+    bool has_v11_feat = false;
     {
         VkBaseOutStructure *node = (VkBaseOutStructure*)pCreateInfo->pNext;
         while (node) {
             if (node->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES) {
                 ((VkPhysicalDeviceMultiviewFeatures*)node)->multiview = VK_TRUE;
+                ((VkPhysicalDeviceMultiviewFeatures*)node)->multiviewGeometryShader = VK_TRUE;
+                ((VkPhysicalDeviceMultiviewFeatures*)node)->multiviewTessellationShader = VK_TRUE;
                 has_mv_feat = true;
-                break;
+            }
+            /* Vulkan 1.1+ apps may use VkPhysicalDeviceVulkan11Features instead
+             * of the KHR_multiview extension struct.  This struct contains the
+             * same multiview field.  If the app left it VK_FALSE, the driver
+             * will NOT enable multiview even if we add the KHR struct — the
+             * Vulkan11Features value takes precedence.  Patch it to VK_TRUE. */
+            if (node->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES) {
+                ((VkPhysicalDeviceVulkan11Features*)node)->multiview = VK_TRUE;
+                has_v11_feat = true;
             }
             node = node->pNext;
         }
     }
-    if (!has_mv_feat)
+    /* Chain construction:
+     * - If app provided Vulkan11Features: patch it in place (has_v11_feat=true)
+     * - Else: inject our v11_feat at the head of the chain
+     * - If app provided MultiviewFeatures: patch it in place (has_mv_feat=true)
+     * - Else: inject our multiview_feat right after v11_feat
+     * Order: v11_feat -> multiview_feat -> original pNext
+     * (Vulkan11Features takes precedence per spec, so putting it first
+     *  ensures the driver sees multiview=VK_TRUE from the core struct.) */
+    if (!has_v11_feat) {
+        v11_feat.pNext = has_mv_feat ? (void*)pCreateInfo->pNext : &multiview_feat;
+    }
+    if (!has_mv_feat) {
         multiview_feat.pNext = (void*)pCreateInfo->pNext;
+    }
     VkDeviceCreateInfo dci = *pCreateInfo;
-    if (!has_mv_feat)
+    if (!has_v11_feat) {
+        dci.pNext = &v11_feat;
+    } else if (!has_mv_feat) {
         dci.pNext = &multiview_feat;
+    }
+    STEREO_LOG("stereo_CreateDevice: mv_feat=%u v11_feat=%u chained=%s supp_mv=%u",
+               (unsigned)has_mv_feat,
+               (unsigned)has_v11_feat,
+               has_v11_feat ? "v11_existing" : (has_mv_feat ? "mv_existing" : "v11+mv_injected"),
+               (unsigned)supp_v11.multiview);
     dci.pEnabledFeatures = &base_feats;
     VkPhysicalDeviceProperties phys_props;
     sp_si->real.GetPhysicalDeviceProperties(real_physdev, &phys_props);
