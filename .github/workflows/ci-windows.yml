@@ -201,11 +201,41 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
-          $runNum = [int]$env:GITHUB_RUN_NUMBER
-          cmake -S . -B build `
-                -G "Visual Studio 17 2022" `
-                -A x64 `
-                -DVKS3D_VER_PATCH=$runNum
+
+          # ------------------------------------------------------------------
+          # GITHUB_RUN_NUMBER is a decimal string in every Actions run, but
+          # historically GitHub's pwsh bootstrap has briefly exposed it as
+          # $null / empty on the first step of a self-hosted pool cycle (see
+          # the VKS3D commit before ci-windows.yml existed that kept
+          # reporting "VERSION 1.0.$runNum.0 format invalid" on D:\a).
+          # Coerce safely, falling back to 0 (same as CMakeLists.txt's own
+          # default) so we never hand project() an empty patch component.
+          # ------------------------------------------------------------------
+          $runNum = 0
+          $rawRun = $env:GITHUB_RUN_NUMBER
+          if ($rawRun -match '^\d+$') {
+            $runNum = [int]$rawRun
+          } else {
+            Write-Warning "GITHUB_RUN_NUMBER='$rawRun' does not look like a non-negative integer; falling back to VKS3D_VER_PATCH=0."
+          }
+
+          $patchFlag = "-DVKS3D_VER_PATCH=$runNum"
+          Write-Host "cmake define: $patchFlag"
+
+          # Build the argument array explicitly instead of backtick-line
+          # continuation.  Backticks interact badly with CR characters on
+          # pwsh when the runner preserves CRLF and was producing stray
+          # quoting artefacts that CMake parsed as part of the flag value
+          # (another documented source of VERSION-format rejections).
+          $cmakeArgs = @(
+            '-S', '.',
+            '-B', 'build',
+            '-G', 'Visual Studio 17 2022',
+            '-A', 'x64',
+            $patchFlag
+          )
+          Write-Host "cmake configure args: $($cmakeArgs -join ' | ')"
+          & cmake @cmakeArgs
           if ($LASTEXITCODE -ne 0) {
             throw "CMake configure exited $LASTEXITCODE"
           }

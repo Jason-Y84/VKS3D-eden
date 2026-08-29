@@ -4,7 +4,14 @@ cmake_minimum_required(VERSION 3.20)
 # Must be set BEFORE project() because the VERSION token is expanded by
 # project() itself.  VS 2026 ships a more recent CMake that strictly
 # validates VERSION strings and rejects "1.0.." (trailing dots caused by
-# unset VKS3D_VER_PATCH / VKS3D_VER_BUILD at project evaluation time).
+# unset VKS3D_VER_PATCH / VKS3D_VER_BUILD at project evaluation time) as
+# well as any component that contains non-digit characters, whitespace,
+# leading empty segments, or line-ending artefacts that sneak into the
+# command line (GitHub Actions pwsh backtick-continuation lines have
+# historically produced exactly this class of malformed flags on the
+# VKS3D self-hosted runner pool at D:\a — so we kill the build with a
+# sharp FATAL_ERROR *before* project() instead of letting the obscure
+# "VERSION format invalid" one-liner bubble up from inside cmProjectCommand).
 #
 # Can still be overridden on the command line:
 #   cmake .. -DVKS3D_VER_PATCH=10 -DVKS3D_VER_BUILD=2
@@ -14,6 +21,37 @@ endif()
 if(NOT DEFINED VKS3D_VER_BUILD)
     set(VKS3D_VER_BUILD 0 CACHE STRING "Build version number (0-65535)")
 endif()
+
+# ── Defensive VERSION-component validation (fail before project()).
+foreach(_ver_comp IN ITEMS VKS3D_VER_PATCH VKS3D_VER_BUILD)
+    set(_val "${${_ver_comp}}")
+    if("${_val}" STREQUAL "")
+        message(FATAL_ERROR
+            "${_ver_comp} is empty.  CMake project(VERSION 1.0.P.B) requires "
+            "four integer segments; the current value would produce a "
+            "double-dot such as VERSION 1.0..0 which CMake 3.28+ rejects. "
+            "Pass -D${_ver_comp}=<uint16> on the cmake command line.")
+    endif()
+    if(NOT "${_val}" MATCHES "^[0-9]+$")
+        message(FATAL_ERROR
+            "${_ver_comp}='${_val}' is not a plain non-negative integer.  "
+            "Only ASCII digits 0..9 are allowed inside a VERSION segment; "
+            "whitespace, CRLF, dollar signs, and shell quoting artefacts "
+            "(common when GitHub Actions pwsh expands env vars across "
+            "backtick-continuation lines) cause exactly this failure. "
+            "Source of the value: command-line -> CACHE -> default(0).")
+    endif()
+    if(${_val} GREATER 65535)
+        message(FATAL_ERROR
+            "${_ver_comp}=${_val} exceeds 16-bit ceiling 65535 used by the "
+            "VS_VERSION_INFO .rc resource stamp (FILEVERSION/PRODUCTVERSION "
+            "are each 4x uint16).  VKS3D_VER_PATCH comes from GitHub's "
+            "GITHUB_RUN_NUMBER which will not wrap for ~18 centuries of "
+            "daily pushes; if you see this, something injected an "
+            "out-of-range string (hex, overflow, the string name of the "
+            "environment variable itself instead of its contents).")
+    endif()
+endforeach()
 
 project(VKS3D
     VERSION 1.0.${VKS3D_VER_PATCH}.${VKS3D_VER_BUILD}
