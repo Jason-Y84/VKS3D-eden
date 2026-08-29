@@ -362,14 +362,100 @@ jobs:
           $resolvedPath = $null
           foreach ($candidate in $probeRoots) {
             if (Test-VsUsable $candidate) {
-              Write-Host ("vswhere PASS 0 (filesystem probe): ACCEPTED {0}" -f $candidate)
+              Write-Host ("vswhere PASS 0 (filesystem probe, hardcoded list): ACCEPTED {0}" -f $candidate)
               $resolvedPath = $candidate
               break
-            } else {
-              # Don't spam the log with every missing default path.
-              # Anyone debugging the probe can add verbose logging by
-              # uncommenting the line below:
-              # Write-Verbose ("  PASS 0 skipped {0} — not a usable VS tree" -f $candidate) -Verbose:$true
+            }
+          }
+
+          # ----------------------------------------------------------------
+          # PASS 0.5 – depth-limited disk sweep, NO vswhere.
+          #
+          # This covers the case where the hard-coded $probeRoots list in
+          # PASS 0 was wrong for the particular runner (it was written
+          # from the developer's interactive machine script
+          # scripts/build_and_deploy.ps1 but the D:\a self-hosted runner
+          # is a DIFFERENT Windows VM, with Visual Studio installed
+          # under a different top-level folder).  We already know that
+          # cl.exe / cmake exist on this runner — earlier CI runs
+          # successfully compiled src/image_blit.c and only failed at
+          # the link stage on the LNK2019 cascade, so the VS tree is
+          # definitely reachable on a fixed volume.  Walking every fixed
+          # drive to depth 6 should find it in a few seconds.
+          # ----------------------------------------------------------------
+          if (-not $resolvedPath) {
+            Write-Warning "vswhere PASS 0 missed — the developer's hard-coded probe roots don't match this runner.  Starting PASS 0.5 depth-limited sweep of every fixed volume …"
+
+            Write-Host "== runner filesystem snapshot =="
+            Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" |
+              Format-Table DeviceID, VolumeName, Size, FreeSpace, FileSystem -AutoSize | Out-Host
+
+            Write-Host "== environment clues =="
+            'ProgramFiles       = {0}' -f ${env:ProgramFiles}         | Write-Host
+            'ProgramFiles(x86)  = {0}' -f ${env:ProgramFiles(x86)}    | Write-Host
+            'VULKAN_SDK         = {0}' -f ${env:VULKAN_SDK}            | Write-Host
+            'LOCALAPPDATA       = {0}' -f ${env:LOCALAPPDATA}         | Write-Host
+            'GITHUB_WORKSPACE   = {0}' -f ${env:GITHUB_WORKSPACE}      | Write-Host
+            'RUNNER_WORKFOLDER  = {0}' -f ${env:RUNNER_WORKFOLDER}     | Write-Host
+
+            # Walk each fixed volume.  Skip the workspace drive root
+            # itself — the VKS3D repo sits on D:\a\VKS3D-eden and its
+            # sub-trees contain third_party/CMake that would otherwise
+            # confuse the search for Visual Studio's *Common7\IDE\…*
+            # layout.  We filter by the two signature folder names
+            # anyway, but cutting D:\a (runner scratch) saves time.
+            $drives = @(Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object -ExpandProperty DeviceID)
+            :driveLoop foreach ($drive in $drives) {
+              $root = ($drive -replace ':$', ':\')
+              $workspaceDrive = (Split-Path -Qualifier ($env:GITHUB_WORKSPACE ?? '')).ToLowerInvariant()
+              if ($root.ToLowerInvariant() -ne $workspaceDrive) {
+                # No restriction — scan normally.
+                $scanRoot = $root
+              } else {
+                # Scan only the 'Program Files' style folders on the
+                # workspace drive, skipping the runner workspace D:\a
+                # tree itself.
+                $candidates = @(
+                  (Join-Path $root "Program Files (x86)"),
+                  (Join-Path $root "Program Files"),
+                  (Join-Path $root "VisualStudio"),
+                  (Join-Path $root "VS"),
+                  (Join-Path $root "BuildTools"),
+                  (Join-Path $root "Microsoft Visual Studio")
+                )
+                # We'll iterate those individually instead of using
+                # $scanRoot, so declare this drive handled inside the
+                # inner loop.
+                Write-Host ("PASS 0.5 scanning {0} via known folders only (skipping runner workspace D:\a)" -f $drive)
+                foreach ($folder in $candidates) {
+                  if (-not (Test-Path $folder)) { continue }
+                  Write-Host ("  recursing {0} (-Depth 6)" -f $folder)
+                  Get-ChildItem -LiteralPath $folder -Directory -Recurse -Depth 6 -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -in @('VC', 'Common7') } |
+                    ForEach-Object {
+                      $container = $_.Parent.FullName
+                      if (Test-VsUsable $container) {
+                        Write-Host ("vswhere PASS 0.5 (drive sweep): ACCEPTED {0}" -f $container)
+                        $script:resolvedPath = $container
+                        # break outer loop
+                        break driveLoop
+                      }
+                    }
+                }
+                continue driveLoop
+              }
+
+              Write-Host ("PASS 0.5 scanning volume root {0} (-Depth 6)" -f $root)
+              Get-ChildItem -LiteralPath $scanRoot -Directory -Recurse -Depth 6 -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -in @('VC', 'Common7') } |
+                ForEach-Object {
+                  $container = $_.Parent.FullName
+                  if (Test-VsUsable $container) {
+                    Write-Host ("vswhere PASS 0.5 (drive sweep): ACCEPTED {0}" -f $container)
+                    $script:resolvedPath = $container
+                    break driveLoop
+                  }
+                }
             }
           }
 
