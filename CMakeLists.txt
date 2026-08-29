@@ -171,8 +171,17 @@ set(VKS3D_NVAPI_LIB_x64   "${VKS3D_NV3DLIB_DIR}/external/nvapi/amd64/nvapi64.lib
 set(VKS3D_NVAPI_LIB_x86   "${VKS3D_NV3DLIB_DIR}/external/nvapi/x86/nvapi.lib")
 set(VKS3D_SPIRV_HEADERS   "${CMAKE_SOURCE_DIR}/third_party/SPIRV-Headers/include")
 
+# Detection must key on NV3DLib.lib itself, NOT on the nvapi import
+# lib.  The upstream oneup03/NV3D-Lib submodule tracks
+# external/nvapi/... but does NOT track NV3DLib/lib/NV3DLib.lib (that
+# binary only exists in some local checkouts), so an `EXISTS(nvapi) OR
+# EXISTS(NV3DLib)` test reports HAVE=ON on CI and then dies at link
+# time with LNK1181 "cannot open input file NV3DLib.lib".  Requiring
+# the actual link input makes the stub fallback (present.c weak-impl
+# -> nv3d_* return false) kick in instead — which is exactly the
+# configuration Yuzu SBS mode already runs with.
 set(VKS3D_HAVE_NV3DLIB    OFF)
-if(EXISTS "${VKS3D_NV3DLIB_LIB_x64}" OR EXISTS "${VKS3D_NVAPI_LIB_x64}")
+if(EXISTS "${VKS3D_NV3DLIB_LIB_x64}")
     set(VKS3D_HAVE_NV3DLIB ON)
 endif()
 set(VKS3D_HAVE_SPIRV_HEADERS OFF)
