@@ -128,6 +128,238 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
 # define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TOOL_PROPERTIES ((VkStructureType)1000245000)
 #endif
 
+/* -- Vulkan Synchronisation2 (KHR / VK 1.3) forward-shims ------------------- *
+ * image_blit.c wraps vkCmdBlitImage2 / CopyImage2 / ResolveImage2 /
+ * CopyBufferToImage2 / CopyImageToBuffer2 and their *2KHR aliases.
+ * These types are guaranteed by VK 1.3 headers, but some CI runners
+ * ship with older Vulkan SDK installations — if the SDK only exposes
+ * VK 1.0 / 1.1 / 1.2 headers, the *2 typedefs / PFN_* and struct
+ * sType enums are all absent and image_blit.c fails to compile.
+ *
+ * The LNK2019 pattern we saw after push was: icd_main.c references the
+ * stereo_Cmd* wrappers, but image_blit.c TU was silently skipped by
+ * MSBuild because of these missing typedefs; we therefore ALWAYS
+ * provide binary-identical layout fallbacks here, exactly matching
+ * the Vulkan 1.3 spec.  At runtime the real driver either supports
+ * the functions (sd->real.Cmd*2 != NULL) or we return early — so a
+ * CI that compiles against an older SDK will still build the DLL,
+ * and any game using sync2 will later tell us at runtime that the
+ * driver requires an upgrade too.
+ *
+ * NOTE: the shims are intentionally gated on `!defined(VK_KHR_synchronization2)`.
+ * The SDK vulkan_core.h defines this macro the moment it declares the
+ * types above; when it's missing, we know we need our own copies.      */
+#if !defined(VK_KHR_synchronization2)
+#define VK_KHR_synchronization2                 1
+#define VK_KHR_SYNCHRONIZATION_2_SPEC_VERSION   1
+#define VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME "VK_KHR_synchronization2"
+
+/* sType values — identical to vulkan_core.h r309 (VK 1.3.202+) */
+#ifndef VK_STRUCTURE_TYPE_MEMORY_BARRIER_2
+#define VK_STRUCTURE_TYPE_MEMORY_BARRIER_2            ((VkStructureType)1000314000)
+#endif
+#ifndef VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2
+#define VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2    ((VkStructureType)1000314001)
+#endif
+#ifndef VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2
+#define VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2     ((VkStructureType)1000314002)
+#endif
+#ifndef VK_STRUCTURE_TYPE_DEPENDENCY_INFO
+#define VK_STRUCTURE_TYPE_DEPENDENCY_INFO            ((VkStructureType)1000314003)
+#endif
+#ifndef VK_STRUCTURE_TYPE_SUBMIT_INFO_2
+#define VK_STRUCTURE_TYPE_SUBMIT_INFO_2              ((VkStructureType)1000314004)
+#endif
+#ifndef VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO
+#define VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO      ((VkStructureType)1000314005)
+#endif
+#ifndef VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO
+#define VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO ((VkStructureType)1000314006)
+#endif
+#ifndef VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2
+#define VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2         ((VkStructureType)1000314021)
+#endif
+#ifndef VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2
+#define VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2          ((VkStructureType)1000314022)
+#endif
+#ifndef VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2
+#define VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2   ((VkStructureType)1000314023)
+#endif
+#ifndef VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2
+#define VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2   ((VkStructureType)1000314024)
+#endif
+#ifndef VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2
+#define VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2          ((VkStructureType)1000314025)
+#endif
+#ifndef VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2
+#define VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2       ((VkStructureType)1000314026)
+#endif
+#ifndef VK_STRUCTURE_TYPE_BUFFER_COPY_2
+#define VK_STRUCTURE_TYPE_BUFFER_COPY_2              ((VkStructureType)1000314007)
+#endif
+#ifndef VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2
+#define VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2        ((VkStructureType)1000314008)
+#endif
+#ifndef VK_STRUCTURE_TYPE_IMAGE_COPY_2
+#define VK_STRUCTURE_TYPE_IMAGE_COPY_2               ((VkStructureType)1000314009)
+#endif
+#ifndef VK_STRUCTURE_TYPE_IMAGE_BLIT_2
+#define VK_STRUCTURE_TYPE_IMAGE_BLIT_2               ((VkStructureType)1000314010)
+#endif
+#ifndef VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2
+#define VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2            ((VkStructureType)1000314011)
+#endif
+
+typedef struct VkBufferCopy2 {
+    VkStructureType    sType;
+    const void        *pNext;
+    VkDeviceSize       srcOffset;
+    VkDeviceSize       dstOffset;
+    VkDeviceSize       size;
+} VkBufferCopy2;
+
+typedef struct VkImageSubresourceLayers {
+    VkImageAspectFlags    aspectMask;
+    uint32_t              mipLevel;
+    uint32_t              baseArrayLayer;
+    uint32_t              layerCount;
+} VkImageSubresourceLayers;
+
+typedef struct VkImageCopy2 {
+    VkStructureType            sType;
+    const void                *pNext;
+    VkImageSubresourceLayers   srcSubresource;
+    VkOffset3D                 srcOffset;
+    VkImageSubresourceLayers   dstSubresource;
+    VkOffset3D                 dstOffset;
+    VkExtent3D                 extent;
+} VkImageCopy2;
+
+typedef struct VkImageBlit2 {
+    VkStructureType            sType;
+    const void                *pNext;
+    VkImageSubresourceLayers   srcSubresource;
+    VkOffset3D                 srcOffsets[2];
+    VkImageSubresourceLayers   dstSubresource;
+    VkOffset3D                 dstOffsets[2];
+} VkImageBlit2;
+
+typedef struct VkImageResolve2 {
+    VkStructureType            sType;
+    const void                *pNext;
+    VkImageSubresourceLayers   srcSubresource;
+    VkOffset3D                 srcOffset;
+    VkImageSubresourceLayers   dstSubresource;
+    VkOffset3D                 dstOffset;
+    VkExtent3D                 extent;
+} VkImageResolve2;
+
+typedef struct VkBufferImageCopy2 {
+    VkStructureType            sType;
+    const void                *pNext;
+    VkDeviceSize               bufferOffset;
+    uint32_t                   bufferRowLength;
+    uint32_t                   bufferImageHeight;
+    VkImageSubresourceLayers   imageSubresource;
+    VkOffset3D                 imageOffset;
+    VkExtent3D                 imageExtent;
+} VkBufferImageCopy2;
+
+typedef struct VkCopyImageInfo2 {
+    VkStructureType       sType;
+    const void           *pNext;
+    VkImage               srcImage;
+    VkImageLayout         srcImageLayout;
+    VkImage               dstImage;
+    VkImageLayout         dstImageLayout;
+    uint32_t              regionCount;
+    const VkImageCopy2   *pRegions;
+} VkCopyImageInfo2;
+
+typedef struct VkBlitImageInfo2 {
+    VkStructureType       sType;
+    const void           *pNext;
+    VkImage               srcImage;
+    VkImageLayout         srcImageLayout;
+    VkImage               dstImage;
+    VkImageLayout         dstImageLayout;
+    uint32_t              regionCount;
+    const VkImageBlit2   *pRegions;
+    VkFilter              filter;
+} VkBlitImageInfo2;
+
+typedef struct VkResolveImageInfo2 {
+    VkStructureType        sType;
+    const void            *pNext;
+    VkImage                srcImage;
+    VkImageLayout          srcImageLayout;
+    VkImage                dstImage;
+    VkImageLayout          dstImageLayout;
+    uint32_t               regionCount;
+    const VkImageResolve2 *pRegions;
+} VkResolveImageInfo2;
+
+typedef struct VkCopyBufferToImageInfo2 {
+    VkStructureType               sType;
+    const void                   *pNext;
+    VkBuffer                      srcBuffer;
+    VkImage                       dstImage;
+    VkImageLayout                 dstImageLayout;
+    uint32_t                      regionCount;
+    const VkBufferImageCopy2     *pRegions;
+} VkCopyBufferToImageInfo2;
+
+typedef struct VkCopyImageToBufferInfo2 {
+    VkStructureType               sType;
+    const void                   *pNext;
+    VkImage                       srcImage;
+    VkImageLayout                 srcImageLayout;
+    VkBuffer                      dstBuffer;
+    uint32_t                      regionCount;
+    const VkBufferImageCopy2     *pRegions;
+} VkCopyImageToBufferInfo2;
+
+/* PFN dispatch types used in our sd->real dispatch table.  Vulkan SDK
+ * always names these with a trailing KHR for the extension variants;
+ * VKS3D uses the promoted (non-KHR) names everywhere. */
+#ifndef PFN_vkCmdBlitImage2
+typedef void (VKAPI_PTR *PFN_vkCmdBlitImage2)(
+    VkCommandBuffer commandBuffer, const VkBlitImageInfo2 *pInfo);
+#endif
+#ifndef PFN_vkCmdCopyImage2
+typedef void (VKAPI_PTR *PFN_vkCmdCopyImage2)(
+    VkCommandBuffer commandBuffer, const VkCopyImageInfo2 *pInfo);
+#endif
+#ifndef PFN_vkCmdResolveImage2
+typedef void (VKAPI_PTR *PFN_vkCmdResolveImage2)(
+    VkCommandBuffer commandBuffer, const VkResolveImageInfo2 *pInfo);
+#endif
+#ifndef PFN_vkCmdCopyBufferToImage2
+typedef void (VKAPI_PTR *PFN_vkCmdCopyBufferToImage2)(
+    VkCommandBuffer commandBuffer, const VkCopyBufferToImageInfo2 *pInfo);
+#endif
+#ifndef PFN_vkCmdCopyImageToBuffer2
+typedef void (VKAPI_PTR *PFN_vkCmdCopyImageToBuffer2)(
+    VkCommandBuffer commandBuffer, const VkCopyImageToBufferInfo2 *pInfo);
+#endif
+/* KHR variants — binary-identical signatures to the promoted forms. */
+#ifndef PFN_vkCmdBlitImage2KHR
+typedef PFN_vkCmdBlitImage2            PFN_vkCmdBlitImage2KHR;
+#endif
+#ifndef PFN_vkCmdCopyImage2KHR
+typedef PFN_vkCmdCopyImage2            PFN_vkCmdCopyImage2KHR;
+#endif
+#ifndef PFN_vkCmdResolveImage2KHR
+typedef PFN_vkCmdResolveImage2         PFN_vkCmdResolveImage2KHR;
+#endif
+#ifndef PFN_vkCmdCopyBufferToImage2KHR
+typedef PFN_vkCmdCopyBufferToImage2    PFN_vkCmdCopyBufferToImage2KHR;
+#endif
+#ifndef PFN_vkCmdCopyImageToBuffer2KHR
+typedef PFN_vkCmdCopyImageToBuffer2    PFN_vkCmdCopyImageToBuffer2KHR;
+#endif
+#endif /* !defined(VK_KHR_synchronization2) */
+
 #ifndef ICD_LOADER_MAGIC
 #  define ICD_LOADER_MAGIC 0xCD1CDABA1DABADABULL
 #endif

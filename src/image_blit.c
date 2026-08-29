@@ -38,6 +38,78 @@
 #include <string.h>
 #include "stereo_icd.h"
 
+/* -- Hardened build diagnostics --------------------------------------------- *
+ * The 15 public stereo_Cmd*Image*() wrappers defined in this TU are the ONLY
+ * definitions of their symbols in the entire DLL.  Any condition that
+ * prevents this translation unit from reaching its 15 definitions will
+ * surface as 15 LNK2019 in the final link step — exactly the failure we
+ * saw once this file was pushed to GitHub CI.
+ *
+ * We therefore pin down every prerequisite here, IN THIS FILE, so a
+ * broken CI pipeline fails EARLY with an actionable error instead of
+ * silently dropping the TU.
+ *
+ * Checklist of things that can kill this TU on an arbitrary machine:
+ *   1. <vulkan/vulkan.h> was not found at all
+ *   2. Vulkan SDK is pre-1.3 and has no VK_KHR_synchronization2 types
+ *      → stereo_icd.h now ships its own fallback shims (gated by
+ *         !defined(VK_KHR_synchronization2)), so this is covered.
+ *   3. sd->real dispatch table layout drifts relative to the member
+ *      names we write to here (CmdBlitImage / CmdBlitImage2 / ...).
+ *   4. Helper helper helpers helper helpers helper helper helpers.
+ * ------------------------------------------------------------------------ */
+#if !defined(__has_include)
+  /* Legacy compilers: just keep going, the #include above already
+   * either succeeded or died with "cannot open include file". */
+#elif !__has_include(<vulkan/vulkan.h>)
+#  error "image_blit.c: <vulkan/vulkan.h> not found. Install Vulkan SDK 1.3+ or set VULKAN_SDK env var."
+#endif
+
+#if !defined(VK_VERSION_1_0)
+#  error "image_blit.c: Vulkan core types not visible — check include order and SDK installation."
+#endif
+
+/* Confirm stereo_icd.h successfully provided every *2 sync2 type the
+ * functions below rely on.  If any of these fire, the SDK shim block
+ * in stereo_icd.h needs an extra entry (or the SDK is really broken). */
+#if !defined(VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2)
+#  error "image_blit.c: VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2 missing — please update stereo_icd.h Sync2 shims or use Vulkan SDK >= 1.3.202"
+#endif
+#if !defined(VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2)
+#  error "image_blit.c: VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2 missing — please update stereo_icd.h Sync2 shims or use Vulkan SDK >= 1.3.202"
+#endif
+#if !defined(VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2)
+#  error "image_blit.c: VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2 missing — please update stereo_icd.h Sync2 shims or use Vulkan SDK >= 1.3.202"
+#endif
+#if !defined(VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2)
+#  error "image_blit.c: VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2 missing — please update stereo_icd.h Sync2 shims or use Vulkan SDK >= 1.3.202"
+#endif
+#if !defined(VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2)
+#  error "image_blit.c: VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2 missing — please update stereo_icd.h Sync2 shims or use Vulkan SDK >= 1.3.202"
+#endif
+
+/* Confirm every required field of RealDeviceDispatch is present at
+ * compile time.  sizeof(sd->real.FIELD) on a pointer-to-member yields
+ * the size of the PFN typedef — non-zero if the member exists, hard
+ * compile error if it was renamed or removed.  Uses the standard C
+ * `offsetof` / explicit type-size verification via _Static_assert so
+ * this works as plain C11 (no C++ required). */
+#define IMAGE_BLIT_ASSERT_MEMBER(Struct, Field) \
+    _Static_assert(sizeof(((Struct *)0)->Field) > 0, \
+        "RealDeviceDispatch missing required field ` " #Field " `")
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdBlitImage);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdCopyImage);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdResolveImage);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdCopyBufferToImage);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdCopyImageToBuffer);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdBlitImage2);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdCopyImage2);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdResolveImage2);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdCopyBufferToImage2);
+IMAGE_BLIT_ASSERT_MEMBER(RealDeviceDispatch, CmdCopyImageToBuffer2);
+#undef IMAGE_BLIT_ASSERT_MEMBER
+
+
 /* Stack allocation cap for transfer regions.  Real Vulkan apps almost
  * never pass more than ~8 regions per call; 128 is a conservative cap
  * that lets us avoid the malloc/free overhead entirely in 99 % of

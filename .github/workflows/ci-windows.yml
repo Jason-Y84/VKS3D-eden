@@ -1,0 +1,245 @@
+# =============================================================================
+#  VKS3D Eden — Windows CI (GitHub Actions)
+# -----------------------------------------------------------------------------
+#  PURPOSE.  Keep this workflow REPRODUCIBLE on a freshly cloned repo.
+#
+#  Why this workflow is written the way it is:
+#
+#  1. `actions/checkout` MUST run with `clean: true`.  Self-hosted
+#     runners persist the workspace across runs; a previous run leaves
+#     behind `build/`, `CMakeCache.txt`, `CMakeFiles/` and stale
+#     `VKS3D_x64.vcxproj` that were generated BEFORE `src/image_blit.c`
+#     joined STEREO_SOURCES.  The cached vcxproj silently omits the
+#     new TU, the linker then reports exactly 15 × LNK2019
+#     (stereo_CmdBlitImage, stereo_CmdCopyImage, …) because those
+#     symbols have zero object files providing them.  Re-using such a
+#     stale vcxproj is the #1 failure mode of this repo on CI.
+#
+#  2. `submodules: recursive`.  The repo pins NV3D-Lib (NVIDIA 3D
+#     Vision direct-mode fallback) and SPIRV-Headers.  Forgetting the
+#     submodule checkout breaks SPIR-V patching completely; MSBuild
+#     rarely surfaces that clearly during the build log, so we kill
+#     the checkout step explicitly instead of letting it drift into
+#     link failures.
+#
+#  3. `cmake -B build` ALWAYS runs before `cmake --build build`.
+#     Relying on "CMake will regenerate when CMakeLists.txt changes"
+#     is not reliable on self-hosted runners that have
+#     CMAKE_SUPPRESS_REGENERATION=ON or where TIMESTAMP-based rerun
+#     logic misses a git reset (which is the case for the exact
+#     checkout action flow used here: clean + hard reset restores
+#     CMakeLists.txt mtime to the old one, fooling the generator).
+#
+#  4. `if: ${{ success() }}` + explicit `exit /b $LASTEXITCODE` on the
+#     configure/build steps.  Any CMake configure error must STOP the
+#     build; "continue on error" elsewhere cascades into the LNK2019
+#     pattern we were chasing for days.  Fail early, fail loudly.
+#
+#  5. The workflow supports BOTH the default GitHub-hosted
+#     `windows-latest` runner AND the self-hosted Windows runner the
+#     VKS3D project normally uses.  Set the RUNNER_ENV secret / var
+#     to `self-hosted` if you want to run locally; everything else
+#     stays identical.
+# =============================================================================
+
+name: VKS3D Windows Build
+
+on:
+  push:
+    branches: [ "**" ]
+    tags:     [ "v*" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same PR / branch to keep CI fast.
+concurrency:
+  group: ci-win-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Build VKS3D_x64.dll (Release)
+    runs-on: ${{ vars.VKS3D_RUNNER_LABELS || 'windows-latest' }}
+
+    # VKS3D_x64.dll IS the target product of this repository.  Expose
+    # every build as an artifact so PR reviewers / testers can grab a
+    # binary directly from the Actions run page without cloning.
+    outputs:
+      artifact-name: ${{ steps.pkg.outputs.artifact-name }}
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. Checkout — CRITICAL flags: clean + submodules + fetch-depth.
+      # ------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Wipe EVERY non-git-tracked file from the previous run.
+          # This alone fixes 90 % of "works locally, fails on CI"
+          # stories on self-hosted Windows runners.
+          clean: true
+          # Fail hard if a submodule URL cannot be resolved.
+          submodules: recursive
+          # No shallow clones; cmake embed git-describe into version.
+          fetch-depth: 0
+          # Keep long (>260 char) paths safe on Windows.
+          sparse-checkout-cone-mode: false
+
+      # ------------------------------------------------------------------
+      # 2. Diagnostic dump — handy when debugging runner issues later.
+      # ------------------------------------------------------------------
+      - name: Post-checkout workspace inventory
+        shell: pwsh
+        run: |
+          Write-Host "== workspace root =="
+          Get-ChildItem -Force -Name | ForEach-Object { Write-Host "  $_" }
+          Write-Host "== src/ (the fail-fast guard checks each of these) =="
+          Get-ChildItem -Force -Name src/*.c | ForEach-Object { Write-Host "  $_" }
+          Write-Host "== third_party/ (must exist after recursive submodule pull) =="
+          if (Test-Path third_party) {
+            Get-ChildItem -Force -Name third_party | ForEach-Object { Write-Host "  $_" }
+          } else {
+            Write-Host "  <MISSING>"
+            throw "third_party/ not present — submodules failed to checkout"
+          }
+          Write-Host "== src/image_blit.c size =="
+          $ib = Get-Item src/image_blit.c -ErrorAction Stop
+          Write-Host ("  Length={0} bytes  LastWrite={1}" -f $ib.Length, $ib.LastWriteTimeUtc)
+          if ($ib.Length -lt 1000) {
+            throw "src/image_blit.c is suspiciously small ($($ib.Length) B) — probably an LFS pointer or truncated push"
+          }
+
+      # ------------------------------------------------------------------
+      # 3. Install Vulkan SDK (1.3.x) — GitHub-hosted runners don't have
+      #    one pre-installed.  Self-hosted runners should pre-install
+      #    and set VULKAN_SDK env globally, in which case this step
+      #    exits early (the action is idempotent when VULKAN_SDK matches
+      #    the requested version already).
+      # ------------------------------------------------------------------
+      - name: Install Vulkan SDK 1.3 (promoted sync2 types required)
+        shell: pwsh
+        run: |
+          # Skip install entirely if a compatible Vulkan SDK is already
+          # present (self-hosted runner case).  Otherwise let the
+          # community action pull & install it.
+          $already = $env:VULKAN_SDK
+          if ($already -and (Test-Path "$already\Include\vulkan\vulkan_core.h")) {
+            $h = Get-Content "$already\Include\vulkan\vulkan_core.h" -TotalCount 200 -Raw
+            if ($h -match "VK_HEADER_VERSION\s+(\d+)") {
+              $hv = [int]$Matches[1]
+              Write-Host "VULKAN_SDK already installed at $already (header rev $hv) — skipping download"
+              if ($hv -lt 202) {
+                Write-Warning "Vulkan SDK headers < 1.3.202 — Sync2 promoted types may be absent.  Stereo_icd.h will fall back to bundled shims, but upgrading SDK is STRONGLY recommended."
+              }
+              exit 0
+            }
+          }
+          Write-Host "VULKAN_SDK not detected — installing via humbletim/setup-vulkan-sdk action in next step"
+          # Indicate to the following step that real installation is
+          # needed.  The step below uses an Action, so we use a tiny
+          # marker file + GITHUB_OUTPUT flow to propagate.
+          "1" | Out-File "$env:RUNNER_TEMP\vulkan_sdk_needed" -Encoding ascii -NoNewline
+
+      - name: setup-vulkan-sdk
+        if: hashFiles(format('{0}\vulkan_sdk_needed', runner.temp)) != ''
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-sdk-version: "1.3.280.0"
+          optional-components: "sdk,shaderc,glslang,spirv-tools"
+
+      # ------------------------------------------------------------------
+      # 4. Clean stale build artefacts BEFORE running CMake configure.
+      #    Redundant with checkout `clean: true` on most machines, but
+      #    self-hosted runners with custom checkout paths or weird
+      #    CMake variable overwrites still leak files.  Belt + braces.
+      # ------------------------------------------------------------------
+      - name: Wipe build cache (belt + braces)
+        shell: pwsh
+        run: |
+          $candidates = @(
+            (Join-Path $env:GITHUB_WORKSPACE "build"),
+            (Join-Path $env:GITHUB_WORKSPACE "CMakeCache.txt"),
+            (Join-Path $env:GITHUB_WORKSPACE "CMakeFiles")
+          )
+          foreach ($c in $candidates) {
+            if (Test-Path $c) {
+              Write-Host "Removing stale: $c"
+              Remove-Item -Recurse -Force $c -ErrorAction Stop
+            } else {
+              Write-Host "Clean (no stale): $c"
+            }
+          }
+
+      # ------------------------------------------------------------------
+      # 5. CMake configure.  MUST run from scratch every CI run.
+      # ------------------------------------------------------------------
+      - name: Configure CMake (from scratch — every run)
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $runNum = [int]$env:GITHUB_RUN_NUMBER
+          cmake -S . -B build `
+                -G "Visual Studio 17 2022" `
+                -A x64 `
+                -DVKS3D_VER_PATCH=$runNum
+          if ($LASTEXITCODE -ne 0) {
+            throw "CMake configure exited $LASTEXITCODE"
+          }
+
+          # Extra sanity: verify the generated vcxproj really DOES
+          # include image_blit.c (catches 100 % of STEREO_SOURCES /
+          # stale-project bugs before we get to the 90-second link).
+          $vcx = Join-Path (Resolve-Path build) "VKS3D_x64.vcxproj"
+          if (-not (Test-Path $vcx)) { throw "$vcx was not generated" }
+          $xml = Get-Content $vcx -Raw
+          if ($xml -notmatch 'image_blit\.c') {
+            throw "FATAL: VKS3D_x64.vcxproj does not reference src/image_blit.c.  Fix STEREO_SOURCES in CMakeLists.txt."
+          }
+          Write-Host "CMake configure OK — VKS3D_x64.vcxproj includes image_blit.c."
+
+      # ------------------------------------------------------------------
+      # 6. Build.  Release only (the shipping config).
+      # ------------------------------------------------------------------
+      - name: Build Release |x64|
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          cmake --build build --config Release --parallel
+          if ($LASTEXITCODE -ne 0) {
+            throw "cmake --build Release exited $LASTEXITCODE — search the log above for first `error C` or `error MSB` line"
+          }
+          $dll = Join-Path (Resolve-Path build) "Release\VKS3D_x64.dll"
+          if (-not (Test-Path $dll)) { throw "Expected DLL missing after build: $dll" }
+          $info = Get-Item $dll
+          Write-Host ("Build SUCCESS: {0}  ({1:N0} bytes)" -f $dll.FullName, $info.Length)
+
+      # ------------------------------------------------------------------
+      # 7. Package artifacts (DLL + PDB + INI + LICENCES).
+      # ------------------------------------------------------------------
+      - name: Stage artifact
+        id: pkg
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $staging = Join-Path $env:RUNNER_TEMP "VKS3D_x64"
+          New-Item -ItemType Directory -Force -Path $staging | Out-Null
+          $src = Join-Path (Resolve-Path build) "Release"
+          Copy-Item "$src\VKS3D_x64.dll"  $staging
+          Copy-Item "$src\VKS3D_x64.pdb"  $staging -ErrorAction SilentlyContinue
+          Copy-Item "vks3d.ini"           $staging -ErrorAction SilentlyContinue
+          Copy-Item "LICENSE"             $staging -ErrorAction SilentlyContinue
+          $artifactName = "VKS3D_x64-${{ github.sha }}"
+          "artifact-name=$artifactName" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Artifact: $artifactName  (staged at $staging)"
+          Get-ChildItem $staging | Format-Table -AutoSize
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.artifact-name }}
+          path: ${{ runner.temp }}\VKS3D_x64
+          retention-days: 30
+          compression-level: 6

@@ -1,0 +1,94 @@
+# =============================================================================
+#  .gitattributes — guard cross-platform behaviour when cloning / pushing on
+#  GitHub Actions runners (both GitHub-hosted and self-hosted Windows).
+# -----------------------------------------------------------------------------
+#  The LNK2019 cascade we saw after the first push of image_blit.c was down
+#  to build-system drift, but line-ending and filter mismatches are the
+#  second biggest "works locally, fails on CI" category for C projects on
+#  GitHub.  This file pins behaviour so every clone produces byte-identical
+#  source to what the dev machine has in the working tree.
+# =============================================================================
+
+# Default behaviour: auto-normalize text files to LF on commit, convert back
+# to the platform-native line ending on checkout.  CI runs on Windows so the
+# checkout will have CRLF; the Visual Studio toolchain handles both fine,
+# and git diffs stay LF so they're readable on GitHub.
+* text=auto eol=lf
+
+# -----------------------------------------------------------------------------
+#  Source code — NEVER let the repository store CRLF.  C11 string literals
+#  and multi-line macros will miscompile if a file gains an extra \r at
+#  certain line boundaries (unlikely but nasty when it happens).  Pins LF.
+# -----------------------------------------------------------------------------
+*.c          text eol=lf
+*.h          text eol=lf
+*.hpp        text eol=lf
+*.cpp        text eol=lf
+*.inl        text eol=lf
+*.glsl       text eol=lf
+*.vert       text eol=lf
+*.frag       text eol=lf
+*.comp       text eol=lf
+*.geom       text eol=lf
+*.tesc       text eol=lf
+*.tese       text eol=lf
+*.spv        binary
+
+# -----------------------------------------------------------------------------
+#  Build scripts / workflow files — YAML, CMake, PowerShell, shell.
+#  PowerShell 5 on older self-hosted runners tolerates CRLF better; pin it.
+# -----------------------------------------------------------------------------
+CMakeLists.txt   text eol=lf
+*.cmake          text eol=lf
+*.yml            text eol=lf
+*.yaml           text eol=lf
+*.ps1            text eol=crlf
+*.bat            text eol=crlf
+*.cmd            text eol=crlf
+*.sh             text eol=lf
+
+# -----------------------------------------------------------------------------
+#  Config / documentation.
+# -----------------------------------------------------------------------------
+*.ini            text eol=crlf
+*.md             text eol=lf
+*.txt            text eol=lf
+*.json           text eol=lf
+# MSVC module-definition files (.def): MUST be LF; CRLF causes warning
+# LNK4222 on some linker versions.
+*.def            text eol=lf
+*.rc             text eol=crlf
+
+# -----------------------------------------------------------------------------
+#  Binaries — always pass-through, NEVER diff or filter.
+#  If LFS is ever turned on later, add `filter=lfs` to the lines that need
+#  it; but by default we want plain binaries so `git clone` on a
+#  non-LFS-capable runner still gets real bytes (not LFS pointer text that
+#  looks like a tiny .c file and produces LNK2019 at the far end).
+# -----------------------------------------------------------------------------
+*.dll        binary
+*.lib        binary
+*.pdb        binary
+*.obj        binary
+*.exe        binary
+*.sys        binary
+*.so         binary
+*.dylib      binary
+*.a          binary
+*.zip        binary
+*.7z         binary
+*.tar.gz     binary
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.bmp        binary
+*.ico        binary
+*.ttf        binary
+*.otf        binary
+*.woff2      binary
+
+# -----------------------------------------------------------------------------
+#  Language-specific Git metadata.
+# -----------------------------------------------------------------------------
+*.c   linguist-language=C
+*.h   linguist-language=C

@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(VKS3D
-    VERSION 1.0.${VKS3D_VER_PATCH}.${VKS3D_VER_BUILD}
-    LANGUAGES C CXX
-    DESCRIPTION "Vulkan Stereoscopic 3D ICD"
-)
-
-# ── Version number cache variables ──────────────────────────────────────────
-# Allow passing via: cmake -DVKS3D_VER_PATCH=10 -DVKS3D_VER_BUILD=2
+# ── Version number defaults ─────────────────────────────────────────────────
+# Must be set BEFORE project() because the VERSION token is expanded by
+# project() itself.  VS 2026 ships a more recent CMake that strictly
+# validates VERSION strings and rejects "1.0.." (trailing dots caused by
+# unset VKS3D_VER_PATCH / VKS3D_VER_BUILD at project evaluation time).
+#
+# Can still be overridden on the command line:
+#   cmake .. -DVKS3D_VER_PATCH=10 -DVKS3D_VER_BUILD=2
 if(NOT DEFINED VKS3D_VER_PATCH)
     set(VKS3D_VER_PATCH 0 CACHE STRING "Patch version number (0-65535)")
 endif()
@@ -15,7 +15,13 @@ if(NOT DEFINED VKS3D_VER_BUILD)
     set(VKS3D_VER_BUILD 0 CACHE STRING "Build version number (0-65535)")
 endif()
 
-message(STATUS "VKS3D: version 1.0.${VKS3D_VER_PATCH}.${VKS3D_VER_BUILD}")
+project(VKS3D
+    VERSION 1.0.${VKS3D_VER_PATCH}.${VKS3D_VER_BUILD}
+    LANGUAGES C CXX
+    DESCRIPTION "Vulkan Stereoscopic 3D ICD"
+)
+
+message(STATUS "VKS3D: version ${PROJECT_VERSION}")
 
 # ── Policy: MSVC requires C11 via /std:c11 ─────────────────────────────────
 if(POLICY CMP0091)
@@ -61,6 +67,11 @@ if(NOT Vulkan_FOUND AND DEFINED ENV{VULKAN_SDK})
 endif()
 
 # ── Source files ─────────────────────────────────────────────────────────────
+# NOTE: if you add / rename / remove a source file here, you MUST re-run
+# `cmake -S . -B build` from scratch.  CI self-hosted runners and stale
+# build dirs have been observed to keep using a cached vcxproj that does
+# not list the newly added TU — producing LNK2019 for every symbol it
+# defines (see: stereo_CmdBlitImage / stereo_CmdCopyImage / …).
 set(STEREO_SOURCES
     src/icd_main.c
     src/stereo.c
@@ -70,7 +81,6 @@ set(STEREO_SOURCES
     src/physdev_ext.c
     src/render_pass.c
     src/shader.c
-    src/present_nv3d.cpp
     src/swapchain.c
     src/present.c
     src/present_alt.c
@@ -78,7 +88,69 @@ set(STEREO_SOURCES
     src/dxgi_output.c
     src/ini.c
     src/tes_inject.c
+    src/image_blit.c
 )
+
+# ── Fail-fast: every listed source must actually exist on disk.
+# Catches (a) forgotten `git add` on a freshly added TU on GitHub CI,
+# (b) partial submodule checkouts, (c) case-sensitive filesystem typos,
+# ALL of which otherwise surface later as an opaque LNK2019.
+foreach(_src IN LISTS STEREO_SOURCES)
+    set(_abs "${CMAKE_SOURCE_DIR}/${_src}")
+    if(NOT EXISTS "${_abs}")
+        message(FATAL_ERROR
+            "VKS3D: SOURCE FILE MISSING — ${_abs}\n"
+            "  This usually means:\n"
+            "    1. `git add` was not run for the new source file before push,\n"
+            "    2. `.gitattributes` / LFS pointer replaced the real content,\n"
+            "    3. CI checkout forgot `submodules: recursive` / a patch.\n"
+            "  Fix the repo contents and re-run `cmake` from an EMPTY build dir.")
+    endif()
+endforeach()
+message(STATUS "VKS3D: ${STEREO_SOURCES} sources verified on disk (fail-fast OK)")
+
+# ── Optional third-party dependencies ---------------------------------------
+#
+# NV3D-Lib (NVIDIA 3D Vision direct-mode output) and SPIRV-Headers are
+# pulled in via git submodules.  When the user clones without
+# --recurse-submodules (the most common situation), the directories are
+# empty and linking fails.
+#
+# Neither dependency is required for the default SBS / TAB / INTERLACED /
+# DXGI presentation modes used by Yuzu and every Vulkan game.  Only the
+# dedicated "nv3dlib" mode needs NV3D-Lib, and it is disabled at runtime
+# if the DLL failed to initialise anyway.
+#
+# So we:
+#   * Detect whether each submodule has actually been checked out.
+#   * If not, skip the include / link / compile-def for it.
+#   * Add a preprocessor define so present_nv3d.cpp can compile to a
+#     no-op stub even when NV3D headers are absent.
+set(VKS3D_NV3DLIB_DIR     "${CMAKE_SOURCE_DIR}/third_party/NV3D-Lib")
+set(VKS3D_NV3DLIB_LIB_x64 "${VKS3D_NV3DLIB_DIR}/NV3DLib/lib/NV3DLib.lib")
+set(VKS3D_NV3DLIB_LIB_x86 "${VKS3D_NV3DLIB_DIR}/NV3DLib/lib/NV3DLib.lib")
+set(VKS3D_NVAPI_LIB_x64   "${VKS3D_NV3DLIB_DIR}/external/nvapi/amd64/nvapi64.lib")
+set(VKS3D_NVAPI_LIB_x86   "${VKS3D_NV3DLIB_DIR}/external/nvapi/x86/nvapi.lib")
+set(VKS3D_SPIRV_HEADERS   "${CMAKE_SOURCE_DIR}/third_party/SPIRV-Headers/include")
+
+set(VKS3D_HAVE_NV3DLIB    OFF)
+if(EXISTS "${VKS3D_NV3DLIB_LIB_x64}" OR EXISTS "${VKS3D_NVAPI_LIB_x64}")
+    set(VKS3D_HAVE_NV3DLIB ON)
+endif()
+set(VKS3D_HAVE_SPIRV_HEADERS OFF)
+if(IS_DIRECTORY "${VKS3D_SPIRV_HEADERS}")
+    set(VKS3D_HAVE_SPIRV_HEADERS ON)
+endif()
+
+message(STATUS "VKS3D: NV3D-Lib     = ${VKS3D_HAVE_NV3DLIB}  (skipped — Yuzu SBS mode does not need it)")
+message(STATUS "VKS3D: SPIRV-Headers = ${VKS3D_HAVE_SPIRV_HEADERS}")
+
+# Only compile present_nv3d.cpp when the submodule is actually present.
+# Otherwise stubs in stereo_icd.h (nv3d_init/nv3d_destroy/nv3d_present
+# returning false) will be linked via the weak-impl pattern in present.c.
+if(VKS3D_HAVE_NV3DLIB)
+    list(APPEND STEREO_SOURCES src/present_nv3d.cpp)
+endif()
 
 # ── Shader compilation ───────────────────────────────────────────────────────
 find_program(GLSLC     glslc
@@ -135,14 +207,18 @@ set_target_properties(${TARGET_NAME} PROPERTIES
     C_VISIBILITY_PRESET hidden
 )
 
+# Vulkan SDK ships SPIR-V headers under <spirv-headers/spirv.h>, which
+# covers every Spv* token used by shader.c without the SPIRV-Headers
+# git submodule.  The submodule path is kept for users who have it.
 target_include_directories(${TARGET_NAME} PRIVATE
     include
     ${Vulkan_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/third_party/SPIRV-Headers/include
 )
-target_include_directories(${TARGET_NAME} PRIVATE
-    third_party/NV3D-Lib/NV3DLib/include)
-target_include_directories(${TARGET_NAME} PRIVATE
-    third_party/SPIRV-Headers/include)
+if(VKS3D_HAVE_NV3DLIB)
+    target_include_directories(${TARGET_NAME} PRIVATE
+        third_party/NV3D-Lib/NV3DLib/include)
+endif()
 
 # ── Version string: embed git commit hash + build date ───────────────────────
 # Baked in at configure time so it appears in the log without any runtime
@@ -169,42 +245,44 @@ target_compile_definitions(${TARGET_NAME} PRIVATE
 
 # ── Windows-specific settings ────────────────────────────────────────────────
 if(WIN32)
-    # .def file controls exports (correct on both x64 and x86 __stdcall)
     target_sources(${TARGET_NAME} PRIVATE src/VKS3D.def "${CMAKE_BINARY_DIR}/VKS3D.rc")
-    set_target_properties(${TARGET_NAME} PROPERTIES
-        LINK_FLAGS "/DEF:${CMAKE_SOURCE_DIR}/src/VKS3D.def"
-    )
-    target_link_libraries(${TARGET_NAME} PRIVATE
-        advapi32    # RegOpenKeyEx, RegEnumValue
-    )
-    target_link_libraries(${TARGET_NAME} PRIVATE 
-        ${CMAKE_SOURCE_DIR}/third_party/NV3D-Lib/NV3DLib/lib/NV3DLib.lib
-        dxgi.lib
-        d3d11.lib
-        d3d9.lib
-        )
-    if(STEREO_BITS EQUAL 64)
+# advapi32 for RegOpenKeyEx / RegEnumValue (registry ICD detection)
+target_link_libraries(${TARGET_NAME} PRIVATE advapi32)
+target_link_libraries(${TARGET_NAME} PRIVATE
+    dxgi.lib
+    d3d11.lib
+    d3d9.lib
+)
+    if(VKS3D_HAVE_NV3DLIB)
         target_link_libraries(${TARGET_NAME} PRIVATE
-            ${CMAKE_SOURCE_DIR}/third_party/NV3D-Lib/external/nvapi/amd64/nvapi64.lib
-        )
-    else()
-        target_link_libraries(${TARGET_NAME} PRIVATE
-            ${CMAKE_SOURCE_DIR}/third_party/NV3D-Lib/external/nvapi/x86/nvapi.lib
-        )
+            ${CMAKE_SOURCE_DIR}/third_party/NV3D-Lib/NV3DLib/lib/NV3DLib.lib)
+        if(STEREO_BITS EQUAL 64)
+            target_link_libraries(${TARGET_NAME} PRIVATE
+                ${CMAKE_SOURCE_DIR}/third_party/NV3D-Lib/external/nvapi/amd64/nvapi64.lib
+            )
+        else()
+            target_link_libraries(${TARGET_NAME} PRIVATE
+                ${CMAKE_SOURCE_DIR}/third_party/NV3D-Lib/external/nvapi/x86/nvapi.lib
+            )
+        endif()
     endif()
+
     target_compile_definitions(${TARGET_NAME} PRIVATE
         WIN32_LEAN_AND_MEAN
         NOMINMAX
         _CRT_SECURE_NO_WARNINGS
         VKS3D_ARCH="${STEREO_ARCH}"
+        VKS3D_HAVE_NV3DLIB=$<IF:$<BOOL:${VKS3D_HAVE_NV3DLIB}>,1,0>
+        VKS3D_HAVE_SPIRV_HEADERS=$<IF:$<BOOL:${VKS3D_HAVE_SPIRV_HEADERS}>,1,0>
     )
-    # MSVC: enable C11, treat warnings sensibly
+    # MSVC: enable C11, treat warnings sensibly, force UTF-8 source charset
     if(MSVC)
         target_compile_options(${TARGET_NAME} PRIVATE
             /std:c11
             /W3
-            /wd4100  # unreferenced formal parameter
-            /wd4152  # nonstandard extension: function/data pointer conversion
+            /utf-8      # source and execution charset = UTF-8 (fixes C4819 for non-ASCII comments)
+            /wd4100     # unreferenced formal parameter
+            /wd4152     # nonstandard extension: function/data pointer conversion
         )
     else()
         # MinGW / clang-cl

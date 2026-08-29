@@ -47,3 +47,36 @@ install_manifest.txt
 .vscode/
 *.swp
 *~
+
+# ---------------------------------------------------------------------------
+# GitHub Actions / CI scratch locations.
+# These directories never belong in the repo; accidentally committing them
+# means the next Actions run sees a stale workspace and keeps using a
+# pre-generated VKS3D_x64.vcxproj that predates src/image_blit.c — the
+# exact failure mode that surfaced as 15 × LNK2019.
+# ---------------------------------------------------------------------------
+.github-runner/
+_runner/
+_actions/
+_temp/
+workspace/
+# Windows self-hosted runners sometimes write `_layout/` and `*.service`
+# files next to the checkout directory.  Ignore both explicitly.
+_layout/
+*.service
+
+# ---------------------------------------------------------------------------
+# OS metadata / Git accidentals.
+# ---------------------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+System Volume Information/
+.DS_Store
+.AppleDouble
+.LSOverride
+.nfs.*
+# Never commit LFS locks either.
+.gitlfs.lock
+
