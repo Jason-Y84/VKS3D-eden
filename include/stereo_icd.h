@@ -131,36 +131,27 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
 /* -- Vulkan Synchronisation2 (KHR / VK 1.3) forward-shims ------------------- *
  * image_blit.c wraps vkCmdBlitImage2 / CopyImage2 / ResolveImage2 /
  * CopyBufferToImage2 / CopyImageToBuffer2 and their *2KHR aliases.
- * These types are guaranteed by VK 1.3 headers, but some CI runners
- * ship with older Vulkan SDK installations — if the SDK only exposes
- * VK 1.0 / 1.1 / 1.2 headers, the *2 typedefs / PFN_* and struct
- * sType enums are all absent and image_blit.c fails to compile.
+ * These types are guaranteed by VK 1.3 headers, but older SDKs (1.0–1.2,
+ * including the 1.2.170–1.2.199 range where the KHR extension macro is
+ * already defined while the promoted core names are NOT) lack every one
+ * of them.
  *
- * The LNK2019 pattern we saw after push was: icd_main.c references the
- * stereo_Cmd* wrappers, but image_blit.c TU was silently skipped by
- * MSBuild because of these missing typedefs; we therefore ALWAYS
- * provide binary-identical layout fallbacks here, exactly matching
- * the Vulkan 1.3 spec.  At runtime the real driver either supports
- * the functions (sd->real.Cmd*2 != NULL) or we return early — so a
- * CI that compiles against an older SDK will still build the DLL,
- * and any game using sync2 will later tell us at runtime that the
- * driver requires an upgrade too.
+ * Gating: the ENTIRE typedef block below (structs + PFNs + KHR aliases)
+ * is wrapped in `#ifndef VK_API_VERSION_1_3`.  vulkan_core.h defines
+ * that macro only for header revisions r308+ (SDK 1.3.202+), where all
+ * promoted Sync2 names already exist — so modern SDKs skip the shim and
+ * old SDKs get it.  A per-type #ifndef cannot work here: vulkan_core.h
+ * declares structs via typedef, never via name macros, so those guards
+ * would always fire and collide with the real declarations (C2011).
  *
- * NOTE: do NOT gate this whole block on `!defined(VK_KHR_synchronization2)`.
- * Between Vulkan SDK 1.2.170 and 1.2.199 that macro is defined (the KHR
- * extension header is present) but the PROMOTED CORE NAMES below
- * (`VkCopyImageInfo2`, `VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2`,
- * `PFN_vkCmdBlitImage2` without trailing `KHR`) are still missing — the
- * promote pass only landed in vulkan_core.h revision 309 / SDK 1.3.202.
- * Gating on the extension macro would therefore skip the shim for exactly
- * the SDK range where CI actually needs it, and image_blit.c would die
- * with `#error VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2 missing` which then
- * cascades into the 15 LNK2019 pattern if the build script ignores the
- * compile failure (which Azure-DevOps-style .yml defaults do).
+ * The VK_STRUCTURE_TYPE_* macros further below stay OUTSIDE the gate on
+ * purpose: vulkan_core.h declares those as enum VALUES, never as macros,
+ * so our #defines can never collide with them.
  *
- * Instead, every entry here carries its own `#ifndef` guard keyed on the
- * promoted name, so we fill whatever holes the installed SDK happens to
- * leave — irrespective of the extension macro state.                   */
+ * Layouts below are byte-identical to the Vulkan 1.3 spec.  At runtime
+ * the real driver either supports the functions (sd->real.Cmd*2 != NULL)
+ * or we return early — so a CI that compiles against an older SDK will
+ * still build a valid DLL.                                       */
 #ifndef VK_KHR_synchronization2
 #define VK_KHR_synchronization2                 1
 #define VK_KHR_SYNCHRONIZATION_2_SPEC_VERSION   1
@@ -220,8 +211,13 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
 #define VK_STRUCTURE_TYPE_IMAGE_BLIT_2               ((VkStructureType)1000314010)
 #endif
 #ifndef VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2
-#define VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2            ((VkStructureType)1000314011)
+#define VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2             ((VkStructureType)1000314011)
 #endif
+
+/* Typedef gate: apply ONLY when the installed header predates VK 1.3.
+ * See the block comment above for why per-type #ifndef guards cannot
+ * work. */
+#ifndef VK_API_VERSION_1_3
 
 typedef struct VkBufferCopy2 {
     VkStructureType    sType;
@@ -230,13 +226,6 @@ typedef struct VkBufferCopy2 {
     VkDeviceSize       dstOffset;
     VkDeviceSize       size;
 } VkBufferCopy2;
-
-typedef struct VkImageSubresourceLayers {
-    VkImageAspectFlags    aspectMask;
-    uint32_t              mipLevel;
-    uint32_t              baseArrayLayer;
-    uint32_t              layerCount;
-} VkImageSubresourceLayers;
 
 typedef struct VkImageCopy2 {
     VkStructureType            sType;
@@ -372,8 +361,7 @@ typedef PFN_vkCmdCopyBufferToImage2    PFN_vkCmdCopyBufferToImage2KHR;
 typedef PFN_vkCmdCopyImageToBuffer2    PFN_vkCmdCopyImageToBuffer2KHR;
 #endif
 
-/* End of Synchronization2 forward-shims block.  Every entry above uses its
- * own individual `#ifndef` guard; no outer file-level #if wraps here. */
+#endif /* VK_API_VERSION_1_3 — end of Sync2 typedef shim gate */
 
 #ifndef ICD_LOADER_MAGIC
 #  define ICD_LOADER_MAGIC 0xCD1CDABA1DABADABULL
