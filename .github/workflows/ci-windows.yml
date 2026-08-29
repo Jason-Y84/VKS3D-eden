@@ -73,7 +73,7 @@ jobs:
       # 1. Checkout — CRITICAL flags: clean + submodules + fetch-depth.
       # ------------------------------------------------------------------
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Wipe EVERY non-git-tracked file from the previous run.
           # This alone fixes 90 % of "works locally, fails on CI"
@@ -141,12 +141,34 @@ jobs:
           # marker file + GITHUB_OUTPUT flow to propagate.
           "1" | Out-File "$env:RUNNER_TEMP\vulkan_sdk_needed" -Encoding ascii -NoNewline
 
-      - name: setup-vulkan-sdk
+      - name: setup-vulkan-sdk (idempotent direct install)
         if: hashFiles(format('{0}\vulkan_sdk_needed', runner.temp)) != ''
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
-        with:
-          vulkan-sdk-version: "1.3.280.0"
-          optional-components: "sdk,shaderc,glslang,spirv-tools"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "1.3.280.0"
+          $zipUrl  = "https://sdk.lunarg.com/sdk/download/$version/windows/VulkanSDK-$version-Installer.exe"
+          $exe     = Join-Path $env:RUNNER_TEMP "VulkanSDK-$version-Installer.exe"
+          $dst     = Join-Path $env:LOCALAPPDATA "VulkanSDK\$version"
+
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Write-Host "Downloading Vulkan SDK $version ..."
+          Invoke-WebRequest -Uri $zipUrl -OutFile $exe -UseBasicParsing
+
+          Write-Host "Installing to $dst ..."
+          & $exe --root "$dst" --accept-licenses --default-answer --confirm-command install `
+                 com.lunarg.vulkan.core `
+                 com.lunarg.vulkan.headers `
+                 com.lunarg.vulkan.sdl2 `
+                 com.lunarg.vulkan.glm `
+                 com.lunarg.vulkan.volk `
+                 com.lunarg.vulkan.vma `
+                 com.lunarg.vulkan.debugutils | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw "Vulkan SDK installer exit=$LASTEXITCODE" }
+
+          # Propagate VULKAN_SDK to all subsequent steps via env file.
+          "VULKAN_SDK=$dst" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "VULKAN_SDK=$dst"
 
       # ------------------------------------------------------------------
       # 4. Clean stale build artefacts BEFORE running CMake configure.
@@ -237,7 +259,7 @@ jobs:
           Get-ChildItem $staging | Format-Table -AutoSize
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.pkg.outputs.artifact-name }}
           path: ${{ runner.temp }}\VKS3D_x64

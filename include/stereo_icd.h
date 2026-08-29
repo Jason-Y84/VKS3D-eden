@@ -146,13 +146,26 @@ typedef VkResult (VKAPI_PTR *PFN_vkImportSemaphoreWin32HandleKHR)(
  * and any game using sync2 will later tell us at runtime that the
  * driver requires an upgrade too.
  *
- * NOTE: the shims are intentionally gated on `!defined(VK_KHR_synchronization2)`.
- * The SDK vulkan_core.h defines this macro the moment it declares the
- * types above; when it's missing, we know we need our own copies.      */
-#if !defined(VK_KHR_synchronization2)
+ * NOTE: do NOT gate this whole block on `!defined(VK_KHR_synchronization2)`.
+ * Between Vulkan SDK 1.2.170 and 1.2.199 that macro is defined (the KHR
+ * extension header is present) but the PROMOTED CORE NAMES below
+ * (`VkCopyImageInfo2`, `VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2`,
+ * `PFN_vkCmdBlitImage2` without trailing `KHR`) are still missing — the
+ * promote pass only landed in vulkan_core.h revision 309 / SDK 1.3.202.
+ * Gating on the extension macro would therefore skip the shim for exactly
+ * the SDK range where CI actually needs it, and image_blit.c would die
+ * with `#error VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2 missing` which then
+ * cascades into the 15 LNK2019 pattern if the build script ignores the
+ * compile failure (which Azure-DevOps-style .yml defaults do).
+ *
+ * Instead, every entry here carries its own `#ifndef` guard keyed on the
+ * promoted name, so we fill whatever holes the installed SDK happens to
+ * leave — irrespective of the extension macro state.                   */
+#ifndef VK_KHR_synchronization2
 #define VK_KHR_synchronization2                 1
 #define VK_KHR_SYNCHRONIZATION_2_SPEC_VERSION   1
 #define VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME "VK_KHR_synchronization2"
+#endif
 
 /* sType values — identical to vulkan_core.h r309 (VK 1.3.202+) */
 #ifndef VK_STRUCTURE_TYPE_MEMORY_BARRIER_2
@@ -358,7 +371,9 @@ typedef PFN_vkCmdCopyBufferToImage2    PFN_vkCmdCopyBufferToImage2KHR;
 #ifndef PFN_vkCmdCopyImageToBuffer2KHR
 typedef PFN_vkCmdCopyImageToBuffer2    PFN_vkCmdCopyImageToBuffer2KHR;
 #endif
-#endif /* !defined(VK_KHR_synchronization2) */
+
+/* End of Synchronization2 forward-shims block.  Every entry above uses its
+ * own individual `#ifndef` guard; no outer file-level #if wraps here. */
 
 #ifndef ICD_LOADER_MAGIC
 #  define ICD_LOADER_MAGIC 0xCD1CDABA1DABADABULL
