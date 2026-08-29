@@ -288,69 +288,175 @@ jobs:
           }
           Write-Host "vswhere: $vswhere"
 
-          # Two-stage resolution:
+          # Three-stage Visual Studio resolution.
           #
-          #   Pass 1 (strict): ask for -latest WITH the "Desktop
-          #   development with C++" component id.  Works on every
-          #   normal, store-installed copy of VS 2022/2026.
+          #   PASS 0 – HARDCODED filesystem probe, NO vswhere.
           #
-          #   Pass 2 (lenient, self-hosted fallback): drop the
-          #   workload filter completely and scan every VS instance
-          #   vswhere knows about.  We accept ANY instance that
-          #   actually contains the two files build_and_deploy.ps1
-          #   relies on: VC\Auxiliary\Build\vcvars64.bat and
-          #   Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe.
-          #   This second pass handles exactly the D:\a self-hosted
-          #   runner: Visual Studio 18 2026 Community was deployed to
-          #   D:\Program Files (x86)\VisualStudio\18\ manually / by
-          #   Visual Studio Installer in pre-release mode, and does
-          #   NOT register `Microsoft.VisualStudio.Component.VC.Tools.x86.x64`
-          #   in the vswhere SQLite component database, even though
-          #   the toolchain and CMake are 100 % usable.  Without
-          #   this lenient fallback the previous push threw
-          #   "No Visual Studio instance with Desktop development with
-          #   C++ was found on this runner" despite the same
-          #   environment successfully compiling the repo via the
-          #   hardcoded scripts/build_and_deploy.ps1 invocation.
+          #   This is the critical self-hosted-runner workaround.
+          #   The VKS3D D:\a pool has Visual Studio 18 (2026) Community
+          #   deployed as a per-user installation to
+          #   `D:\Program Files (x86)\VisualStudio\18\community`.  Per-user
+          #   installs register their instance in the installing user's
+          #   `%LOCALAPPDATA%\Microsoft\VisualStudio\Packages_…` and
+          #   vswhere only enumerates them *for that account*.  The
+          #   GitHub Actions runner Windows service executes as `NT
+          #   SERVICE\ActionsRunnerService` (or whatever local account
+          #   you've registered it with), so vswhere running under the
+          #   Actions service identity sees ZERO installed instances,
+          #   even though the exact same tools are 100 % usable when the
+          #   repo owner starts an interactive PowerShell session.
           #
-          # Both passes use `-products *` so Build Tools SKUs,
-          # Community, Professional, and Enterprise installations are
-          # treated identically.
-          $inst = $null
-          $strictXml = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format xml -utf8
-          [xml]$strictDoc = $strictXml
-          $inst = $strictDoc.installerResult.instances.instance | Select-Object -First 1
-          if ($inst) {
-            Write-Host "vswhere PASS 1 (strict workload filter): matched instance"
-          } else {
-            Write-Warning "vswhere PASS 1 failed — no VS instance advertises Microsoft.VisualStudio.Component.VC.Tools.x86.x64.  Falling back to lenient filesystem scan..."
-            $lenientXml = & $vswhere -latest -products * -format xml -utf8
-            [xml]$lenientDoc = $lenientXml
-            foreach ($candidate in ($lenientDoc.installerResult.instances.instance)) {
-              $cPath = $candidate.installationPath
-              $hasVcvars = Test-Path (Join-Path $cPath "VC\Auxiliary\Build\vcvars64.bat")
-              $hasCmake  = Test-Path (Join-Path $cPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe")
-              if ($hasVcvars -and $hasCmake) {
-                Write-Host ("vswhere PASS 2 (lenient filesystem scan): ACCEPTED {0}  vcvars64={1}  cmake={2}" -f $cPath, $hasVcvars, $hasCmake)
-                $inst = $candidate
-                break
-              } else {
-                Write-Warning ("  skipped candidate {0} ({1})  vcvars64={2}  cmake={3}" -f $cPath, $candidate.installationVersion, $hasVcvars, $hasCmake)
-              }
+          #   `scripts/build_and_deploy.ps1` never called vswhere — it
+          #   hardcoded `D:\Program Files (x86)\VisualStudio\18\community\
+          #   VC\Auxiliary\Build\vcvars64.bat` and the bundled cmake
+          #   path directly, which is why that same machine was
+          #   successfully building the repo every night.  We mirror
+          #   that exact behaviour as PASS 0: if any of the candidate
+          #   paths below contains BOTH vcvars64.bat and the bundled
+          #   cmake.exe, we accept it instantly without touching
+          #   vswhere at all.  This PASS is the one that will actually
+          #   fire on the D:\a self-hosted runner.  The other two
+          #   passes below exist only for microsoft-hosted runners /
+          #   other developer machines where the per-user problem
+          #   isn't present.
+          #
+          #   We also probe all of the conventional install locations
+          #   for VS 2022/2026 Community / Build Tools so PASS 0 will
+          #   hit on standard installations even when vswhere is
+          #   broken or unavailable.
+          $probeRoots = @(
+            # The EXACT path build_and_deploy.ps1 uses on the
+            # Jason-Y84 self-hosted runner.  MUST stay first because
+            # this is the case vswhere will never see.
+            "D:\Program Files (x86)\VisualStudio\18\community",
+            # Non-standard D-drive deployments of other VS products.
+            "D:\Program Files\VisualStudio\18\community",
+            "D:\Program Files (x86)\VisualStudio\18\BuildTools",
+            "D:\Program Files\VisualStudio\17\community",
+            # Default Program Files (x86) locations — VS 2022 (v17) and
+            # VS 2026 (v18), Community / Professional / Enterprise /
+            # Build Tools SKUs.
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2026\Community",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2026\Professional",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2026\Enterprise",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2026\BuildTools",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools",
+            # Some machines install the 64-bit VS layout to Program
+            # Files (without the x86 bitness folder).
+            "${env:ProgramFiles}\Microsoft Visual Studio\2026\Community",
+            "${env:ProgramFiles}\Microsoft Visual Studio\2026\BuildTools",
+            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community",
+            "${env:ProgramFiles}\Microsoft Visual Studio\2022\BuildTools"
+          )
+          function Test-VsUsable($path) {
+            if ([string]::IsNullOrWhiteSpace($path)) { return $false }
+            if (-not (Test-Path $path)) { return $false }
+            $hasVcvars = Test-Path (Join-Path $path "VC\Auxiliary\Build\vcvars64.bat")
+            $hasCmake  = Test-Path (Join-Path $path "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe")
+            return ($hasVcvars -and $hasCmake)
+          }
+
+          $resolvedPath = $null
+          foreach ($candidate in $probeRoots) {
+            if (Test-VsUsable $candidate) {
+              Write-Host ("vswhere PASS 0 (filesystem probe): ACCEPTED {0}" -f $candidate)
+              $resolvedPath = $candidate
+              break
+            } else {
+              # Don't spam the log with every missing default path.
+              # Anyone debugging the probe can add verbose logging by
+              # uncommenting the line below:
+              # Write-Verbose ("  PASS 0 skipped {0} — not a usable VS tree" -f $candidate) -Verbose:$true
             }
           }
 
-          # If both passes gave up, dump the entire unfiltered vswhere
-          # listing into the CI log so the repo owner can paste it
-          # into an issue without needing to RDP the runner.
-          if (-not $inst) {
-            Write-Host "== vswhere -all -products * -format json =="
-            & $vswhere -all -products * -format json
-            throw "No usable Visual Studio instance found.  Strict workload match failed AND lenient scan (vcvars64.bat + VS-bundled cmake.exe) found zero candidates.  Install Build Tools for Visual Studio 2022 (or newer) with the C++ Desktop workload, or manually install vcvars64.bat and the bundled cmake tooling."
+          # If PASS 0 missed, we proceed to vswhere-based discovery,
+          # which covers everything else.  PASS 1 keeps the strict
+          # C++ desktop workload ID filter for correctness; PASS 2 is
+          # the lenient filesystem-evidence fallback for instances
+          # that exist in vswhere but don't advertise the component ID
+          # (typically VS previews / custom deployments).
+          $inst = $null
+          if (-not $resolvedPath) {
+            Write-Warning "vswhere PASS 0 did not find ANY usable Visual Studio installation under the hard-coded probe roots.  Trying vswhere STRICT + LENIENT passes …"
+
+            $strictXml = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format xml -utf8
+            [xml]$strictDoc = $strictXml
+            $inst = $strictDoc.installerResult.instances.instance | Select-Object -First 1
+            if ($inst) {
+              Write-Host "vswhere PASS 1 (strict workload filter): matched instance"
+            } else {
+              Write-Warning "vswhere PASS 1 failed — no VS instance advertises Microsoft.VisualStudio.Component.VC.Tools.x86.x64.  Falling back to lenient filesystem scan..."
+              # Diagnostic dump: show vswhere's WHOLE machine view, so
+              # if even this fallback returns zero candidates the
+              # Actions log will have enough info without RDPing the
+              # runner.
+              Write-Host "== vswhere -all -products * -format json =="
+              & $vswhere -all -products * -format json
+              $lenientXml = & $vswhere -latest -products * -format xml -utf8
+              [xml]$lenientDoc = $lenientXml
+              foreach ($candidate in ($lenientDoc.installerResult.instances.instance)) {
+                $cPath = $candidate.installationPath
+                if (Test-VsUsable $cPath) {
+                  Write-Host ("vswhere PASS 2 (lenient filesystem scan): ACCEPTED {0}" -f $cPath)
+                  $inst = $candidate
+                  break
+                } else {
+                  $v = Test-Path (Join-Path $cPath "VC\Auxiliary\Build\vcvars64.bat")
+                  $c = Test-Path (Join-Path $cPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe")
+                  Write-Warning ("  skipped candidate {0} ({1})  vcvars64={2}  cmake={3}" -f $cPath, $candidate.installationVersion, $v, $c)
+                }
+              }
+            }
+
+            if ($inst) { $resolvedPath = $inst.installationPath }
           }
-          $vsPath    = $inst.installationPath
-          $vsVersion = $inst.installationVersion
-          $vsMajor   = [int]($vsVersion -split '\.')[0]
+
+          if (-not $resolvedPath) {
+            throw "No usable Visual Studio instance found.  PASS 0 (hard-coded probe roots) + PASS 1 (strict vswhere workload filter) + PASS 2 (lenient filesystem-evidence scan) ALL came up empty.  Install Build Tools for Visual Studio 2022+ with the C++ Desktop workload, or add the exact VS installationPath as a new entry to the `$probeRoots` array directly above this throw in `.github/workflows/ci-windows.yml`."
+          }
+
+          # Now that we have a resolvedPath we still need a
+          # installationVersion string for the generator $generatorMap
+          # lookup.  If we came via PASS 0 we didn't run vswhere for
+          # this instance, so either pull the version from the binary
+          # resources of devenv.exe (full SKU) or vswhere.exe can be
+          # re-queried filtering on installationPath.
+          $vsVersion = $null
+          if ($inst -and $inst.installationVersion) {
+            $vsVersion = $inst.installationVersion
+          } else {
+            # Re-run vswhere scoped to the exact resolved path; this
+            # works on per-user installs too because we're giving the
+            # explicit installationPath.
+            $scopedXml = & $vswhere -products * -property installationVersion -nologo -format value -path "`"$resolvedPath`""
+            foreach ($line in ($scopedXml -split '\r?\n')) {
+              if ($line -match '^\d+\.\d+') { $vsVersion = $line; break }
+            }
+            # Absolute last resort: read the file version out of
+            # Common7\IDE\devenv.exe (Community/Pro/Enterprise) or
+            # MSBuild\Current\Bin\MSBuild.exe (Build Tools).
+            if (-not $vsVersion) {
+              $probeBins = @(
+                (Join-Path $resolvedPath "Common7\IDE\devenv.exe"),
+                (Join-Path $resolvedPath "MSBuild\Current\Bin\MSBuild.exe")
+              )
+              foreach ($bin in $probeBins) {
+                if (Test-Path $bin) {
+                  $vsVersion = (Get-Item $bin).VersionInfo.ProductVersion
+                  break
+                }
+              }
+            }
+          }
+          if (-not $vsVersion) {
+            throw ("Unable to determine Visual Studio installationVersion for resolved tree '{0}'.  Manually set `$vsVersion` in the Configure CMake step of `.github/workflows/ci-windows.yml`." -f $resolvedPath)
+          }
+          $vsMajor = [int]($vsVersion -split '\.')[0]
+          $vsPath = $resolvedPath
           Write-Host ("resolved VS: major={0}  version={1}  path={2}" -f $vsMajor, $vsVersion, $vsPath)
 
           # Map known major versions to CMake generator strings.
