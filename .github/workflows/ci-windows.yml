@@ -87,7 +87,39 @@ jobs:
           sparse-checkout-cone-mode: false
 
       # ------------------------------------------------------------------
-      # 2. Diagnostic dump — handy when debugging runner issues later.
+      # 2bis. Ensure MSBuild / Visual Studio / Windows SDK env is ready.
+      #       The VKS3D self-hosted pool at D:\a has Visual Studio 18
+      #       (2026) installed to a non-standard D:\ drive path; the
+      #       microsoft-hosted windows-latest image ships Visual Studio
+      #       17 (2022) on C:\.  Instead of hard-coding a generator
+      #       that only exists on one of the two pools (which caused
+      #       "Generator Visual Studio 17 2022 could not find any
+      #       instance of Visual Studio" on the self-hosted VS2026
+      #       machine) we (a) bootstrap the developer command prompt via
+      #       the official setup-msbuild action which takes care of
+      #       non-standard install roots and workload detection and
+      #       (b) run vswhere.exe in the Configure CMake step below to
+      #       build the exact generator string that matches whatever
+      #       VS version is installed on the pool.  This is literally
+      #       what the legacy build.yml did under the hood via
+      #       microsoft/setup-msbuild@v1.0.2, we just use @v2 (Node 24)
+      #       now so the deprecation noise stays gone.
+      # ------------------------------------------------------------------
+      - name: Bootstrap MSBuild environment (setup-msbuild@v2)
+        uses: microsoft/setup-msbuild@v2
+        with:
+          # vswhere is asked for the most recent installed instance
+          # that has the x64 native C++ tools.  setup-msbuild will
+          # search default install roots first, then honor custom
+          # installations if vswhere reports them.  Works for VS2022,
+          # VS2025 and VS2026, both Build Tools and full Community/Pro.
+          vswhere-args: -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.Component.CMake
+          # No need to pin msbuild-architecture; setup-msbuild sets
+          # PATH for x64-hosted tools automatically, which is exactly
+          # what cmake --build expects after configuring for -A x64.
+
+      # ------------------------------------------------------------------
+      # 3. Diagnostic dump — handy when debugging runner issues later.
       # ------------------------------------------------------------------
       - name: Post-checkout workspace inventory
         shell: pwsh
@@ -195,6 +227,22 @@ jobs:
 
       # ------------------------------------------------------------------
       # 5. CMake configure.  MUST run from scratch every CI run.
+      #    The VKS3D self-hosted pool ships Visual Studio 18 (2026) on
+      #    D:\Program Files (x86)\VisualStudio\18\ while GitHub-hosted
+      #    runners have Visual Studio 17 (2022) on C:.  The two
+      #    generators are DIFFERENT ("Visual Studio 18 2026" vs.
+      #    "Visual Studio 17 2022") and hard-coding either one will
+      #    report the opaque "Generator VS XX YYYY could not find any
+      #    instance of Visual Studio" error on the other pool.
+      #    We therefore resolve the exact generator at runtime by
+      #    running the official vswhere.exe (shipped with VS and with
+      #    setup-msbuild) and mapping the returned installationVersion
+      #    major number to the matching CMake generator string.
+      #
+      #    We also prepend VS's bundled CommonExtensions\CMake\bin
+      #    folder to PATH because on the self-hosted pool the
+      #    administrator-side cmake.exe lives only there (see
+      #    scripts/build_and_deploy.ps1 which hard-codes that path).
       # ------------------------------------------------------------------
       - name: Configure CMake (from scratch — every run)
         shell: pwsh
@@ -203,13 +251,72 @@ jobs:
           $ErrorActionPreference = "Stop"
 
           # ------------------------------------------------------------------
-          # GITHUB_RUN_NUMBER is a decimal string in every Actions run, but
-          # historically GitHub's pwsh bootstrap has briefly exposed it as
-          # $null / empty on the first step of a self-hosted pool cycle (see
-          # the VKS3D commit before ci-windows.yml existed that kept
-          # reporting "VERSION 1.0.$runNum.0 format invalid" on D:\a).
-          # Coerce safely, falling back to 0 (same as CMakeLists.txt's own
-          # default) so we never hand project() an empty patch component.
+          # 5a. Resolve the installed Visual Studio instance.
+          # ------------------------------------------------------------------
+          $vswhereCandidates = @(
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe",
+            "${env:ProgramFiles}\Microsoft Visual Studio\Installer\vswhere.exe",
+            "D:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe",
+            "D:\Program Files\Microsoft Visual Studio\Installer\vswhere.exe"
+          )
+          $vswhere = $null
+          foreach ($c in $vswhereCandidates) { if (Test-Path $c) { $vswhere = $c; break } }
+          if (-not $vswhere -and (Get-Command vswhere.exe -ErrorAction SilentlyContinue)) {
+            $vswhere = (Get-Command vswhere.exe).Source
+          }
+          if (-not $vswhere) {
+            Write-Warning "vswhere.exe not found in any of:"
+            $vswhereCandidates | ForEach-Object { Write-Warning "  $_" }
+            throw "Cannot locate vswhere.exe — install the Visual Studio Installer or any VS 2017+ product on this runner."
+          }
+          Write-Host "vswhere: $vswhere"
+
+          [xml]$vsInfo = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format xml -utf8
+          $inst = $vsInfo.installerResult.instances.instance | Select-Object -First 1
+          if (-not $inst) {
+            & $vswhere -latest -products * -format xml -utf8
+            throw "No Visual Studio instance with 'Desktop development with C++' (Microsoft.VisualStudio.Component.VC.Tools.x86.x64) was found on this runner.  Install Build Tools for Visual Studio 2022 (or newer) with the C++ desktop workload."
+          }
+          $vsPath    = $inst.installationPath
+          $vsVersion = $inst.installationVersion
+          $vsMajor   = [int]($vsVersion -split '\.')[0]
+          Write-Host ("resolved VS: major={0}  version={1}  path={2}" -f $vsMajor, $vsVersion, $vsPath)
+
+          # Map known major versions to CMake generator strings.
+          $generatorMap = @{
+            17 = 'Visual Studio 17 2022'
+            18 = 'Visual Studio 18 2026'
+            19 = 'Visual Studio 19 2029'
+          }
+          if (-not $generatorMap.ContainsKey($vsMajor)) {
+            throw "CMake generator mapping is missing for Visual Studio major version $vsMajor (installationVersion=$vsVersion).  Add a new entry to ci-windows.yml `$generatorMap in the Configure CMake step."
+          }
+          $generator = $generatorMap[$vsMajor]
+          Write-Host "cmake generator: $generator"
+
+          # Put the bundled CMake on PATH (fallback for the
+          # self-hosted D:\a pool which never added cmake to the
+          # system PATH, only used build_and_deploy.ps1's full path).
+          $bundledCmake = Join-Path $vsPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+          if (Test-Path "$bundledCmake\cmake.exe") {
+            $env:PATH = "$bundledCmake;$env:PATH"
+            Write-Host "prepended VS-bundled cmake: $bundledCmake"
+          }
+          # Also add the MSVC developer bin directory so MSBuild
+          # artifacts pick up the right VC toolset even if
+          # setup-msbuild's earlier environment bootstrap lost scope.
+          $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"
+          if (Test-Path $vcvars) {
+            Write-Host "using developer environment via: $vcvars"
+          }
+
+          # Sanity: resolve cmake.exe now.
+          $cmakeCmd = Get-Command cmake -ErrorAction Stop
+          Write-Host ("cmake binary (effective): {0}  ->  v{1}" -f $cmakeCmd.Source,
+            (& $cmakeCmd.Source --version | Select-String -Pattern 'cmake version (\S+)' | Select-Object -First 1).Matches.Groups[1].Value)
+
+          # ------------------------------------------------------------------
+          # 5b. Resolve VKS3D_VER_PATCH from GITHUB_RUN_NUMBER safely.
           # ------------------------------------------------------------------
           $runNum = 0
           $rawRun = $env:GITHUB_RUN_NUMBER
@@ -218,19 +325,17 @@ jobs:
           } else {
             Write-Warning "GITHUB_RUN_NUMBER='$rawRun' does not look like a non-negative integer; falling back to VKS3D_VER_PATCH=0."
           }
-
           $patchFlag = "-DVKS3D_VER_PATCH=$runNum"
           Write-Host "cmake define: $patchFlag"
 
-          # Build the argument array explicitly instead of backtick-line
-          # continuation.  Backticks interact badly with CR characters on
-          # pwsh when the runner preserves CRLF and was producing stray
-          # quoting artefacts that CMake parsed as part of the flag value
-          # (another documented source of VERSION-format rejections).
+          # ------------------------------------------------------------------
+          # 5c. Actually invoke CMake — use pwsh splat so no CRLF
+          #     artefact can sneak into the flag values.
+          # ------------------------------------------------------------------
           $cmakeArgs = @(
             '-S', '.',
             '-B', 'build',
-            '-G', 'Visual Studio 17 2022',
+            '-G', $generator,
             '-A', 'x64',
             $patchFlag
           )
@@ -245,8 +350,8 @@ jobs:
           # stale-project bugs before we get to the 90-second link).
           $vcx = Join-Path (Resolve-Path build) "VKS3D_x64.vcxproj"
           if (-not (Test-Path $vcx)) { throw "$vcx was not generated" }
-          $xml = Get-Content $vcx -Raw
-          if ($xml -notmatch 'image_blit\.c') {
+          $xml2 = Get-Content $vcx -Raw
+          if ($xml2 -notmatch 'image_blit\.c') {
             throw "FATAL: VKS3D_x64.vcxproj does not reference src/image_blit.c.  Fix STEREO_SOURCES in CMakeLists.txt."
           }
           Write-Host "CMake configure OK — VKS3D_x64.vcxproj includes image_blit.c."
