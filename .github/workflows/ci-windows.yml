@@ -108,15 +108,32 @@ jobs:
       - name: Bootstrap MSBuild environment (setup-msbuild@v2)
         uses: microsoft/setup-msbuild@v2
         with:
-          # vswhere is asked for the most recent installed instance
-          # that has the x64 native C++ tools.  setup-msbuild will
-          # search default install roots first, then honor custom
-          # installations if vswhere reports them.  Works for VS2022,
-          # VS2025 and VS2026, both Build Tools and full Community/Pro.
-          vswhere-args: -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.Component.CMake
-          # No need to pin msbuild-architecture; setup-msbuild sets
-          # PATH for x64-hosted tools automatically, which is exactly
-          # what cmake --build expects after configuring for -A x64.
+          # Intentionally NO `-requires` filter.
+          #
+          # The VKS3D self-hosted runner at D:\a runs a non-standard
+          # D-drive Visual Studio 18 (2026) Community installation that
+          # does NOT register the official component ID
+          # `Microsoft.VisualStudio.Component.VC.Tools.x86.x64` inside
+          # the vswhere SQLite catalog — nevertheless, the same
+          # installation DOES ship a working vcvars64.bat, MSVC
+          # toolchain, Windows SDK, and VS-bundled CMake (see
+          # scripts/build_and_deploy.ps1 which hardcodes those exact
+          # paths and has worked for the previous ~20 CI runs).
+          # Requiring the component ID here would cause setup-msbuild@v2
+          # to bail with "MSBuild not found" on that specific machine,
+          # which then cascades into the Configure CMake step below
+          # reporting "No Visual Studio instance with Desktop
+          # development with C++".  setup-msbuild is perfectly capable
+          # of consuming the latest instance without a workload filter,
+          # and the downstream Configure CMake step validates the
+          # filesystem evidence (vcvars64.bat, cmake.exe) itself before
+          # trusting the resolved generator string.
+          #
+          # Similarly, VS_INSTALLATION_PATHS covers the weird D:\ drive
+          # location (where the default installer never writes) so
+          # setup-msbuild can enumerate it without relying on vswhere's
+          # normal %ProgramFiles(x86)% defaults.
+          vswhere-args: -latest -products *
 
       # ------------------------------------------------------------------
       # 3. Diagnostic dump — handy when debugging runner issues later.
@@ -271,11 +288,65 @@ jobs:
           }
           Write-Host "vswhere: $vswhere"
 
-          [xml]$vsInfo = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format xml -utf8
-          $inst = $vsInfo.installerResult.instances.instance | Select-Object -First 1
+          # Two-stage resolution:
+          #
+          #   Pass 1 (strict): ask for -latest WITH the "Desktop
+          #   development with C++" component id.  Works on every
+          #   normal, store-installed copy of VS 2022/2026.
+          #
+          #   Pass 2 (lenient, self-hosted fallback): drop the
+          #   workload filter completely and scan every VS instance
+          #   vswhere knows about.  We accept ANY instance that
+          #   actually contains the two files build_and_deploy.ps1
+          #   relies on: VC\Auxiliary\Build\vcvars64.bat and
+          #   Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe.
+          #   This second pass handles exactly the D:\a self-hosted
+          #   runner: Visual Studio 18 2026 Community was deployed to
+          #   D:\Program Files (x86)\VisualStudio\18\ manually / by
+          #   Visual Studio Installer in pre-release mode, and does
+          #   NOT register `Microsoft.VisualStudio.Component.VC.Tools.x86.x64`
+          #   in the vswhere SQLite component database, even though
+          #   the toolchain and CMake are 100 % usable.  Without
+          #   this lenient fallback the previous push threw
+          #   "No Visual Studio instance with Desktop development with
+          #   C++ was found on this runner" despite the same
+          #   environment successfully compiling the repo via the
+          #   hardcoded scripts/build_and_deploy.ps1 invocation.
+          #
+          # Both passes use `-products *` so Build Tools SKUs,
+          # Community, Professional, and Enterprise installations are
+          # treated identically.
+          $inst = $null
+          $strictXml = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format xml -utf8
+          [xml]$strictDoc = $strictXml
+          $inst = $strictDoc.installerResult.instances.instance | Select-Object -First 1
+          if ($inst) {
+            Write-Host "vswhere PASS 1 (strict workload filter): matched instance"
+          } else {
+            Write-Warning "vswhere PASS 1 failed — no VS instance advertises Microsoft.VisualStudio.Component.VC.Tools.x86.x64.  Falling back to lenient filesystem scan..."
+            $lenientXml = & $vswhere -latest -products * -format xml -utf8
+            [xml]$lenientDoc = $lenientXml
+            foreach ($candidate in ($lenientDoc.installerResult.instances.instance)) {
+              $cPath = $candidate.installationPath
+              $hasVcvars = Test-Path (Join-Path $cPath "VC\Auxiliary\Build\vcvars64.bat")
+              $hasCmake  = Test-Path (Join-Path $cPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe")
+              if ($hasVcvars -and $hasCmake) {
+                Write-Host ("vswhere PASS 2 (lenient filesystem scan): ACCEPTED {0}  vcvars64={1}  cmake={2}" -f $cPath, $hasVcvars, $hasCmake)
+                $inst = $candidate
+                break
+              } else {
+                Write-Warning ("  skipped candidate {0} ({1})  vcvars64={2}  cmake={3}" -f $cPath, $candidate.installationVersion, $hasVcvars, $hasCmake)
+              }
+            }
+          }
+
+          # If both passes gave up, dump the entire unfiltered vswhere
+          # listing into the CI log so the repo owner can paste it
+          # into an issue without needing to RDP the runner.
           if (-not $inst) {
-            & $vswhere -latest -products * -format xml -utf8
-            throw "No Visual Studio instance with 'Desktop development with C++' (Microsoft.VisualStudio.Component.VC.Tools.x86.x64) was found on this runner.  Install Build Tools for Visual Studio 2022 (or newer) with the C++ desktop workload."
+            Write-Host "== vswhere -all -products * -format json =="
+            & $vswhere -all -products * -format json
+            throw "No usable Visual Studio instance found.  Strict workload match failed AND lenient scan (vcvars64.bat + VS-bundled cmake.exe) found zero candidates.  Install Build Tools for Visual Studio 2022 (or newer) with the C++ Desktop workload, or manually install vcvars64.bat and the bundled cmake tooling."
           }
           $vsPath    = $inst.installationPath
           $vsVersion = $inst.installationVersion
