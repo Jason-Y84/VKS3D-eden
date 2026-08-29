@@ -160,170 +160,159 @@ jobs:
           }
 
       # ------------------------------------------------------------------
-      # 3. Install Vulkan SDK (1.3.x) — GitHub-hosted runners don't have
-      #    one pre-installed.  Self-hosted runners should pre-install
-      #    and set VULKAN_SDK env globally, in which case this step
-      #    exits early (the action is idempotent when VULKAN_SDK matches
-      #    the requested version already).
+      # 3. Install Vulkan SDK (1.3.x).
+      #
+      #    IMPORTANT: this is a SINGLE step.  An earlier revision split
+      #    it into a "detect" step plus a conditional "install" step
+      #    gated on `if: hashFiles(format('{0}\vulkan_sdk_needed',
+      #    runner.temp)) != ''`.  That gate NEVER fired because
+      #    hashFiles() resolves patterns relative to GITHUB_WORKSPACE
+      #    and returns '' for absolute paths outside the workspace —
+      #    so the install step was silently skipped on every run and
+      #    Configure later died on `Could NOT find Vulkan`.  Keeping
+      #    detect + install in one step removes that failure class
+      #    entirely.
+      #
+      #    Stage 1: LunarG silent installer (authoritative SDK; ships
+      #             vulkan/vk_icd.h which stereo_icd.h requires).
+      #    Stage 2: synthesize a minimal SDK root from
+      #             a) Khronos Vulkan-Headers release ZIP (2 MB, served
+      #                from github.com — far more reliable than the
+      #                LunarG CDN), which includes vulkan.h, vk_icd.h
+      #                and all extension headers, plus
+      #             b) the vulkan-1.lib import library that the
+      #                Windows SDK ("Windows Kits\10") already has on
+      #                disk in every C++ workload installation.
       # ------------------------------------------------------------------
-      - name: Install Vulkan SDK 1.3 (promoted sync2 types required)
-        shell: pwsh
-        run: |
-          # Skip install entirely if a compatible Vulkan SDK is already
-          # present (self-hosted runner case).  Otherwise let the
-          # community action pull & install it.
-          $already = $env:VULKAN_SDK
-          if ($already -and (Test-Path "$already\Include\vulkan\vulkan_core.h")) {
-            $h = Get-Content "$already\Include\vulkan\vulkan_core.h" -TotalCount 200 -Raw
-            if ($h -match "VK_HEADER_VERSION\s+(\d+)") {
-              $hv = [int]$Matches[1]
-              Write-Host "VULKAN_SDK already installed at $already (header rev $hv) — skipping download"
-              if ($hv -lt 202) {
-                Write-Warning "Vulkan SDK headers < 1.3.202 — Sync2 promoted types may be absent.  Stereo_icd.h will fall back to bundled shims, but upgrading SDK is STRONGLY recommended."
-              }
-              exit 0
-            }
-          }
-          Write-Host "VULKAN_SDK not detected — installing via humbletim/setup-vulkan-sdk action in next step"
-          # Indicate to the following step that real installation is
-          # needed.  The step below uses an Action, so we use a tiny
-          # marker file + GITHUB_OUTPUT flow to propagate.
-          "1" | Out-File "$env:RUNNER_TEMP\vulkan_sdk_needed" -Encoding ascii -NoNewline
-
-      - name: setup-vulkan-sdk (idempotent direct install)
-        if: hashFiles(format('{0}\vulkan_sdk_needed', runner.temp)) != ''
+      - name: Install Vulkan SDK 1.3 (single-step, two-stage)
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $version = "1.3.280.0"
-          $zipUrl  = "https://sdk.lunarg.com/sdk/download/$version/windows/VulkanSDK-$version-Installer.exe"
-          $exe     = Join-Path $env:RUNNER_TEMP "VulkanSDK-$version-Installer.exe"
-          $dst     = Join-Path $env:LOCALAPPDATA "VulkanSDK\$version"
 
-          # ------------------------------------------------------------------
-          # Two-stage Vulkan SDK acquisition.
-          #
-          #   Stage 1: silent installer from LunarG (original approach).
-          #   Historically this has been flaky on the Windows pools: the
-          #   runner's user profile's `%LOCALAPPDATA%` might not have write
-          #   access to the UAC payload, the LunarG CDN occasionally 403s
-          #   GitHub's public egress IPs, and the .exe can silently fail
-          #   when the --accept-licenses prompt has new lines.  In any of
-          #   those cases we previously ended up with an empty
-          #   `$env:VULKAN_SDK` but a green step because the error was
-          #   swallowed downstream by FindVulkan.cmake throwing later in
-          #   Configure.  Stage 1 now writes a per-stage marker so Stage
-          #   2 can skip cleanly.
-          #
-          #   Stage 2 (new – direct download of the LunarG "config"
-          #   portable ZIP): if the installer executable is for ANY reason
-          #   unavailable / exits non-zero, we fall back to the portable
-          #   build of the same SDK version.  The portable ZIP is the
-          #   package the LunarG installer itself extracts, so the file
-          #   layout is identical (`Include/`, `Lib/`, `Bin/`) and
-          #   FindVulkan.cmake accepts it as a $VULKAN_SDK root without
-          #   any further configuration.  It's also smaller than the
-          #   installer (≈ 30 MB compressed vs 300+ MB payload) and does
-          #   not require administrator / UAC elevation.
-          # ------------------------------------------------------------------
-          $sdkReady = $false
+          function Test-RealSdkLayout($root) {
+            if ([string]::IsNullOrWhiteSpace($root)) { return $false }
+            if (-not (Test-Path $root)) { return $false }
+            $header = (Test-Path (Join-Path $root "Include\vulkan\vulkan_core.h")) -or
+                      (Test-Path (Join-Path $root "include\vulkan\vulkan_core.h"))
+            $icd    = (Test-Path (Join-Path $root "Include\vulkan\vk_icd.h")) -or
+                      (Test-Path (Join-Path $root "include\vulkan\vk_icd.h"))
+            $lib    = (Test-Path (Join-Path $root "Lib\vulkan-1.lib")) -or
+                      (Test-Path (Join-Path $root "lib\vulkan-1.lib"))
+            return ($header -and $icd -and $lib)
+          }
+
+          # ---- Skip when a usable SDK is already present ---------------
+          if (Test-RealSdkLayout $env:VULKAN_SDK) {
+            Write-Host "Usable Vulkan SDK already present at $env:VULKAN_SDK — skipping install."
+            exit 0
+          }
+
+          $dst = Join-Path $env:LOCALAPPDATA "VulkanSDK\$version"
+          $ok  = $false
+
+          # ---- Stage 1: LunarG silent installer ------------------------
           try {
+            $exe = Join-Path $env:RUNNER_TEMP "VulkanSDK-$version-Installer.exe"
+            $url = "https://sdk.lunarg.com/sdk/download/$version/windows/VulkanSDK-$version-Installer.exe"
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Write-Host "[stage 1/2] Downloading Vulkan SDK installer $version -> $exe ..."
-            Invoke-WebRequest -Uri $zipUrl -OutFile $exe -UseBasicParsing
-
-            Write-Host "[stage 1/2] Running silent installer -> $dst ..."
+            Write-Host "[stage 1/2] downloading $url"
+            Invoke-WebRequest -Uri $url -OutFile $exe -UseBasicParsing
+            Write-Host "[stage 1/2] running silent installer -> $dst"
             New-Item -ItemType Directory -Force -Path (Split-Path $dst -Parent) | Out-Null
-            & $exe --root "$dst" --accept-licenses --default-answer --confirm-command install `
-                   com.lunarg.vulkan.core `
-                   com.lunarg.vulkan.headers `
-                   com.lunarg.vulkan.sdl2 `
-                   com.lunarg.vulkan.glm `
-                   com.lunarg.vulkan.volk `
-                   com.lunarg.vulkan.vma `
-                   com.lunarg.vulkan.debugutils | Out-Host
+            & $exe --root "$dst" --accept-licenses --default-answer --confirm-command install |
+              Select-Object -Last 20 | Out-Host
             if ($LASTEXITCODE -ne 0) {
-              Write-Warning ("[stage 1/2] installer exit code {0}.  Falling back to portable ZIP stage." -f $LASTEXITCODE)
+              Write-Warning "[stage 1/2] installer exit code $LASTEXITCODE"
+            } elseif (Test-RealSdkLayout $dst) {
+              $ok = $true
+              Write-Host "[stage 1/2] SUCCESS — SDK verified at $dst"
             } else {
-              $sdkReady = (Test-Path (Join-Path $dst "Include\vulkan\vulkan_core.h")) -and
-                          (Test-Path (Join-Path $dst "Lib\vulkan-1.lib"))
-              if ($sdkReady) {
-                Write-Host ("[stage 1/2] SUCCESS — header & library verified at $dst")
-              } else {
-                Write-Warning "[stage 1/2] installer claimed to succeed but $dst\Include\vulkan\vulkan_core.h or Lib\vulkan-1.lib missing.  Falling back to portable ZIP."
-              }
+              Write-Warning "[stage 1/2] installer finished but layout incomplete at $dst — falling back to stage 2"
             }
           } catch {
-            Write-Warning ("[stage 1/2] installer path raised an exception: {0}.  Falling back to portable ZIP." -f $_.Exception.Message)
+            Write-Warning ("[stage 1/2] raised: {0} — falling back to stage 2" -f $_.Exception.Message)
           }
 
-          if (-not $sdkReady) {
-            Write-Host "[stage 2/2] Trying portable Vulkan SDK ZIP ..."
-            $zipDst = Join-Path $env:RUNNER_TEMP "VulkanSDK-$version-Portable.zip"
-            # Note: LunarG ships the fully-extracted SDK tree as a
-            # second asset with the `-Portable` suffix on most releases.
-            # If the precise portable URL doesn't exist for $version we
-            # iterate the SDK's own alternative mirror names.
-            $candidateUrls = @(
-              ("https://sdk.lunarg.com/sdk/download/{0}/windows/VulkanSDK-{0}-Portable.zip" -f $version),
-              ("https://sdk.lunarg.com/sdk/download/{0}/windows/VulkanSDK-{0}-x86_64.zip"   -f $version),
-              ("https://github.com/LunarG/Vulkan-Headers/archive/refs/tags/vulkan-sdk-{0}.zip" -f ($version -replace '\.0$',''))
+          # ---- Stage 2: Khronos headers + Windows SDK import lib -------
+          if (-not $ok) {
+            Write-Host "[stage 2/2] synthesizing SDK root: Khronos Vulkan-Headers + Windows Kits vulkan-1.lib"
+            $hdrRoot = Join-Path $env:RUNNER_TEMP "Vulkan-Headers"
+            $zip     = "$hdrRoot.zip"
+
+            $zipUrls = @(
+              "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.3.280.zip",
+              "https://codeload.github.com/KhronosGroup/Vulkan-Headers/zip/refs/tags/v1.3.280"
             )
-            $unpackRoot = Join-Path $env:RUNNER_TEMP ("VulkanSDK-" + $version)
-            foreach ($url in $candidateUrls) {
-              Write-Host ("  trying mirror: {0}" -f $url)
+            $hdrDownloaded = $false
+            foreach ($u in $zipUrls) {
               try {
-                Invoke-WebRequest -Uri $url -OutFile $zipDst -UseBasicParsing
-                if ((Test-Path $zipDst) -and ((Get-Item $zipDst).Length -gt 500KB)) {
-                  Write-Host ("  downloaded {0} bytes.  Extracting -> {1}" -f (Get-Item $zipDst).Length, $unpackRoot)
-                  Expand-Archive -LiteralPath $zipDst -DestinationPath $unpackRoot -Force
-                  # Portable ZIPs usually nest one folder deeper:
-                  # VulkanSDK-1.3.280.0\VulkanSDK\1.3.280.0\...
-                  $nested = Get-ChildItem -LiteralPath $unpackRoot -Recurse -Directory -Depth 4 -ErrorAction SilentlyContinue |
-                              Where-Object { (Test-Path (Join-Path $_.FullName "Include\vulkan\vulkan_core.h")) -and
-                                             (Test-Path (Join-Path $_.FullName "Lib\vulkan-1.lib")) } |
+                Write-Host "  downloading $u"
+                Invoke-WebRequest -Uri $u -OutFile $zip -UseBasicParsing
+                if ((Test-Path $zip) -and ((Get-Item $zip).Length -gt 100KB)) { $hdrDownloaded = $true; break }
+              } catch {
+                Write-Warning ("  download failed: {0}" -f $_.Exception.Message)
+              }
+            }
+            if (-not $hdrDownloaded) {
+              Write-Warning "  Khronos Vulkan-Headers download failed on all mirrors."
+            } else {
+              Expand-Archive -LiteralPath $zip -DestinationPath $hdrRoot -Force
+              # Archive nests as Vulkan-Headers-1.3.280/include/vulkan/...
+              $srcInclude = Get-ChildItem -LiteralPath $hdrRoot -Recurse -Directory -Filter vulkan |
+                              Where-Object { Test-Path (Join-Path $_.FullName "vulkan_core.h") } |
                               Select-Object -First 1
-                  if ($nested) {
-                    $dst = $nested.FullName
-                    $sdkReady = $true
-                    Write-Host ("[stage 2/2] portable ZIP UNPACK ok -> {0}" -f $dst)
-                    break
+              if (-not $srcInclude) {
+                Write-Warning "  extracted archive has no include/vulkan/vulkan_core.h — unexpected layout."
+              } else {
+                # Locate the import library in Windows Kits (10 or 11).
+                $winLib = $null
+                foreach ($kitsBase in @(
+                  "${env:ProgramFiles(x86)}\Windows Kits\10",
+                  "${env:ProgramFiles}\Windows Kits\10",
+                  "${env:ProgramFiles(x86)}\Windows Kits\11",
+                  "${env:ProgramFiles}\Windows Kits\11")) {
+                  if (-not (Test-Path $kitsBase)) { continue }
+                  $versionDirs = Get-ChildItem -LiteralPath (Join-Path $kitsBase "Lib") -Directory -ErrorAction SilentlyContinue |
+                                   Sort-Object Name -Descending
+                  foreach ($vd in $versionDirs) {
+                    $candidate = Join-Path $vd.FullName "um\x64\vulkan-1.lib"
+                    if (Test-Path $candidate) { $winLib = $candidate; break }
+                  }
+                  if ($winLib) { break }
+                }
+                if (-not $winLib) {
+                  Write-Warning "  no vulkan-1.lib found under Windows Kits — cannot synthesize SDK."
+                } else {
+                  Write-Host "  import lib source: $winLib"
+                  New-Item -ItemType Directory -Force -Path (Join-Path $dst "Include") | Out-Null
+                  New-Item -ItemType Directory -Force -Path (Join-Path $dst "Lib")     | Out-Null
+                  Copy-Item -LiteralPath $srcInclude.FullName -Destination (Join-Path $dst "Include\vulkan") -Recurse -Force
+                  Copy-Item -LiteralPath $winLib -Destination (Join-Path $dst "Lib\vulkan-1.lib") -Force
+                  if (Test-RealSdkLayout $dst) {
+                    $ok = $true
+                    Write-Host "[stage 2/2] SUCCESS — synthesized SDK verified at $dst"
                   } else {
-                    Write-Warning "  archive extracted but no Vulkan-SDK-shaped Include/Lib/Vulkan-1.lib layout found.  Trying next mirror ..."
+                    Write-Warning "[stage 2/2] synthesized SDK still incomplete — inspect $dst manually."
                   }
                 }
-              } catch {
-                Write-Warning ("  mirror failed: {0}" -f $_.Exception.Message)
-                continue
               }
             }
           }
 
-          if (-not $sdkReady) {
-            throw ("Vulkan SDK $version could NOT be acquired via installer (stage 1) or portable zip (stage 2).  Aborting the job so the failure is visible HERE, not downstream in FindVulkan.cmake.")
+          if (-not $ok) {
+            throw "Vulkan SDK could not be acquired: stage 1 (LunarG installer) AND stage 2 (Khronos headers + Windows Kits import lib) both failed.  See warnings above for the exact reasons."
           }
 
-          # Sanity check again – the only paths FindVulkan.cmake cares
-          # about.  If either is missing, fail loudly NOW.
-          if (-not (Test-Path (Join-Path $dst "Include\vulkan\vulkan_core.h"))) {
-            throw "vulkan_core.h missing at $dst\Include\vulkan\"
-          }
-          if (-not (Test-Path (Join-Path $dst "Lib\vulkan-1.lib"))) {
-            throw "vulkan-1.lib missing at $dst\Lib\"
-          }
-
-          # Propagate to the rest of the job.  GITHUB_ENV is the ONLY
-          # durable way; writing $env:VULKAN_SDK inside a pwsh step does
-          # NOT persist to the next step (which runs under a new pwsh
-          # child process).
+          # ---- Persist to the rest of the job --------------------------
+          # GITHUB_ENV is the ONLY durable mechanism between steps;
+          # step-local $env: writes do NOT survive into the next step.
           "VULKAN_SDK=$dst" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-          # Also add the SDK's Bin folder to PATH so any downstream
-          # tooling (glslangValidator, spirv-dis, vulkaninfo) just works.
-          "PATH=$dst\Bin;$dst\Bin32;$env:PATH" | Out-File $env:GITHUB_PATH -Append -Encoding utf8
-
+          $binDir = Join-Path $dst "Bin"
+          if (Test-Path $binDir) {
+            "PATH=$binDir;$env:PATH" | Out-File $env:GITHUB_PATH -Append -Encoding utf8
+          }
           Write-Host "VULKAN_SDK=$dst"
-          Write-Host ("  vulkan_core.h       : {0}" -f (Join-Path $dst "Include\vulkan\vulkan_core.h"))
-          Write-Host ("  vulkan-1.lib (x64)  : {0}" -f (Join-Path $dst "Lib\vulkan-1.lib"))
 
       # ------------------------------------------------------------------
       # 4. Clean stale build artefacts BEFORE running CMake configure.
@@ -766,18 +755,27 @@ jobs:
             return $null
           }
           function Test-WindowsSdkLayout($base) {
+            # Layout on disk (the version folder lives UNDER Include\ AND
+            # Lib\ — an earlier revision looked for it directly under
+            # $base and never matched anything):
+            #
+            #   $base\Include\10.0.26100.0\um\vulkan.h
+            #   $base\Lib\10.0.26100.0\um\x64\vulkan-1.lib
+            #
             if ([string]::IsNullOrWhiteSpace($base)) { return $null }
             if (-not (Test-Path $base)) { return $null }
-            # Walk each versioned folder under the Windows SDK base.
-            $versionDirs = Get-ChildItem -LiteralPath $base -Directory -ErrorAction SilentlyContinue |
-                             Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
-                             Sort-Object Name -Descending
-            foreach ($vd in $versionDirs) {
-              $include = Join-Path $vd.FullName "Include\um\vulkan.h"
-              $lib     = Join-Path $vd.FullName "Lib\x64\um\vulkan-1.lib"
+            $incBase = Join-Path $base "Include"
+            $libBase = Join-Path $base "Lib"
+            if ((-not (Test-Path $incBase)) -or (-not (Test-Path $libBase))) { return $null }
+
+            foreach ($vd in (Get-ChildItem -LiteralPath $incBase -Directory -ErrorAction SilentlyContinue |
+                               Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+                               Sort-Object Name -Descending)) {
+              $include = Join-Path $vd.FullName "um\vulkan.h"
+              $lib     = Join-Path $libBase "$($vd.Name)\um\x64\vulkan-1.lib"
               if ((Test-Path $include) -and (Test-Path $lib)) {
                 return [PSCustomObject]@{
-                  IncludeDir = (Join-Path $vd.FullName "Include\um")
+                  IncludeDir = (Join-Path $vd.FullName "um")
                   Library    = $lib
                   BinDir     = $null
                 }
@@ -920,6 +918,53 @@ jobs:
           Write-Host ("  VULKAN_SDK     (CMake root)  = {0}" -f $env:VULKAN_SDK)
           Write-Host ("  Vulkan_INCLUDE_DIR           = {0}" -f $vkSdk.IncludeDir)
           Write-Host ("  Vulkan_LIBRARY (x64)         = {0}" -f $vkSdk.Library)
+
+          # ------------------------------------------------------------------
+          # 5b'. Ensure vk_icd.h exists in the resolved include dir.
+          #
+          # stereo_icd.h does `#include <vulkan/vk_icd.h>` (the ICD
+          # boilerplate header: VK_ICD_EXPORT / vk_icdGetInstanceProcAddr /
+          # ICD loading version macros).  The Windows SDK ships vulkan.h
+          # and vulkan-1.lib but NOT vk_icd.h, so when the resolved root
+          # came from a Windows Kits pass we merge the missing headers in
+          # from the Khronos Vulkan-Headers release ZIP (2 MB, dual
+          # mirrors).  LunarG SDK roots already contain vk_icd.h and skip
+          # this block entirely.
+          # ------------------------------------------------------------------
+          if (-not (Test-Path (Join-Path $vkSdk.IncludeDir "vk_icd.h"))) {
+            Write-Warning "vk_icd.h missing from resolved include dir — merging Khronos Vulkan-Headers ..."
+            $zip   = Join-Path $env:RUNNER_TEMP "Vulkan-Headers-merge.zip"
+            $unzip = Join-Path $env:RUNNER_TEMP "Vulkan-Headers-merge"
+            $urls  = @(
+              "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.3.280.zip",
+              "https://codeload.github.com/KhronosGroup/Vulkan-Headers/zip/refs/tags/v1.3.280"
+            )
+            $got = $false
+            foreach ($u in $urls) {
+              try {
+                Invoke-WebRequest -Uri $u -OutFile $zip -UseBasicParsing
+                if ((Test-Path $zip) -and ((Get-Item $zip).Length -gt 100KB)) { $got = $true; break }
+              } catch {
+                Write-Warning ("  download failed ({0}): {1}" -f $u, $_.Exception.Message)
+              }
+            }
+            if (-not $got) {
+              throw "vk_icd.h is missing and the Khronos Vulkan-Headers download failed on all mirrors.  Install a full LunarG Vulkan SDK on the runner to provide vulkan/vk_icd.h."
+            }
+            Expand-Archive -LiteralPath $zip -DestinationPath $unzip -Force
+            $vulkanDir = Get-ChildItem -LiteralPath $unzip -Recurse -Directory -Filter vulkan |
+                           Where-Object { Test-Path (Join-Path $_.FullName "vk_icd.h") } |
+                           Select-Object -First 1
+            if (-not $vulkanDir) {
+              throw "Extracted Vulkan-Headers archive does not contain vk_icd.h — archive layout changed upstream?"
+            }
+            # Merge every header into the resolved include\vulkan folder.
+            Copy-Item -LiteralPath $vulkanDir.FullName -Destination (Join-Path $vkSdk.IncludeDir "vulkan") -Recurse -Force
+            Write-Host ("vk_icd.h merged into {0}" -f (Join-Path $vkSdk.IncludeDir "vulkan"))
+          } else {
+            Write-Host "vk_icd.h present in resolved include dir."
+          }
+
           $cmakeDefs_Vulkan = @(
             "-DVULKAN_SDK=$($env:VULKAN_SDK)",
             "-DVulkan_INCLUDE_DIR=$($vkSdk.IncludeDir)",
